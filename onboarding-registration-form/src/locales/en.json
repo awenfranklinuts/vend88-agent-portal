@@ -1,0 +1,80 @@
+{
+  "welcome": "Welcome",
+  "login": {
+    "title": "Login",
+    "username": "Username",
+    "password": "Password",
+    "submit": "Login"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "greeting": "Hello",
+    "statistics": "Statistics",
+    "recentActivities": "Recent Activities"
+  },
+  "errors": {
+    "network": "Network error. Please try again.",
+    "unauthorized": "Unauthorized access."
+  },
+  "footer": {
+    "copyright": "© 2025 All rights reserved."
+  },
+  "onboarding": {
+    "title": "Registration Form",
+    "email": "Email Address",
+    "emailPlaceholder": "your.email@company.com",
+    "fullName": "Full Name",
+    "fullNamePlaceholder": "John Smith",
+    "quoteNumber": "Quote or Invoice Number",
+    "quoteNumberPlaceholder": "Q-12345 / INV-001",
+    "businessName": "Business Trading Name",
+    "businessNamePlaceholder": "Trading name shown on receipts",
+    "businessNameHint": "This will be used to register your account and will appear on receipts generated from the POS terminal.",
+    "abn": "ABN (Australian Business Number)",
+    "abnPlaceholder": "12 345 678 901",
+    "registeredAddress": "Trading / Registered Address",
+    "registeredAddressPlaceholder": "Registered business address",
+    "registeredState": "State / Territory",
+    "registeredStatePlaceholder": "-- Select state --",
+    "registeredCountry": "Country",
+    "storeAddressHint": "Your store address will be displayed on receipts",
+    "phone": "Best Contact Phone Number",
+    "phonePlaceholder": "+61 4XX XXX XXX",
+    "eftposIntegration": "Do you need an EFTPOS terminal with Tyro integration?",
+    "eftposHint": "We currently integrate with Tyro Eftpos terminals. Select 'Yes' if you'd like to integrate or register with Tyro, and we'll contact you to assist with the process.",
+    "alipayPayment": "Do you plan to enable Alipay / WeChat Pay?",
+    "alipayOpen": "I don't have an account and would like to open one",
+    "alipayNotInterested": "Not interested",
+    "alipaySuperpay": "I currently use Superpay",
+    "alipayRoyalpay": "I currently use Royalpay",
+    "alipayOther": "Other payment provider",
+    "readyBy": "Expected Deployment Date",
+    "readyByPlaceholder": "Approximate deployment date or timeline",
+    "readyByHint": "If your service includes on-site setup and menu configuration, we typically require 2 weeks lead time before deployment. Large custom hardware orders may require additional time.",
+    "menuUpload": "Menu or Product List Upload",
+    "menuUploadHint": "If your menu or product list is ready, please upload it in PDF, Word, or Excel format.",
+    "multipleFilesNote": "Note: You can upload multiple files",
+    "menuSendLater": "I will send it later",
+    "menuContactInfo": "No worries if you're not ready yet. When available, please provide it at least 1-2 weeks before POS terminal deployment. Send to purchasing@pospal.com.au or via your preferred method (e.g., WeChat) to your account manager.",
+    "heardAbout": "How did you hear about us?",
+    "heardFriend": "Friend referral",
+    "heardGoogle": "Google search",
+    "heardWechat": "WeChat",
+    "heardSaw": "Saw our POS at another store",
+    "heardOther": "Other source",
+    "notes": "Additional Notes",
+    "notesPlaceholder": "Anything else we should know?",
+    "termsAgreed": "I agree to the terms and conditions",
+    "submit": "Submit",
+    "sending": "Sending...",
+    "submitSuccess": "Form submitted successfully!",
+    "submitError": "Submission failed. Please try again.",
+    "helpTitle": "Need Help?",
+    "helpText": "Contact customer service at purchasing@pospal.com.au",
+    "registeredAddressGroup": "Registered Business Address"
+  },
+  "logos": {
+    "vend88": "/logos/vend88.png",
+    "pospal": "/logos/pospal.png"
+  }
+}

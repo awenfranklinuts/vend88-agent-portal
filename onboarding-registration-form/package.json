@@ -1,0 +1,22 @@
+{
+  "name": "onboarding-registration-form",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "styled-components": "^6.1.19"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/styled-components": "^5.1.36",
+    "typescript": "latest"
+  }
+}
