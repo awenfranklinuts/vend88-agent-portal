@@ -6,17 +6,18 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function Home() {
   const router = useRouter();
-  const { token, isLoading } = useAuth();
+  const { token, role, isLoading } = useAuth();
 
   useEffect(() => {
     if (!isLoading) {
-      if (token) {
-        router.push("/dashboard");
+      if (token && role) {
+        // Redirect to appropriate dashboard based on role
+        router.push(role === "admin" ? "/admin" : "/agent");
       } else {
         router.push("/login");
       }
     }
-  }, [token, isLoading, router]);
+  }, [token, role, isLoading, router]);
 
   return null;
 }
