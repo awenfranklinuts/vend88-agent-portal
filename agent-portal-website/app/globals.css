@@ -1,0 +1,56 @@
+:root {
+  --primary-main: #1a237e;
+  --primary-light: #00eaff;
+  --primary-dark: #0d1333;
+  
+  --text-primary: #0a3655;
+  --text-secondary: #5c6b7a;
+  --text-light: #b0bec5;
+  --text-inverse: #ffffff;
+  
+  --background-main: #f7faff;
+  --background-light: rgba(255, 255, 255, 0.7);
+  --background-dark: #232946;
+  
+  --border-main: #e0e7ef;
+  --border-light: #f1f5f9;
+  --border-dark: #b0bec5;
+  
+  --success-main: #10b981;
+  --error-main: #991b1b;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  color: #0a3655;
+  background: var(--background-main);
+  font-family: 'Inter', 'Roboto', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+}
+
+input,
+textarea,
+select {
+  font-family: inherit;
+}
