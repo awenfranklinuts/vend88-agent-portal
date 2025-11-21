@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styled from "styled-components";
+import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../components/layout/AdminSidebar";
+import { getApiUrl, API_CONFIG } from "@/config/api";
 import * as MockAPI from "@/lib/mockRegistrationApi";
 
 const Container = styled.div`
@@ -867,21 +869,34 @@ export default function RegistrationsPage() {
   const handleGenerateForm = async () => {
     setIsGenerating(true);
     try {
-      // TODO: Replace with real API call when ready
-      // const response = await axios.post(getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_GENERATE), { admin_id: adminProfile?.email });
-      const response = await MockAPI.generateRegistrationToken('admin@vend88.com');
+      // Real API integration
+      const response = await axios.post(
+        getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_GENERATE),
+        { 
+          admin_email: userEmail || 'admin@vend88.com'
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
       
-      if (response.success && response.data) {
-        setGeneratedLink(response.data.link);
+      if (response.data.success && response.data.data) {
+        setGeneratedLink(response.data.data.link);
         setShowGenerateModal(true);
         // Refresh the list
         fetchRegistrationData();
+        console.log('Registration form generated:', response.data.data);
       } else {
-        alert(response.error || 'Failed to generate form');
+        const errorMessage = response.data.error || response.data.message || 'Failed to generate form';
+        alert(errorMessage);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to generate form:', error);
-      alert('Failed to generate form. Please try again.');
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to generate form. Please try again.';
+      alert(errorMessage);
     } finally {
       setIsGenerating(false);
     }
