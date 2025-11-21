@@ -9,7 +9,7 @@ export interface Registration {
   token: string;
   generatedBy: string;
   generatedAt: string;
-  status: 'pending' | 'submitted' | 'approved' | 'rejected' | 'expired';
+  status: 'pending' | 'submitted' | 'approved' | 'rejected' | 'expired' | 'cancelled';
   contactEmail?: string;
   ownerName?: string;
   contactPhone?: string;
@@ -38,6 +38,8 @@ export interface Registration {
   rejectionReason?: string;
   rejectedAt?: string;
   rejectedBy?: string;
+  cancelledAt?: string;
+  cancelledBy?: string;
 }
 
 // Mock data store (simulates database)
@@ -458,11 +460,30 @@ export const approveRegistration = async (id: string, approvedBy?: string): Prom
     mockRegistrations[index].approvedBy = approvedBy;
   }
 
+  // Auto-create business from approved registration
+  const registration = mockRegistrations[index];
+  const { createBusinessFromRegistration } = await import('./mockBusinessApi');
+  
+  const businessResult = await createBusinessFromRegistration({
+    registrationId: registration.id,
+    businessName: registration.businessName || 'Unnamed Business',
+    abn: registration.abn,
+    address: registration.registeredAddress,
+    suburb: registration.registeredSuburb,
+    postcode: registration.registeredPostcode,
+    state: registration.registeredState,
+    country: registration.registeredCountry,
+    contactEmail: registration.contactEmail,
+    contactPhone: registration.contactPhone,
+    eftposIntegration: registration.eftposIntegration,
+    alipayOption: registration.alipayOption,
+  });
+
   return {
     success: true,
     data: {
       registrationId: id,
-      businessId: `biz_${Date.now()}`,
+      businessId: businessResult.data?._id || `biz_${Date.now()}`,
       status: 'approved',
       approvedAt,
       approvedBy,
@@ -651,6 +672,60 @@ export const submitRegistrationForm = async (
       status: 'submitted',
       submittedAt,
       message: 'Your registration has been submitted successfully. We will review and contact you soon.',
+    },
+  };
+};
+
+/**
+ * Revoke/Cancel a pending registration
+ */
+export const revokeRegistration = async (
+  id: string,
+  cancelledBy?: string
+): Promise<{
+  success: boolean;
+  data?: {
+    registrationId: string;
+    status: string;
+    cancelledAt: string;
+    cancelledBy?: string;
+  };
+  error?: string;
+}> => {
+  // Simulate API delay
+  await new Promise(resolve => setTimeout(resolve, 300));
+
+  const index = mockRegistrations.findIndex(reg => reg.id === id);
+
+  if (index === -1) {
+    return {
+      success: false,
+      error: 'Registration not found',
+    };
+  }
+
+  if (mockRegistrations[index].status !== 'pending') {
+    return {
+      success: false,
+      error: 'Only pending registrations can be revoked',
+    };
+  }
+
+  mockRegistrations[index].status = 'cancelled';
+  const cancelledAt = new Date().toISOString();
+  
+  mockRegistrations[index].cancelledAt = cancelledAt;
+  if (cancelledBy) {
+    mockRegistrations[index].cancelledBy = cancelledBy;
+  }
+
+  return {
+    success: true,
+    data: {
+      registrationId: id,
+      status: 'cancelled',
+      cancelledAt,
+      cancelledBy,
     },
   };
 };

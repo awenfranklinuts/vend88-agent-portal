@@ -67,7 +67,7 @@ const PageDescription = styled.p`
 
 const GenerateButton = styled.button`
   padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #1a237e 0%, #00eaff 100%);
+  background: #3b82f6;
   color: white;
   border: none;
   border-radius: 8px;
@@ -81,8 +81,9 @@ const GenerateButton = styled.button`
   gap: 0.5rem;
   
   &:hover {
+    background: #2563eb;
     transform: translateY(-2px);
-    box-shadow: 0 8px 16px rgba(26, 35, 126, 0.3);
+    box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3);
   }
   
   &:disabled {
@@ -218,7 +219,7 @@ const TabButton = styled.button<{ $active: boolean }>`
       left: 0;
       right: 0;
       height: 2px;
-      background: linear-gradient(90deg, #1a237e 0%, #00eaff 100%);
+      background: #3b82f6;
     }
   `}
   
@@ -307,6 +308,8 @@ const StatusBadge = styled.span<{ $status: string }>`
         return 'background: #fee2e2; color: #991b1b;';
       case 'expired':
         return 'background: #e5e7eb; color: #374151;';
+      case 'cancelled':
+        return 'background: #fee2e2; color: #991b1b;';
       default:
         return 'background: #e5e7eb; color: #374151;';
     }
@@ -472,11 +475,12 @@ const ModalButton = styled.button<{ $primary?: boolean }>`
   gap: 0.5rem;
   
   ${p => p.$primary ? `
-    background: linear-gradient(135deg, #1a237e 0%, #00eaff 100%);
+    background: #3b82f6;
     color: white;
     &:hover {
+      background: #2563eb;
       transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(26, 35, 126, 0.3);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
     }
   ` : `
     background: #e5e7eb;
@@ -550,7 +554,7 @@ const EditButton = styled.button`
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, #2b7be3, #5ec8ff);
+  background: #3b82f6;
   color: white;
   border: none;
   border-radius: 8px;
@@ -560,8 +564,9 @@ const EditButton = styled.button`
   transition: all 200ms ease;
 
   &:hover {
+    background: #2563eb;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(43,123,227,0.3);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
   }
   
   @media (max-width: 968px) {
@@ -728,7 +733,7 @@ interface Registration {
   token: string;
   generatedBy: string;
   generatedAt: string;
-  status: 'pending' | 'submitted' | 'approved' | 'rejected' | 'expired';
+  status: 'pending' | 'submitted' | 'approved' | 'rejected' | 'expired' | 'cancelled';
   // Contact Information
   contactEmail?: string;
   ownerName?: string;
@@ -762,6 +767,8 @@ interface Registration {
   rejectionReason?: string;
   rejectedAt?: string;
   rejectedBy?: string;
+  cancelledAt?: string;
+  cancelledBy?: string;
 }
 
 export default function RegistrationsPage() {
@@ -938,6 +945,31 @@ export default function RegistrationsPage() {
     }
   };
 
+  const handleRevoke = async (id: string) => {
+    if (confirm(lang === 'zh' ? '确定要撤销此注册链接吗？撤销后该链接将无法使用。' : 'Are you sure you want to revoke this registration link? Once revoked, the link cannot be used.')) {
+      try {
+        // TODO: Replace with real API call when ready
+        // const response = await axios.post(getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_REVOKE.replace(':id', id)));
+        const response = await MockAPI.revokeRegistration(id, 'admin@vend88.com');
+        
+        if (response.success) {
+          // Refresh the list
+          fetchRegistrationData();
+          alert(lang === 'zh' ? '已撤销！' : 'Revoked successfully!');
+          // Close details modal if open
+          if (selectedRegistration?.id === id) {
+            setShowDetailsModal(false);
+          }
+        } else {
+          alert(response.error || 'Failed to revoke');
+        }
+      } catch (error) {
+        console.error('Failed to revoke registration:', error);
+        alert('Failed to revoke. Please try again.');
+      }
+    }
+  };
+
   const filteredRegistrations = allRegistrations.filter(reg => {
     // Filter by tab status
     if (activeTab === 'pending' && reg.status !== 'pending') return false;
@@ -1083,9 +1115,14 @@ export default function RegistrationsPage() {
                             </>
                           )}
                           {reg.status === 'pending' && (
-                            <ActionButton $variant="view">
-                              {lang === "zh" ? "复制链接" : "Copy Link"}
-                            </ActionButton>
+                            <>
+                              <ActionButton $variant="view">
+                                {lang === "zh" ? "复制链接" : "Copy Link"}
+                              </ActionButton>
+                              <ActionButton $variant="reject" onClick={() => handleRevoke(reg.id)}>
+                                {lang === "zh" ? "撤销链接" : "Revoke Link"}
+                              </ActionButton>
+                            </>
                           )}
                           {reg.status === 'approved' && (
                             <ActionButton $variant="view" onClick={() => handleViewDetails(reg)}>
