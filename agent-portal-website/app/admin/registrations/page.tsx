@@ -15,15 +15,18 @@ const Container = styled.div`
   min-height: 100vh;
   background: linear-gradient(135deg, #e0e7ef 0%, #f7faff 100%);
   display: flex;
+  padding-top: 65px;
 `;
 
 const MainContent = styled.main`
   flex: 1;
-  padding: 2rem;
+  padding: 0rem 2rem 2rem 2rem;
+  margin-left: 280px;
   overflow-y: auto;
   
   @media (max-width: 968px) {
-    padding: 1rem;
+    padding: 0 1rem 1rem 1rem;
+    margin-left: 0;
   }
 `;
 
@@ -873,7 +876,7 @@ export default function RegistrationsPage() {
       const response = await axios.post(
         getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_GENERATE),
         { 
-          admin_email: userEmail || 'admin@vend88.com'
+          admin_email: 'admin@vend88.com'
         },
         {
           headers: {

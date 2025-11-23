@@ -12,15 +12,18 @@ const Container = styled.div`
   min-height: 100vh;
   background: linear-gradient(135deg, #e0e7ef 0%, #f7faff 100%);
   display: flex;
+  padding-top: 65px;
 `;
 
 const MainContent = styled.main`
   flex: 1;
-  padding: 2rem;
+  padding: 0 2rem 2rem 2rem;
+  margin-left: 280px;
   overflow-y: auto;
   
   @media (max-width: 968px) {
-    padding: 1rem;
+    padding: 0 1rem 1rem 1rem;
+    margin-left: 0;
   }
 `;
 

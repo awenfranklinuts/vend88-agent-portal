@@ -15,8 +15,10 @@ const HeaderContainer = styled.header<{ $scrolled: boolean }>`
   backdrop-filter: ${p => p.$scrolled ? 'blur(12px) saturate(180%)' : 'none'};
   -webkit-backdrop-filter: ${p => p.$scrolled ? 'blur(12px) saturate(180%)' : 'none'};
   box-shadow: 0 2px 8px rgba(30, 64, 175, ${p => p.$scrolled ? '0.12' : '0.08'});
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 100;
   transition: all 0.3s ease;
 `;

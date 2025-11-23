@@ -20,20 +20,21 @@ Authorization: Bearer <admin_token>
 
 ---
 
-## API Endpoint
+## API Endpoints
 
-### Generate Registration Token
+### 1. Generate Registration Token
 
 **Endpoint:** `POST /registration/generate`
 
 **Description:** 
-Admin generates a unique one-time registration token and link to send to a customer. This token will be used by the customer to fill out the onboarding registration form.
+Admin generates a unique **one-time-use** registration token and link to send to a customer. This token will be used by the customer to fill out the onboarding registration form. **Once the form is submitted with this token, it cannot be used again.**
 
 **Purpose:**
 - Create a secure, unique token for each new registration
 - Generate a shareable link that customers can use to access the registration form
 - Track which admin created the token
-- Set expiration for the token (optional)
+- Set expiration for the token (30 days)
+- **Ensure one-time use** - prevent duplicate submissions with the same token
 
 ---
 
@@ -156,6 +157,97 @@ curl -X POST https://prod.vend88.com/registration/generate \
 
 ---
 
+### 2. Validate Registration Token
+
+**Endpoint:** `GET /registration/validate-token/:token`
+
+**Description:** 
+Validates a registration token before allowing the customer to fill out the form. This endpoint checks if the token is valid, not expired, and **not already used**.
+
+**Purpose:**
+- Verify token exists and is valid
+- Check if token has expired (30 days)
+- **Check if token has already been used** (form submitted)
+- Provide clear error messages to users
+
+---
+
+### Request
+
+**HTTP Method:** `GET`
+
+**URL Parameter:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `token` | string | Yes | The registration token to validate |
+
+**Example Request:**
+```bash
+curl -X GET https://prod.vend88.com/registration/validate-token/abc123xyz456def789
+```
+
+---
+
+### Response
+
+**Success Response - Valid Token (200 OK):**
+```json
+{
+  "status_code": 200,
+  "success": true,
+  "data": {
+    "valid": true,
+    "expired": false,
+    "used": false
+  }
+}
+```
+
+**Success Response - Already Used (200 OK):**
+```json
+{
+  "status_code": 200,
+  "success": true,
+  "data": {
+    "valid": false,
+    "expired": false,
+    "used": true,
+    "reason": "This registration form has already been submitted. Each link can only be used once. Please contact the admin if you need to make changes."
+  }
+}
+```
+
+**Success Response - Expired Token (200 OK):**
+```json
+{
+  "status_code": 200,
+  "success": true,
+  "data": {
+    "valid": false,
+    "expired": true,
+    "used": false,
+    "reason": "This registration link has expired. Links are valid for 30 days. Please contact the admin for a new link."
+  }
+}
+```
+
+**Success Response - Invalid Token (200 OK):**
+```json
+{
+  "status_code": 200,
+  "success": true,
+  "data": {
+    "valid": false,
+    "expired": false,
+    "used": false,
+    "reason": "Invalid registration link. Please check the URL or contact the admin."
+  }
+}
+```
+
+---
+
 ## Business Logic Requirements
 
 ### Token Generation
@@ -170,6 +262,13 @@ curl -X POST https://prod.vend88.com/registration/generate \
    - Default expiration: 30 days from generation
    - After expiration, token should not be valid for form submission
    - Status should change to "expired" automatically
+
+4. **One-Time Use Enforcement:**
+   - Once a form is submitted using a token, the token **must not** accept another submission
+   - Token status changes from "pending" to "submitted" upon form submission
+   - Subsequent validation requests should return `used: true`
+   - Display clear message: "This registration form has already been submitted. Each link can only be used once."
+   - If customer needs to make changes, admin must approve/reject and create a new token if necessary
 
 ### Database Storage
 When a token is generated, store the following in the database:
@@ -238,6 +337,18 @@ When a token is generated, create a database record with:
 - `expires_at`: Current timestamp + 30 days
 - `status`: "pending"
 - All other fields: NULL (will be filled when customer submits the form)
+
+### Token Validation Logic
+Before allowing form submission, validate:
+1. **Token exists:** Check if token is in database
+2. **Not expired:** Check if current time < expires_at
+3. **Not used:** Check if status is still "pending"
+   - If status is "submitted", "approved", or "rejected" → return `used: true`
+   - Only "pending" tokens can accept form submissions
+4. **Update on submission:** When form is submitted successfully, update:
+   - `status`: "pending" → "submitted"
+   - `submitted_at`: Current timestamp
+   - All form data fields: Populate from submitted data
 
 ---
 
@@ -354,6 +465,16 @@ const handleGenerateForm = async () => {
 - [ ] New pending registration appears at top of list
 - [ ] Error messages display properly
 - [ ] Network errors handled gracefully
+
+### Token Validation Testing
+
+- [ ] Valid pending token allows form access
+- [ ] **Already submitted token shows "already used" message**
+- [ ] **Form submission button is disabled for used tokens**
+- [ ] Expired token shows "expired" message
+- [ ] Invalid token shows "invalid" message
+- [ ] **Second submission attempt with same token is rejected**
+- [ ] Error messages are user-friendly and actionable
 
 ---
 

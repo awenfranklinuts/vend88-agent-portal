@@ -587,7 +587,7 @@ export const validateToken = async (token: string): Promise<{
         valid: false,
         expired: false,
         used: true,
-        reason: 'Token has already been used',
+        reason: 'This registration form has already been submitted. Each link can only be used once. Please contact the admin if you need to make changes.',
       },
     };
   }

@@ -8,6 +8,7 @@ const LayoutWrapper = styled.div`
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  padding-top: 65px;
 `;
 
 const Main = styled.main`

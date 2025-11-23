@@ -17,7 +17,7 @@ Authorization: Bearer <admin_token>
 
 **Endpoint:** `POST /registration/generate`
 
-**Description:** Admin generates a unique one-time registration token/link to send to a customer.
+**Description:** Admin generates a unique **one-time-use** registration token/link to send to a customer. **Once submitted, the token cannot be used again.**
 
 **Request Headers:**
 ```json
@@ -404,7 +404,7 @@ Authorization: Bearer <admin_token>
 
 **Endpoint:** `GET /registration/validate-token/:token`
 
-**Description:** Check if a registration token is valid before showing the form.
+**Description:** Check if a registration token is valid and **not already used** before showing the form. This prevents duplicate submissions with the same token.
 
 **Response (200 OK - Valid Token):**
 ```json
@@ -440,7 +440,7 @@ Authorization: Bearer <admin_token>
     "valid": false,
     "expired": false,
     "used": true,
-    "reason": "Token has already been used"
+    "reason": "This registration form has already been submitted. Each link can only be used once. Please contact the admin if you need to make changes."
   }
 }
 ```
@@ -557,6 +557,7 @@ CREATE TABLE registration_submissions (
 
 1. **Token Generation**: Use cryptographically secure random strings (at least 32 characters)
 2. **Token Expiry**: Recommend 30-day expiry from generation
+3. **⚠️ One-Time Use Enforcement**: Once a form is submitted (status changes to 'submitted'), the token MUST reject any subsequent submission attempts. Validation should return `used: true` for any token with status 'submitted', 'approved', or 'rejected'.
 3. **File Upload**: 
    - Use S3, Azure Blob Storage, or similar for menu files
    - Store files in path: `registrations/{registration_id}/{filename}`

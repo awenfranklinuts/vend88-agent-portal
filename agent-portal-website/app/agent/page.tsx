@@ -12,6 +12,7 @@ const Container = styled.div`
   min-height: 100vh;
   width: 100vw;
   padding: 2rem 0;
+  padding-top: calc(65px + 2rem);
   background: linear-gradient(135deg, #e0e7ef 0%, #f7faff 100%);
   display: flex;
   flex-direction: column;

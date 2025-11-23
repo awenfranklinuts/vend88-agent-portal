@@ -81,13 +81,14 @@ const Sidebar = styled.aside<{ $mobileOpen: boolean }>`
   display: flex;
   flex-direction: column;
   transition: transform 0.3s ease;
+  position: fixed;
+  left: 0;
+  top: 65px;
+  bottom: 0;
+  overflow-y: auto;
+  z-index: 90;
   
   @media (max-width: 968px) {
-    position: fixed;
-    left: 0;
-    top: 65px;
-    bottom: 0;
-    width: 280px;
     z-index: 99;
     transform: translateX(${p => p.$mobileOpen ? '0' : '-100%'});
   }
