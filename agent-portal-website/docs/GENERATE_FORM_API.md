@@ -281,6 +281,7 @@ CREATE TABLE registrations (
   generated_at TIMESTAMP NOT NULL,
   expires_at TIMESTAMP NOT NULL,
   status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  linked_customer_id VARCHAR(50),
   
   -- Customer filled data (initially NULL)
   contact_email VARCHAR(255),
@@ -412,6 +413,19 @@ const handleGenerateForm = async () => {
    - Modal includes "Copy Link" button for easy sharing
    - Registration list refreshes to show new pending registration
    - On error: Alert shown with error message
+
+4. **Customer Linking (MANDATORY BEFORE APPROVAL):**
+   - When viewing submitted registration details, admin must link a customer
+   - Two options:
+     a) **Link Existing Customer**: Search and select from dropdown
+     b) **Create New Customer**: Creates temporary ID and stores pending customer data
+   - Temporary customer format: `temp_{timestamp}`
+   - UI shows validation error if admin attempts approval without customer link
+   - Upon approval with temp customer:
+     - Backend creates real customer account
+     - Replaces temp ID with actual customer ID
+     - Returns updated registration with linked_customer_id
+   - Customer link persists after approval (visible in registration details)
 
 ---
 

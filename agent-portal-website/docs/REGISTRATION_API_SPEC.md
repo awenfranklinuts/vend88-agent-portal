@@ -96,7 +96,8 @@ Authorization: Bearer <admin_token>
         "status": "submitted",
         "contact_email": "owner@coffeeshop.com",
         "business_name": "Coffee Shop Downtown",
-        "submitted_at": "2025-11-20T14:45:00Z"
+        "submitted_at": "2025-11-20T14:45:00Z",
+        "linked_customer_id": "cust_123456"
       }
     ],
     "pagination": {
@@ -134,6 +135,7 @@ Authorization: Bearer <admin_token>
     "generated_by": "admin@vend88.com",
     "generated_at": "2025-11-20T10:30:00Z",
     "status": "submitted",
+    "linked_customer_id": "cust_123456",
     
     "contact_email": "owner@coffeeshop.com",
     "owner_name": "John Smith",
@@ -216,7 +218,8 @@ Authorization: Bearer <admin_token>
   "owner_name": "Updated Name",
   "contact_phone": "0412 999 888",
   "business_name": "Updated Business Name",
-  "notes": "Updated notes"
+  "notes": "Updated notes",
+  "linked_customer_id": "cust_123456"
 }
 ```
 
@@ -234,11 +237,81 @@ Authorization: Bearer <admin_token>
 
 ---
 
-## 5. Approve Registration
+## 5. Link Customer to Registration
+
+**Endpoint:** `PUT /registration/:id/link-customer`
+
+**Description:** Link an existing customer or create a new customer for a registration. This must be done before approval.
+
+**Request Headers:**
+```json
+{
+  "Authorization": "Bearer <admin_token>",
+  "Content-Type": "application/json"
+}
+```
+
+**Request Body (Link Existing Customer):**
+```json
+{
+  "customer_id": "cust_123456"
+}
+```
+
+**Request Body (Create New Customer):**
+```json
+{
+  "create_new": true,
+  "customer_data": {
+    "name": "John Smith",
+    "email": "owner@coffeeshop.com",
+    "phone": "0412 345 678"
+  }
+}
+```
+
+**Response (200 OK - Existing Customer):**
+```json
+{
+  "success": true,
+  "data": {
+    "registration_id": "reg_123456",
+    "linked_customer_id": "cust_123456",
+    "customer_name": "John Smith",
+    "linked_at": "2025-11-20T15:30:00Z"
+  }
+}
+```
+
+**Response (200 OK - New Customer Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "registration_id": "reg_123456",
+    "linked_customer_id": "cust_789012",
+    "customer_name": "John Smith",
+    "customer_created": true,
+    "linked_at": "2025-11-20T15:30:00Z"
+  }
+}
+```
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "success": false,
+  "error": "Customer ID is required when create_new is false"
+}
+```
+
+---
+
+## 6. Approve Registration
 
 **Endpoint:** `POST /registration/approve/:id`
 
-**Description:** Approve a submitted registration and create business account.
+**Description:** Approve a submitted registration and create business account. **Customer must be linked before approval.**
 
 **Request Headers:**
 ```json
@@ -269,7 +342,7 @@ Authorization: Bearer <admin_token>
 }
 ```
 
-**Error Response (400 Bad Request):**
+**Error Response (400 Bad Request - Not Submitted):**
 ```json
 {
   "success": false,
@@ -277,9 +350,17 @@ Authorization: Bearer <admin_token>
 }
 ```
 
+**Error Response (400 Bad Request - No Customer Linked):**
+```json
+{
+  "success": false,
+  "error": "Customer must be linked before approval"
+}
+```
+
 ---
 
-## 6. Reject Registration
+## 7. Reject Registration
 
 **Endpoint:** `POST /registration/reject/:id`
 
@@ -316,7 +397,7 @@ Authorization: Bearer <admin_token>
 
 ---
 
-## 7. Submit Registration Form (Public Endpoint)
+## 8. Submit Registration Form (Public Endpoint)
 
 **Endpoint:** `POST /registration/submit`
 
@@ -400,7 +481,7 @@ Authorization: Bearer <admin_token>
 
 ---
 
-## 8. Validate Registration Token (Public Endpoint)
+## 9. Validate Registration Token (Public Endpoint)
 
 **Endpoint:** `GET /registration/validate-token/:token`
 
@@ -475,6 +556,7 @@ CREATE TABLE registration_tokens (
   generated_at TIMESTAMP NOT NULL,
   expires_at TIMESTAMP NOT NULL,
   status ENUM('pending', 'submitted', 'approved', 'rejected', 'expired') DEFAULT 'pending',
+  linked_customer_id VARCHAR(50),
   notes TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -543,7 +625,8 @@ CREATE TABLE registration_submissions (
 2. ✅ Submit Form (`POST /registration/submit`)
 3. ✅ Validate Token (`GET /registration/validate-token/:token`)
 4. ✅ List Registrations (`GET /registration/list`)
-5. ✅ Approve/Reject (`POST /registration/approve/:id`, `POST /registration/reject/:id`)
+5. ⚠️ **Link Customer** (`PUT /registration/:id/link-customer`) - **REQUIRED BEFORE APPROVAL**
+6. ✅ Approve/Reject (`POST /registration/approve/:id`, `POST /registration/reject/:id`)
 
 ### Phase 2 (Enhanced):
 6. Get Details (`GET /registration/:id`)
@@ -558,7 +641,19 @@ CREATE TABLE registration_submissions (
 1. **Token Generation**: Use cryptographically secure random strings (at least 32 characters)
 2. **Token Expiry**: Recommend 30-day expiry from generation
 3. **⚠️ One-Time Use Enforcement**: Once a form is submitted (status changes to 'submitted'), the token MUST reject any subsequent submission attempts. Validation should return `used: true` for any token with status 'submitted', 'approved', or 'rejected'.
-3. **File Upload**: 
+4. **⚠️ Customer Linking (MANDATORY)**: 
+   - Admin MUST link a customer before approving any registration
+   - Frontend validates customer linking before allowing approval
+   - Two workflows:
+     a) **Link Existing Customer**: Admin selects from existing customer dropdown
+     b) **Create New Customer**: System generates temporary customer ID (prefix: `temp_`) and stores pending customer data. Upon approval, create real customer account and replace temp ID with actual customer ID
+   - `linked_customer_id` field must be populated before status changes to 'approved'
+   - Temporary customer format: `temp_{timestamp}` (e.g., `temp_1700000000000`)
+   - When approving registration with temp customer ID:
+     - Create new customer account using registration contact info
+     - Update `linked_customer_id` with real customer ID
+     - Clear pending customer data from session storage
+5. **File Upload**: 
    - Use S3, Azure Blob Storage, or similar for menu files
    - Store files in path: `registrations/{registration_id}/{filename}`
    - Return downloadable URLs with expiry tokens for security

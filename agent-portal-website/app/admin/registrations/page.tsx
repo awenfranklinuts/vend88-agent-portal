@@ -739,6 +739,7 @@ interface Registration {
   generatedBy: string;
   generatedAt: string;
   status: 'pending' | 'submitted' | 'approved' | 'rejected' | 'expired' | 'cancelled';
+  linkedCustomerId?: string;
   // Contact Information
   contactEmail?: string;
   ownerName?: string;
@@ -778,7 +779,7 @@ interface Registration {
 
 export default function RegistrationsPage() {
   const router = useRouter();
-  const { token, role, isLoading } = useAuth();
+  const { token, role, isLoading, customers: authCustomers, fetchCustomers: fetchCustomersFromAuth } = useAuth();
   const { lang } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'pending' | 'submitted' | 'all'>('submitted');
@@ -793,6 +794,9 @@ export default function RegistrationsPage() {
   const [allRegistrations, setAllRegistrations] = useState<Registration[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterState, setFilterState] = useState<string>('all'); // all, NSW, VIC, QLD, etc.
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
+  const [customerSearchQuery, setCustomerSearchQuery] = useState<string>('');
 
   useEffect(() => {
     if (!isLoading && !token) {
@@ -806,8 +810,32 @@ export default function RegistrationsPage() {
   useEffect(() => {
     if (token) {
       fetchRegistrationData();
+      fetchCustomers();
     }
   }, [token]);
+
+  // Sync customers from auth context
+  useEffect(() => {
+    if (authCustomers) {
+      setCustomers(authCustomers);
+    }
+  }, [authCustomers]);
+
+  // Check if returning from customer creation
+  useEffect(() => {
+    const returnToRegId = sessionStorage.getItem('returnToRegistration');
+    const newCustomerId = sessionStorage.getItem('newCustomerId');
+    
+    if (returnToRegId && newCustomerId && selectedRegistration?.id === returnToRegId) {
+      // Auto-select the newly created customer
+      setSelectedCustomerId(newCustomerId);
+      handleLinkCustomer();
+      // Clear session storage
+      sessionStorage.removeItem('returnToRegistration');
+      sessionStorage.removeItem('newCustomerId');
+      sessionStorage.removeItem('registrationData');
+    }
+  }, [selectedRegistration, customers]);
 
   const fetchRegistrationData = async () => {
     try {
@@ -825,10 +853,65 @@ export default function RegistrationsPage() {
     }
   };
 
+  const fetchCustomers = async () => {
+    try {
+      if (fetchCustomersFromAuth) {
+        await fetchCustomersFromAuth();
+      }
+      setCustomers(authCustomers || []);
+    } catch (error) {
+      console.error('Failed to fetch customers:', error);
+    }
+  };
+
+  const handleLinkCustomer = async () => {
+    if (!selectedCustomerId) {
+      alert(lang === 'zh' ? '请选择一个客户' : 'Please select a customer');
+      return;
+    }
+    
+    if (editedRegistration) {
+      handleEditChange('linkedCustomerId', selectedCustomerId);
+      alert(lang === 'zh' ? '客户已关联' : 'Customer linked successfully');
+    }
+  };
+
+  const handleCreateAndLinkCustomer = () => {
+    if (!selectedRegistration) return;
+    
+    // Create a temporary customer entry in the search field
+    const tempCustomerDisplay = `${selectedRegistration.ownerName || 'New Customer'} - ${selectedRegistration.contactEmail || ''}`;
+    setCustomerSearchQuery(tempCustomerDisplay);
+    
+    // Generate a temporary customer ID (will be replaced with real ID after API call)
+    const tempCustomerId = `temp_${Date.now()}`;
+    
+    // Store pending customer data
+    sessionStorage.setItem('pendingCustomer', JSON.stringify({
+      tempId: tempCustomerId,
+      registrationId: selectedRegistration.id,
+      name: selectedRegistration.ownerName,
+      email: selectedRegistration.contactEmail,
+      phone: selectedRegistration.contactPhone
+    }));
+    
+    // Show the customer as "pending creation"
+    alert(lang === 'zh' 
+      ? `将为 ${selectedRegistration.ownerName || 'New Customer'} 创建新客户账号\n邮箱: ${selectedRegistration.contactEmail}\n\n批准后将自动创建客户账号。`
+      : `New customer will be created for ${selectedRegistration.ownerName || 'New Customer'}\nEmail: ${selectedRegistration.contactEmail}\n\nCustomer account will be created automatically upon approval.`
+    );
+    
+    // Set as selected (temporary)
+    setSelectedCustomerId(tempCustomerId);
+    handleEditChange('linkedCustomerId', tempCustomerId);
+  };
+
   const handleViewDetails = (registration: Registration) => {
     setSelectedRegistration(registration);
     setEditedRegistration(registration);
     setIsEditMode(false);
+    setSelectedCustomerId(registration.linkedCustomerId || '');
+    setCustomerSearchQuery('');
     setShowDetailsModal(true);
   };
 
@@ -912,13 +995,33 @@ export default function RegistrationsPage() {
   };
 
   const handleApprove = async (id: string) => {
+    // Check if customer is linked when approving from details modal (only when viewing in modal)
+    if (selectedRegistration?.id === id && showDetailsModal && !selectedCustomerId) {
+      alert(lang === 'zh' ? '请先关联客户后再批准' : 'Please link a customer before approving');
+      return;
+    }
+    
     if (confirm(lang === 'zh' ? '确定要批准此注册吗？' : 'Are you sure you want to approve this registration?')) {
       try {
+        // Save the linked customer ID before approving
+        const linkedCustomer = selectedCustomerId;
+        
         // TODO: Replace with real API call when ready
         // const response = await axios.post(getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_APPROVE.replace(':id', id)));
         const response = await MockAPI.approveRegistration(id, 'admin@vend88.com');
         
         if (response.success) {
+          // Update the registration with linked customer ID
+          if (linkedCustomer && response.data) {
+            const updateResponse = await MockAPI.updateRegistration(id, { 
+              linkedCustomerId: linkedCustomer 
+            } as Partial<Registration>);
+            if (updateResponse.success && updateResponse.data) {
+              setSelectedRegistration(updateResponse.data);
+              setEditedRegistration(updateResponse.data);
+            }
+          }
+          
           // Refresh the list
           fetchRegistrationData();
           alert(lang === 'zh' ? '批准成功！' : 'Approved successfully!');
@@ -1276,6 +1379,221 @@ export default function RegistrationsPage() {
                   )}
                 </DetailSection>
               )}
+
+              <DetailSection>
+                <DetailLabel style={{ color: '#991b1b', display: 'flex', gap: '0.5rem', flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>*</span>
+                    {lang === "zh" ? "关联客户（必填）" : "Link to Customer (Required)"}
+                  </div>
+                  <div style={{ 
+                    fontSize: '0.75rem', 
+                    color: '#6b7280', 
+                    fontWeight: 500,
+                    textTransform: 'none',
+                    letterSpacing: '0',
+                    marginTop: '0.25rem',
+                    fontStyle: 'italic'
+                  }}>
+                    {lang === "zh" ? "仅供内部使用 - 不会显示给客户" : "Internal Use Only - Not visible to customer"}
+                  </div>
+                </DetailLabel>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
+                  {selectedCustomerId ? (
+                    // Show selected customer with option to change
+                    <div style={{ 
+                      padding: '0.75rem',
+                      border: selectedCustomerId.startsWith('temp_') && selectedRegistration?.status !== 'approved' ? '1.5px solid #fbbf24' : '1.5px solid #d1fae5',
+                      borderRadius: '8px',
+                      background: selectedCustomerId.startsWith('temp_') && selectedRegistration?.status !== 'approved' ? '#fffbeb' : '#f0fdf4',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ 
+                          fontWeight: 600, 
+                          color: selectedCustomerId.startsWith('temp_') && selectedRegistration?.status !== 'approved' ? '#92400e' : '#065f46',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}>
+                          {selectedCustomerId.startsWith('temp_') ? (
+                            <>
+                              {selectedRegistration?.status !== 'approved' && <span>⚠️</span>}
+                              <span>{selectedRegistration?.ownerName || 'New Customer'}</span>
+                              {selectedRegistration?.status !== 'approved' && (
+                                <span style={{ 
+                                  fontSize: '0.75rem', 
+                                  fontWeight: 500,
+                                  background: '#f59e0b',
+                                  color: 'white',
+                                  padding: '0.125rem 0.5rem',
+                                  borderRadius: '4px'
+                                }}>
+                                  {lang === "zh" ? "待创建" : "Pending"}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            customers.find((c: any) => c._id === selectedCustomerId)?.name || 'Selected Customer'
+                          )}
+                        </div>
+                        <div style={{ 
+                          fontSize: '0.875rem', 
+                          color: selectedCustomerId.startsWith('temp_') && selectedRegistration?.status !== 'approved' ? '#b45309' : '#059669'
+                        }}>
+                          {selectedCustomerId.startsWith('temp_') 
+                            ? selectedRegistration?.contactEmail || ''
+                            : customers.find((c: any) => c._id === selectedCustomerId)?.email || ''
+                          }
+                        </div>
+                        {selectedCustomerId.startsWith('temp_') ? (
+                          <div style={{ 
+                            fontSize: '0.75rem', 
+                            color: selectedRegistration?.status === 'approved' ? '#065f46' : '#92400e',
+                            marginTop: '0.25rem',
+                            fontStyle: 'italic'
+                          }}>
+                            {selectedRegistration?.status === 'approved' 
+                              ? (lang === "zh" ? "✓ 新客户账号已创建" : "✓ New customer account created")
+                              : (lang === "zh" ? "批准后将自动创建此客户账号" : "Customer account will be created upon approval")
+                            }
+                          </div>
+                        ) : selectedRegistration?.status === 'approved' && (
+                          <div style={{ 
+                            fontSize: '0.75rem', 
+                            color: '#065f46',
+                            marginTop: '0.25rem',
+                            fontStyle: 'italic'
+                          }}>
+                            {lang === "zh" ? "✓ 已关联到现有客户" : "✓ Linked to existing customer"}
+                          </div>
+                        )}
+                      </div>
+                      <ActionButton onClick={() => {
+                        setSelectedCustomerId('');
+                        setCustomerSearchQuery('');
+                        if (selectedCustomerId.startsWith('temp_')) {
+                          sessionStorage.removeItem('pendingCustomer');
+                        }
+                      }} style={{ margin: 0 }}>
+                        {lang === "zh" ? "更改" : "Change"}
+                      </ActionButton>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Search bar with button on the right */}
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                        <div style={{ position: 'relative', flex: 1 }}>
+                          <EditInput
+                            type="text"
+                            placeholder={lang === "zh" ? "搜索客户名称或邮箱..." : "Search customer name or email..."}
+                            value={customerSearchQuery}
+                            onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                            style={{ 
+                              borderColor: !selectedCustomerId ? '#fca5a5' : undefined,
+                              paddingRight: '2.5rem',
+                              width: '100%'
+                            }}
+                          />
+                          <svg 
+                            style={{ 
+                              position: 'absolute', 
+                              right: '0.75rem', 
+                              top: '0.75rem',
+                              pointerEvents: 'none',
+                              opacity: 0.5
+                            }} 
+                            width="20" 
+                            height="20" 
+                            viewBox="0 0 24 24" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            strokeWidth="2"
+                          >
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                          </svg>
+                          {customerSearchQuery && (
+                            <div style={{
+                              position: 'absolute',
+                              top: 'calc(100% + 0.25rem)',
+                              left: 0,
+                              right: 0,
+                              background: 'white',
+                              border: '1.5px solid #e0e7ef',
+                              borderRadius: '8px',
+                              maxHeight: '200px',
+                              overflowY: 'auto',
+                              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                              zIndex: 10
+                            }}>
+                              {customers
+                                .filter((customer: any) => {
+                                  const searchLower = customerSearchQuery.toLowerCase();
+                                  return customer.name?.toLowerCase().includes(searchLower) ||
+                                         customer.email?.toLowerCase().includes(searchLower);
+                                })
+                                .slice(0, 10)
+                                .map((customer: any) => (
+                                  <div
+                                    key={customer._id}
+                                    onClick={() => {
+                                      setSelectedCustomerId(customer._id);
+                                      setCustomerSearchQuery('');
+                                      handleLinkCustomer();
+                                    }}
+                                    style={{
+                                      padding: '0.75rem',
+                                      cursor: 'pointer',
+                                      borderBottom: '1px solid #f0f0f0',
+                                      transition: 'background 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = '#f7faff'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                                  >
+                                    <div style={{ fontWeight: 600, color: '#0a3655' }}>{customer.name}</div>
+                                    <div style={{ fontSize: '0.875rem', color: '#5c6b7a' }}>{customer.email}</div>
+                                  </div>
+                                ))}
+                              {customers.filter((customer: any) => {
+                                const searchLower = customerSearchQuery.toLowerCase();
+                                return customer.name?.toLowerCase().includes(searchLower) ||
+                                       customer.email?.toLowerCase().includes(searchLower);
+                              }).length === 0 && (
+                                <div style={{ padding: '1rem', textAlign: 'center', color: '#9ca3af' }}>
+                                  {lang === "zh" ? "未找到客户" : "No customers found"}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <ActionButton 
+                          onClick={handleCreateAndLinkCustomer} 
+                          style={{ 
+                            margin: 0,
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.75rem 1rem'
+                          }}
+                        >
+                          <PlusIcon />
+                          {lang === "zh" ? "创建新客户" : "Create New"}
+                        </ActionButton>
+                      </div>
+                      {!selectedCustomerId && (
+                        <div style={{ fontSize: '0.8125rem', color: '#991b1b', marginTop: '-0.5rem' }}>
+                          {lang === "zh" ? "* 批准前必须关联客户" : "* Must link customer before approval"}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </DetailSection>
 
               <Divider />
 
@@ -1688,7 +2006,6 @@ export default function RegistrationsPage() {
                     </ModalButton>
                     <ModalButton $primary onClick={() => {
                       handleApprove(selectedRegistration.id);
-                      setShowDetailsModal(false);
                     }}>
                       {lang === "zh" ? "批准" : "Approve"}
                     </ModalButton>
