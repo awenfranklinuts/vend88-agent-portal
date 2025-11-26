@@ -792,6 +792,10 @@ export default function RegistrationsPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [allRegistrations, setAllRegistrations] = useState<Registration[]>([]);
+  // Track whether the registrations data is currently being fetched
+  const [isDataLoading, setIsDataLoading] = useState(false);
+  // Track whether we've completed the initial registrations fetch
+  const [hasFetched, setHasFetched] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterState, setFilterState] = useState<string>('all'); // all, NSW, VIC, QLD, etc.
   const [customers, setCustomers] = useState<any[]>([]);
@@ -838,6 +842,7 @@ export default function RegistrationsPage() {
   }, [selectedRegistration, customers]);
 
   const fetchRegistrationData = async () => {
+    setIsDataLoading(true);
     try {
       // Always fetch all registrations, filter in UI
       const response = await MockAPI.fetchRegistrations({
@@ -850,6 +855,9 @@ export default function RegistrationsPage() {
       }
     } catch (error) {
       console.error('Failed to fetch registrations:', error);
+    } finally {
+      setIsDataLoading(false);
+      setHasFetched(true);
     }
   };
 
@@ -1116,6 +1124,7 @@ export default function RegistrationsPage() {
     return true;
   });
 
+  // If auth is loading show a full-page loader to avoid flashing before redirect.
   if (isLoading) {
     return (
       <Container>
@@ -1189,7 +1198,44 @@ export default function RegistrationsPage() {
             </TabButtons>
 
             <TabContent>
-              {filteredRegistrations.length === 0 ? (
+              {(!hasFetched || isDataLoading) ? (
+                <Table>
+                  <Thead>
+                    <Tr>
+                      <Th>{lang === "zh" ? "业务名称" : "Business Name"}</Th>
+                      <Th>{lang === "zh" ? "联系邮箱" : "Contact Email"}</Th>
+                      <Th>{lang === "zh" ? "生成时间" : "Generated"}</Th>
+                      <Th>{lang === "zh" ? "状态" : "Status"}</Th>
+                      <Th>{lang === "zh" ? "操作" : "Actions"}</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Tr key={`skeleton-${i}`}>
+                        <Td>
+                          <div style={{ background: '#e9eef6', height: 16, width: '60%', borderRadius: 8 }} />
+                        </Td>
+                        <Td>
+                          <div style={{ background: '#e9eef6', height: 16, width: '75%', borderRadius: 8 }} />
+                        </Td>
+                        <Td>
+                          <div style={{ background: '#e9eef6', height: 16, width: '40%', borderRadius: 8 }} />
+                        </Td>
+                        <Td>
+                          <div style={{ background: '#e9eef6', height: 24, width: 96, borderRadius: 12 }} />
+                        </Td>
+                        <Td>
+                          <div style={{ display: 'flex', gap: 12 }}>
+                            <div style={{ background: '#e9eef6', height: 32, width: 72, borderRadius: 8 }} />
+                            <div style={{ background: '#e9eef6', height: 32, width: 72, borderRadius: 8 }} />
+                            <div style={{ background: '#e9eef6', height: 32, width: 72, borderRadius: 8 }} />
+                          </div>
+                        </Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              ) : filteredRegistrations.length === 0 ? (
                 <EmptyState>
                   <EmptyIcon>📋</EmptyIcon>
                   <EmptyText>{lang === "zh" ? "暂无记录" : "No records found"}</EmptyText>
