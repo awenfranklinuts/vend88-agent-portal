@@ -404,7 +404,11 @@ export default function BusinessDetailPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddDeviceModal, setShowAddDeviceModal] = useState(false);
+  const [showEditDeviceModal, setShowEditDeviceModal] = useState(false);
+  const [showDeleteDeviceModal, setShowDeleteDeviceModal] = useState(false);
   const [selectedPermission, setSelectedPermission] = useState<Permission | null>(null);
+  const [selectedDevice, setSelectedDevice] = useState<any>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   
   // Form states
@@ -418,6 +422,22 @@ export default function BusinessDetailPage() {
     level: '',
     expire: '',
     unlimited: false
+  });
+  const [addDeviceForm, setAddDeviceForm] = useState({
+    serialNumber: '',
+    deviceType: '',
+    deviceName: '',
+    deviceBrand: '',
+    status: 'active',
+    otherDeviceType: ''
+  });
+  const [editDeviceForm, setEditDeviceForm] = useState({
+    serialNumber: '',
+    deviceType: '',
+    deviceName: '',
+    deviceBrand: '',
+    status: 'active',
+    otherDeviceType: ''
   });
 
   useEffect(() => {
@@ -509,6 +529,147 @@ export default function BusinessDetailPage() {
       unlimited: false
     });
     setShowAddModal(true);
+  };
+
+  const handleAddDeviceClick = () => {
+    setAddDeviceForm({
+      serialNumber: '',
+      deviceType: '',
+      deviceName: '',
+      deviceBrand: '',
+      status: 'active',
+      otherDeviceType: ''
+    });
+    setShowAddDeviceModal(true);
+  };
+
+  const handleEditDeviceClick = (device: any) => {
+    setSelectedDevice(device);
+    setEditDeviceForm({
+      serialNumber: device.serialNumber,
+      deviceType: device.deviceType,
+      deviceName: device.deviceName,
+      deviceBrand: device.deviceBrand,
+      status: device.status,
+      otherDeviceType: device.deviceType === 'Other' ? device.deviceType : ''
+    });
+    setShowEditDeviceModal(true);
+  };
+
+  const handleDeleteDeviceClick = (device: any) => {
+    setSelectedDevice(device);
+    setShowDeleteDeviceModal(true);
+  };
+
+  const handleAddDeviceSubmit = async () => {
+    if (!addDeviceForm.serialNumber || !addDeviceForm.deviceType || !addDeviceForm.deviceName || !addDeviceForm.deviceBrand) {
+      setMessage({ type: 'error', text: lang === "zh" ? "请填写所有字段" : "Please fill all fields" });
+      return;
+    }
+    
+    if (addDeviceForm.deviceType === 'Other' && !addDeviceForm.otherDeviceType) {
+      setMessage({ type: 'error', text: lang === "zh" ? "请指定设备类型" : "Please specify device type" });
+      return;
+    }
+    
+    try {
+      // TODO: Replace with actual API endpoint when available
+      // const response = await axios.post(
+      //   '/api/shop/add-device',
+      //   {
+      //     business_id: businessId,
+      //     serial_number: addDeviceForm.serialNumber,
+      //     device_type: addDeviceForm.deviceType,
+      //     device_name: addDeviceForm.deviceName,
+      //     device_brand: addDeviceForm.deviceBrand,
+      //     status: addDeviceForm.status
+      //   },
+      //   {
+      //     headers: {
+      //       "Content-Type": "application/json",
+      //       Authorization: `Bearer ${token}`,
+      //     },
+      //   }
+      // );
+
+      // Temporary success message
+      setMessage({ type: 'success', text: lang === "zh" ? "设备已添加" : "Device added successfully" });
+      setShowAddDeviceModal(false);
+      setTimeout(() => setMessage(null), 3000);
+      
+      // if (response.data.status_code === 200) {
+      //   setMessage({ type: 'success', text: lang === "zh" ? "设备已添加" : "Device added" });
+      //   setShowAddDeviceModal(false);
+      //   fetchBusinessDetails();
+      //   setTimeout(() => setMessage(null), 3000);
+      // }
+    } catch (err) {
+      console.error("Failed to add device:", err);
+      setMessage({ type: 'error', text: lang === "zh" ? "添加失败" : "Add failed" });
+    }
+  };
+
+  const handleEditDeviceSubmit = async () => {
+    if (!editDeviceForm.serialNumber || !editDeviceForm.deviceType || !editDeviceForm.deviceName || !editDeviceForm.deviceBrand) {
+      setMessage({ type: 'error', text: lang === "zh" ? "请填写所有字段" : "Please fill all fields" });
+      return;
+    }
+    
+    if (editDeviceForm.deviceType === 'Other' && !editDeviceForm.otherDeviceType) {
+      setMessage({ type: 'error', text: lang === "zh" ? "请指定设备类型" : "Please specify device type" });
+      return;
+    }
+    
+    try {
+      // TODO: Replace with actual API endpoint when available
+      // const response = await axios.post(
+      //   '/api/shop/update-device',
+      //   {
+      //     device_id: selectedDevice.id,
+      //     serial_number: editDeviceForm.serialNumber,
+      //     device_type: editDeviceForm.deviceType,
+      //     device_name: editDeviceForm.deviceName,
+      //     device_brand: editDeviceForm.deviceBrand,
+      //     status: editDeviceForm.status
+      //   },
+      //   {
+      //     headers: {
+      //       "Content-Type": "application/json",
+      //       Authorization: `Bearer ${token}`,
+      //     },
+      //   }
+      // );
+
+      setMessage({ type: 'success', text: lang === "zh" ? "设备已更新" : "Device updated successfully" });
+      setShowEditDeviceModal(false);
+      setTimeout(() => setMessage(null), 3000);
+    } catch (err) {
+      console.error("Failed to update device:", err);
+      setMessage({ type: 'error', text: lang === "zh" ? "更新失败" : "Update failed" });
+    }
+  };
+
+  const handleDeleteDeviceSubmit = async () => {
+    try {
+      // TODO: Replace with actual API endpoint when available
+      // const response = await axios.post(
+      //   '/api/shop/delete-device',
+      //   { device_id: selectedDevice.id },
+      //   {
+      //     headers: {
+      //       "Content-Type": "application/json",
+      //       Authorization: `Bearer ${token}`,
+      //     },
+      //   }
+      // );
+
+      setMessage({ type: 'success', text: lang === "zh" ? "设备已删除" : "Device deleted successfully" });
+      setShowDeleteDeviceModal(false);
+      setTimeout(() => setMessage(null), 3000);
+    } catch (err) {
+      console.error("Failed to delete device:", err);
+      setMessage({ type: 'error', text: lang === "zh" ? "删除失败" : "Delete failed" });
+    }
   };
 
   const handleEditSubmit = async () => {
@@ -668,10 +829,91 @@ export default function BusinessDetailPage() {
               </Card>
 
               <Card>
-                <CardTitle>{lang === "zh" ? "权限" : "Permissions"}</CardTitle>
+                <CardTitle>{lang === "zh" ? "注册设备" : "Registered Devices"}</CardTitle>
                 {message && (
                   <Message $type={message.type}>{message.text}</Message>
                 )}
+                <PermissionList>
+                  <PermissionCard>
+                    <PermissionName>Device 1</PermissionName>
+                    <PermissionDetails>
+                      <PermissionDetailItem>
+                        <PermissionLabel>{lang === "zh" ? "品牌" : "Brand"}</PermissionLabel>
+                        <PermissionValue>Verifone</PermissionValue>
+                      </PermissionDetailItem>
+                      <PermissionDetailItem>
+                        <PermissionLabel>{lang === "zh" ? "序列号" : "Serial Number"}</PermissionLabel>
+                        <PermissionValue>SN12345678</PermissionValue>
+                      </PermissionDetailItem>
+                      <PermissionDetailItem>
+                        <PermissionLabel>{lang === "zh" ? "设备类型" : "Device Type"}</PermissionLabel>
+                        <PermissionValue>POS Terminal</PermissionValue>
+                      </PermissionDetailItem>
+                      <PermissionDetailItem>
+                        <PermissionLabel>{lang === "zh" ? "状态" : "Status"}</PermissionLabel>
+                        <PermissionValue>Active</PermissionValue>
+                      </PermissionDetailItem>
+                      <PermissionDetailItem>
+                        <PermissionLabel>{lang === "zh" ? "注册日期" : "Registered"}</PermissionLabel>
+                        <PermissionValue>2024-01-15</PermissionValue>
+                      </PermissionDetailItem>
+                      <PermissionDetailItem>
+                        <PermissionLabel>{lang === "zh" ? "操作" : "Actions"}</PermissionLabel>
+                        <PermissionValue style={{ display: 'flex', gap: '0.5rem' }}>
+                          <ActionButton $variant="edit" onClick={() => handleEditDeviceClick({ id: '1', deviceName: 'Device 1', deviceBrand: 'Verifone', serialNumber: 'SN12345678', deviceType: 'POS Terminal', status: 'active' })}>
+                            {lang === "zh" ? "编辑" : "Edit"}
+                          </ActionButton>
+                          <ActionButton $variant="delete" onClick={() => handleDeleteDeviceClick({ id: '1', deviceName: 'Device 1' })}>
+                            {lang === "zh" ? "删除" : "Delete"}
+                          </ActionButton>
+                        </PermissionValue>
+                      </PermissionDetailItem>
+                    </PermissionDetails>
+                  </PermissionCard>
+                  <PermissionCard>
+                    <PermissionName>Device 2</PermissionName>
+                    <PermissionDetails>
+                      <PermissionDetailItem>
+                        <PermissionLabel>{lang === "zh" ? "品牌" : "Brand"}</PermissionLabel>
+                        <PermissionValue>PAX</PermissionValue>
+                      </PermissionDetailItem>
+                      <PermissionDetailItem>
+                        <PermissionLabel>{lang === "zh" ? "序列号" : "Serial Number"}</PermissionLabel>
+                        <PermissionValue>SN87654321</PermissionValue>
+                      </PermissionDetailItem>
+                      <PermissionDetailItem>
+                        <PermissionLabel>{lang === "zh" ? "设备类型" : "Device Type"}</PermissionLabel>
+                        <PermissionValue>Payment Gateway</PermissionValue>
+                      </PermissionDetailItem>
+                      <PermissionDetailItem>
+                        <PermissionLabel>{lang === "zh" ? "状态" : "Status"}</PermissionLabel>
+                        <PermissionValue>Active</PermissionValue>
+                      </PermissionDetailItem>
+                      <PermissionDetailItem>
+                        <PermissionLabel>{lang === "zh" ? "注册日期" : "Registered"}</PermissionLabel>
+                        <PermissionValue>2024-02-20</PermissionValue>
+                      </PermissionDetailItem>
+                      <PermissionDetailItem>
+                        <PermissionLabel>{lang === "zh" ? "操作" : "Actions"}</PermissionLabel>
+                        <PermissionValue style={{ display: 'flex', gap: '0.5rem' }}>
+                          <ActionButton $variant="edit" onClick={() => handleEditDeviceClick({ id: '2', deviceName: 'Device 2', deviceBrand: 'PAX', serialNumber: 'SN87654321', deviceType: 'Payment Gateway', status: 'active' })}>
+                            {lang === "zh" ? "编辑" : "Edit"}
+                          </ActionButton>
+                          <ActionButton $variant="delete" onClick={() => handleDeleteDeviceClick({ id: '2', deviceName: 'Device 2' })}>
+                            {lang === "zh" ? "删除" : "Delete"}
+                          </ActionButton>
+                        </PermissionValue>
+                      </PermissionDetailItem>
+                    </PermissionDetails>
+                  </PermissionCard>
+                </PermissionList>
+                <AddPermissionButton onClick={handleAddDeviceClick}>
+                  {lang === "zh" ? "添加设备" : "Add Device"}
+                </AddPermissionButton>
+              </Card>
+
+              <Card>
+                <CardTitle>{lang === "zh" ? "权限" : "Permissions"}</CardTitle>
                 {permissions.length > 0 ? (
                   <>
                     <PermissionList>
@@ -850,6 +1092,173 @@ export default function BusinessDetailPage() {
               {lang === "zh" ? "取消" : "Cancel"}
             </ModalButton>
             <ModalButton $primary onClick={handleAddSubmit}>
+              {lang === "zh" ? "添加" : "Add"}
+            </ModalButton>
+          </ModalActions>
+        </ModalContent>
+      </Modal>
+
+      {/* Edit Device Modal */}
+      <Modal $show={showEditDeviceModal} onClick={() => setShowEditDeviceModal(false)}>
+        <ModalContent onClick={(e) => e.stopPropagation()}>
+          <ModalTitle>{lang === "zh" ? "编辑设备" : "Edit Device"}</ModalTitle>
+          <FormGroup>
+            <Label>{lang === "zh" ? "设备名称" : "Device Name"}</Label>
+            <Input 
+              value={editDeviceForm.deviceName}
+              onChange={(e) => setEditDeviceForm({ ...editDeviceForm, deviceName: e.target.value })}
+              placeholder={lang === "zh" ? "输入设备名称" : "Enter device name"}
+            />
+          </FormGroup>
+          <FormGroup>
+            <Label>{lang === "zh" ? "设备品牌" : "Device Brand"}</Label>
+            <Input 
+              value={editDeviceForm.deviceBrand}
+              onChange={(e) => setEditDeviceForm({ ...editDeviceForm, deviceBrand: e.target.value })}
+              placeholder={lang === "zh" ? "输入设备品牌" : "Enter device brand"}
+            />
+          </FormGroup>
+          <FormGroup>
+            <Label>{lang === "zh" ? "序列号" : "Serial Number"}</Label>
+            <Input 
+              value={editDeviceForm.serialNumber}
+              onChange={(e) => setEditDeviceForm({ ...editDeviceForm, serialNumber: e.target.value })}
+              placeholder={lang === "zh" ? "输入序列号" : "Enter serial number"}
+            />
+          </FormGroup>
+          <FormGroup>
+            <Label>{lang === "zh" ? "设备类型" : "Device Type"}</Label>
+            <Select 
+              value={editDeviceForm.deviceType}
+              onChange={(e) => setEditDeviceForm({ ...editDeviceForm, deviceType: e.target.value, otherDeviceType: '' })}
+            >
+              <option value="">{lang === "zh" ? "选择类型" : "Select Type"}</option>
+              <option value="POS Terminal">POS Terminal</option>
+              <option value="Payment Gateway">Payment Gateway</option>
+              <option value="Card Reader">Card Reader</option>
+              <option value="Mobile Device">Mobile Device</option>
+              <option value="Other">Other</option>
+            </Select>
+          </FormGroup>
+          {editDeviceForm.deviceType === 'Other' && (
+            <FormGroup>
+              <Label>{lang === "zh" ? "请指定设备类型" : "Specify Device Type"}</Label>
+              <Input 
+                value={editDeviceForm.otherDeviceType}
+                onChange={(e) => setEditDeviceForm({ ...editDeviceForm, otherDeviceType: e.target.value })}
+                placeholder={lang === "zh" ? "输入设备类型" : "Enter device type"}
+              />
+            </FormGroup>
+          )}
+          <FormGroup>
+            <Label>{lang === "zh" ? "状态" : "Status"}</Label>
+            <Select 
+              value={editDeviceForm.status}
+              onChange={(e) => setEditDeviceForm({ ...editDeviceForm, status: e.target.value })}
+            >
+              <option value="active">{lang === "zh" ? "活跃" : "Active"}</option>
+              <option value="inactive">{lang === "zh" ? "非活跃" : "Inactive"}</option>
+            </Select>
+          </FormGroup>
+          <ModalActions>
+            <ModalButton onClick={() => setShowEditDeviceModal(false)}>
+              {lang === "zh" ? "取消" : "Cancel"}
+            </ModalButton>
+            <ModalButton $primary onClick={handleEditDeviceSubmit}>
+              {lang === "zh" ? "保存" : "Save"}
+            </ModalButton>
+          </ModalActions>
+        </ModalContent>
+      </Modal>
+
+      {/* Delete Device Modal */}
+      <Modal $show={showDeleteDeviceModal} onClick={() => setShowDeleteDeviceModal(false)}>
+        <ModalContent onClick={(e) => e.stopPropagation()}>
+          <ModalTitle>{lang === "zh" ? "删除设备" : "Delete Device"}</ModalTitle>
+          <p style={{ marginBottom: '1.5rem', color: '#5c6b7a' }}>
+            {lang === "zh" 
+              ? `确定要删除设备 "${selectedDevice?.deviceName}" 吗？此操作无法撤销。`
+              : `Are you sure you want to delete device "${selectedDevice?.deviceName}"? This action cannot be undone.`}
+          </p>
+          <ModalActions>
+            <ModalButton onClick={() => setShowDeleteDeviceModal(false)}>
+              {lang === "zh" ? "取消" : "Cancel"}
+            </ModalButton>
+            <ModalButton $primary onClick={handleDeleteDeviceSubmit}>
+              {lang === "zh" ? "删除" : "Delete"}
+            </ModalButton>
+          </ModalActions>
+        </ModalContent>
+      </Modal>
+
+      {/* Add Device Modal */}
+      <Modal $show={showAddDeviceModal} onClick={() => setShowAddDeviceModal(false)}>
+        <ModalContent onClick={(e) => e.stopPropagation()}>
+          <ModalTitle>{lang === "zh" ? "添加设备" : "Add Device"}</ModalTitle>
+
+          <FormGroup>
+            <Label>{lang === "zh" ? "设备名称" : "Device Name"}</Label>
+            <Input 
+              value={addDeviceForm.deviceName}
+              onChange={(e) => setAddDeviceForm({ ...addDeviceForm, deviceName: e.target.value })}
+              placeholder={lang === "zh" ? "输入设备名称" : "Enter device name"}
+            />
+          </FormGroup>
+          <FormGroup>
+            <Label>{lang === "zh" ? "设备品牌" : "Device Brand"}</Label>
+            <Input 
+              value={addDeviceForm.deviceBrand}
+              onChange={(e) => setAddDeviceForm({ ...addDeviceForm, deviceBrand: e.target.value })}
+              placeholder={lang === "zh" ? "输入设备品牌" : "Enter device brand"}
+            />
+          </FormGroup>
+          <FormGroup>
+            <Label>{lang === "zh" ? "序列号" : "Serial Number"}</Label>
+            <Input 
+              value={addDeviceForm.serialNumber}
+              onChange={(e) => setAddDeviceForm({ ...addDeviceForm, serialNumber: e.target.value })}
+              placeholder={lang === "zh" ? "输入序列号" : "Enter serial number"}
+            />
+          </FormGroup>
+          <FormGroup>
+            <Label>{lang === "zh" ? "设备类型" : "Device Type"}</Label>
+            <Select 
+              value={addDeviceForm.deviceType}
+              onChange={(e) => setAddDeviceForm({ ...addDeviceForm, deviceType: e.target.value, otherDeviceType: '' })}
+            >
+              <option value="">{lang === "zh" ? "选择类型" : "Select Type"}</option>
+              <option value="POS Terminal">POS Terminal</option>
+              <option value="Payment Gateway">Payment Gateway</option>
+              <option value="Card Reader">Card Reader</option>
+              <option value="Mobile Device">Mobile Device</option>
+              <option value="Other">Other</option>
+            </Select>
+          </FormGroup>
+          {addDeviceForm.deviceType === 'Other' && (
+            <FormGroup>
+              <Label>{lang === "zh" ? "请指定设备类型" : "Specify Device Type"}</Label>
+              <Input 
+                value={addDeviceForm.otherDeviceType}
+                onChange={(e) => setAddDeviceForm({ ...addDeviceForm, otherDeviceType: e.target.value })}
+                placeholder={lang === "zh" ? "输入设备类型" : "Enter device type"}
+              />
+            </FormGroup>
+          )}
+          <FormGroup>
+            <Label>{lang === "zh" ? "状态" : "Status"}</Label>
+            <Select 
+              value={addDeviceForm.status}
+              onChange={(e) => setAddDeviceForm({ ...addDeviceForm, status: e.target.value })}
+            >
+              <option value="active">{lang === "zh" ? "活跃" : "Active"}</option>
+              <option value="inactive">{lang === "zh" ? "非活跃" : "Inactive"}</option>
+            </Select>
+          </FormGroup>
+          <ModalActions>
+            <ModalButton onClick={() => setShowAddDeviceModal(false)}>
+              {lang === "zh" ? "取消" : "Cancel"}
+            </ModalButton>
+            <ModalButton $primary onClick={handleAddDeviceSubmit}>
               {lang === "zh" ? "添加" : "Add"}
             </ModalButton>
           </ModalActions>
