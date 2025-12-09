@@ -336,7 +336,7 @@ export default function BusinessManagementPage() {
     setIsLoadingData(true);
     try {
       const response = await axios.post(
-        getApiUrl(API_CONFIG.ENDPOINTS.SEARCH_BUSINESS),
+        '/api/search/business',
         { detail: true },
         {
           headers: {

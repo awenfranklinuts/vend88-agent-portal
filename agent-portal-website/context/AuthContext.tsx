@@ -117,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await axios.post(
-        getApiUrl(API_CONFIG.ENDPOINTS.ADMIN_PROFILE),
+        '/api/admin/profile',
         { token },
         {
           headers: {

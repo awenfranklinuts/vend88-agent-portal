@@ -495,10 +495,15 @@ export default function LoginPage() {
     }
 
     console.log("Attempting admin login...");
+    // Use proxy to bypass SSL certificate errors
+    const apiUrl = '/api/login';
+    console.log("API URL:", apiUrl);
     try {
-      const response = await axios.post(getApiUrl(API_CONFIG.ENDPOINTS.LOGIN), {
+      const response = await axios.post(apiUrl, {
         email: email,
         password: password,
+      }, {
+        timeout: 15000, // 15 second timeout
       });
 
       console.log("Login response:", response.data);
@@ -542,27 +547,37 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       console.error("Login error:", err);
+      console.error("Error details:", {
+        message: err.message,
+        code: err.code,
+        response: err.response?.data,
+        status: err.response?.status
+      });
+      
       const apiErrorMessage = err.response?.data?.message || "";
       
-      if (apiErrorMessage.toLowerCase().includes("not belong to an active user")) {
+      // Network errors (cannot reach server)
+      if (err.code === 'ERR_NETWORK' || err.message.includes('Network Error')) {
+        setErrorMessage(`Cannot reach server at ${API_CONFIG.BASE_URL}. Please check if the backend is running.`);
+      } else if (apiErrorMessage.toLowerCase().includes("not belong to an active user")) {
         setErrorKey("emailNotRegistered");
       } else if (apiErrorMessage.toLowerCase().includes("invalid password")) {
         setErrorKey("incorrectPassword");
       } else if (err.response?.status === 401) {
         setErrorKey("invalidCredentials");
       } else if (err.response?.status === 404) {
-        setErrorKey("loginServiceUnavailable");
+        setErrorMessage(`Endpoint not found: ${getApiUrl(API_CONFIG.ENDPOINTS.LOGIN)}`);
       } else if (err.response?.status >= 500) {
         setErrorKey("serverErrorTryAgain");
       } else if (err.code === "ECONNABORTED" || err.message.includes("timeout")) {
-        setErrorKey("requestTimeout");
+        setErrorMessage("Request timeout. Server is taking too long to respond.");
       } else if (apiErrorMessage) {
         // Don't show 'Login successful' as error
         if (!apiErrorMessage.toLowerCase().includes("login successful")) {
           setErrorMessage(apiErrorMessage);
         }
       } else {
-        setErrorKey("unableToConnect");
+        setErrorMessage(`Connection error: ${err.message || 'Unable to connect to server'}`);
       }
     } finally {
       setIsLoading(false);
