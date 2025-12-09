@@ -391,7 +391,7 @@ interface Permission {
 export default function BusinessDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const businessId = params.id as string;
+  const businessId = params?.id as string;
   const { token, role, isLoading: authLoading } = useAuth();
   const { lang } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -441,7 +441,7 @@ export default function BusinessDetailPage() {
     try {
       // Fetch business info
       const businessResponse = await axios.post(
-        getApiUrl(API_CONFIG.ENDPOINTS.SEARCH_BUSINESS),
+        '/api/search/business',
         { detail: true },
         {
           headers: {
@@ -465,7 +465,7 @@ export default function BusinessDetailPage() {
 
       // Fetch permissions
       const permissionResponse = await axios.post(
-        getApiUrl(API_CONFIG.ENDPOINTS.GET_PERMISSION),
+        '/api/shop/get-permission',
         { business_id: businessId },
         {
           headers: {
@@ -518,7 +518,7 @@ export default function BusinessDetailPage() {
       const expireDate = editForm.unlimited ? '9999-12-31' : editForm.expire;
       
       const response = await axios.post(
-        getApiUrl(API_CONFIG.ENDPOINTS.UPDATE_PERMISSION),
+        '/api/shop/update-permission',
         {
           _id: selectedPermission._id,
           level: editForm.level,
@@ -551,7 +551,7 @@ export default function BusinessDetailPage() {
     
     try {
       const response = await axios.post(
-        getApiUrl(API_CONFIG.ENDPOINTS.DELETE_PERMISSION),
+        '/api/shop/delete-permission',
         { _id: selectedPermission._id },
         {
           headers: {
@@ -585,7 +585,7 @@ export default function BusinessDetailPage() {
       const expireDate = addForm.unlimited ? '9999-12-31' : addForm.expire;
       
       const response = await axios.post(
-        getApiUrl(API_CONFIG.ENDPOINTS.ADD_PERMISSION),
+        '/api/shop/add-permission',
         {
           business_id: businessId,
           business_name: business.name,
