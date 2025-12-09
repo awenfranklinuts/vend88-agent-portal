@@ -51,6 +51,24 @@ const SettingsIcon = () => (
   </svg>
 );
 
+const RegistrationIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <line x1="16" y1="13" x2="8" y2="13"/>
+    <line x1="16" y1="17" x2="8" y2="17"/>
+    <polyline points="10 9 9 9 8 9"/>
+  </svg>
+);
+
+const AdminsIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2a3 3 0 0 0-3 3v1a3 3 0 1 0 6 0V5a3 3 0 0 0-3-3z"/>
+    <path d="M12 14a9 9 0 0 0-9 9h18a9 9 0 0 0-9-9z"/>
+    <path d="M12 14v-2"/>
+  </svg>
+);
+
 const Container = styled.div`
   min-height: 100vh;
   background: linear-gradient(135deg, #e0e7ef 0%, #f7faff 100%);
@@ -203,6 +221,30 @@ export default function AdminDashboard() {
                 {lang === "zh" 
                   ? "管理所有业务和地点。查看、添加、编辑和监控业务信息。"
                   : "Manage all businesses and locations. View, add, edit, and monitor business information."}
+              </CardDescription>
+            </Card>
+
+            <Card onClick={() => router.push("/admin/registrations")}>
+              <CardIcon><RegistrationIcon /></CardIcon>
+              <CardTitle>
+                {lang === "zh" ? "注册管理" : "Registration Management"}
+              </CardTitle>
+              <CardDescription>
+                {lang === "zh"
+                  ? "审核、生成和管理一次性注册链接与注册。"
+                  : "Review, generate, and manage one-time registration links and registrations."}
+              </CardDescription>
+            </Card>
+
+            <Card onClick={() => router.push("/admin/admins")}>
+              <CardIcon><AdminsIcon /></CardIcon>
+              <CardTitle>
+                {lang === "zh" ? "管理员管理" : "Admin Management"}
+              </CardTitle>
+              <CardDescription>
+                {lang === "zh"
+                  ? "管理系统管理员账户和权限。"
+                  : "Manage system administrator accounts and permissions."}
               </CardDescription>
             </Card>
 

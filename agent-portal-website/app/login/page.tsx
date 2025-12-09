@@ -233,7 +233,7 @@ const Input = styled.input`
 `;
 
 const Button = styled.button`
-  background: linear-gradient(90deg, #1a237e 0%, #00eaff 100%);
+  background: #3b82f6;
   color: white;
   padding: 1rem;
   border: none;
@@ -241,29 +241,12 @@ const Button = styled.button`
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
   margin-top: 0.5rem;
-  position: relative;
-  overflow: hidden;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-    transition: left 0.5s;
-  }
   
   &:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(30, 64, 175, 0.3);
-    
-    &::before {
-      left: 100%;
-    }
+    box-shadow: 0 8px 24px rgba(59,130,246,0.24);
   }
   
   &:active:not(:disabled) {
@@ -273,6 +256,9 @@ const Button = styled.button`
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    background: #93c5fd;
   }
 `;
 
