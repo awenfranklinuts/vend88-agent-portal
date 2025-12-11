@@ -70,7 +70,7 @@ import { API_CONFIG } from '@/config/api';
 
 const response = await axios.post(
   getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_GENERATE),
-  { admin_id: adminProfile?.email },
+  { admin_email: adminProfile?.email },
   { headers: { Authorization: `Bearer ${token}` } }
 );
 ```

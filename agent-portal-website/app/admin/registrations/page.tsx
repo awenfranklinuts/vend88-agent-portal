@@ -779,7 +779,7 @@ interface Registration {
 
 export default function RegistrationsPage() {
   const router = useRouter();
-  const { token, role, isLoading, customers: authCustomers, fetchCustomers: fetchCustomersFromAuth } = useAuth();
+  const { token, role, isLoading, customers: authCustomers, fetchCustomers: fetchCustomersFromAuth, userEmail, adminProfile } = useAuth();
   const { lang } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'pending' | 'submitted' | 'all'>('submitted');
@@ -964,10 +964,20 @@ export default function RegistrationsPage() {
     setIsGenerating(true);
     try {
       // Real API integration
+      const adminEmail = adminProfile?.email || userEmail || 'admin@vend88.com';
+      // Use API proxy to avoid CORS issues
+      const apiUrl = '/api/registration/generate';
+      
+      console.log('=== Generate Form Request ===');
+      console.log('API URL:', apiUrl);
+      console.log('Admin Email:', adminEmail);
+      console.log('Token exists:', !!token);
+      console.log('Token preview:', token?.substring(0, 20) + '...');
+
       const response = await axios.post(
-        getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_GENERATE),
+        apiUrl,
         { 
-          admin_email: 'admin@vend88.com'
+          admin_email: adminEmail
         },
         {
           headers: {
@@ -977,20 +987,35 @@ export default function RegistrationsPage() {
         }
       );
       
+      console.log('=== Generate Form Response ===');
+      console.log('Status:', response.status);
+      console.log('Response data:', response.data);
+      
       if (response.data.success && response.data.data) {
         setGeneratedLink(response.data.data.link);
         setShowGenerateModal(true);
         // Refresh the list
         fetchRegistrationData();
-        console.log('Registration form generated:', response.data.data);
+        console.log('✅ Registration form generated successfully');
       } else {
+        console.error('❌ Response indicates failure:', response.data);
         const errorMessage = response.data.error || response.data.message || 'Failed to generate form';
         alert(errorMessage);
       }
     } catch (error: any) {
-      console.error('Failed to generate form:', error);
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to generate form. Please try again.';
-      alert(errorMessage);
+      console.error('=== Generate Form Error ===');
+      console.error('Error object:', error);
+      console.error('Error response:', error.response);
+      console.error('Error response data:', error.response?.data);
+      console.error('Error response status:', error.response?.status);
+      console.error('Error message:', error.message);
+      
+      const errorMessage = error.response?.data?.message 
+        || error.response?.data?.error 
+        || error.message
+        || 'Failed to generate form. Please try again.';
+      
+      alert(`Failed to generate form: ${errorMessage}\n\nCheck browser console (F12) for details.`);
     } finally {
       setIsGenerating(false);
     }
@@ -1013,32 +1038,88 @@ export default function RegistrationsPage() {
       try {
         // Save the linked customer ID before approving
         const linkedCustomer = selectedCustomerId;
-        
-        // TODO: Replace with real API call when ready
-        // const response = await axios.post(getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_APPROVE.replace(':id', id)));
-        const response = await MockAPI.approveRegistration(id, 'admin@vend88.com');
-        
-        if (response.success) {
-          // Update the registration with linked customer ID
-          if (linkedCustomer && response.data) {
-            const updateResponse = await MockAPI.updateRegistration(id, { 
-              linkedCustomerId: linkedCustomer 
-            } as Partial<Registration>);
-            if (updateResponse.success && updateResponse.data) {
-              setSelectedRegistration(updateResponse.data);
-              setEditedRegistration(updateResponse.data);
+
+        if (token) {
+          // Use real API: ensure customer is linked first
+          const adminEmail = adminProfile?.email || userEmail || 'admin@vend88.com';
+
+          if (linkedCustomer) {
+            try {
+              if (linkedCustomer.startsWith('temp_')) {
+                // Create new customer via link-customer endpoint
+                await axios.put(
+                  getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_LINK.replace(':id', id)),
+                  {
+                    create_new: true,
+                    customer_data: {
+                      name: selectedRegistration?.ownerName,
+                      email: selectedRegistration?.contactEmail,
+                      phone: selectedRegistration?.contactPhone,
+                    }
+                  },
+                  { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } }
+                );
+              } else {
+                // Link existing customer
+                await axios.put(
+                  getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_LINK.replace(':id', id)),
+                  { customer_id: linkedCustomer },
+                  { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } }
+                );
+              }
+            } catch (err) {
+              console.error('Failed to link customer before approval:', err);
+              alert('Failed to link customer. Please try again.');
+              return;
             }
           }
-          
-          // Refresh the list
-          fetchRegistrationData();
-          alert(lang === 'zh' ? '批准成功！' : 'Approved successfully!');
-          // Close details modal if open
-          if (selectedRegistration?.id === id) {
-            setShowDetailsModal(false);
+
+          // Call approve endpoint
+          try {
+            const response = await axios.post(
+              getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_APPROVE.replace(':id', id)),
+              { approval_notes: '' },
+              { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } }
+            );
+
+            if (response.data && response.data.success) {
+              // Refresh the list
+              fetchRegistrationData();
+              alert(lang === 'zh' ? '批准成功！' : 'Approved successfully!');
+              if (selectedRegistration?.id === id) setShowDetailsModal(false);
+            } else {
+              alert(response.data?.error || 'Failed to approve');
+            }
+          } catch (err) {
+            console.error('Failed to approve via API:', err);
+            alert('Failed to approve. Please try again.');
           }
         } else {
-          alert(response.error || 'Failed to approve');
+          // Fallback to mock API for local dev
+          const response = await MockAPI.approveRegistration(id, adminProfile?.email || userEmail || 'admin@vend88.com');
+
+          if (response.success) {
+            // Update the registration with linked customer ID
+            if (linkedCustomer && response.data) {
+              const updateResponse = await MockAPI.updateRegistration(id, { 
+                linkedCustomerId: linkedCustomer 
+              } as Partial<Registration>);
+              if (updateResponse.success && updateResponse.data) {
+                setSelectedRegistration(updateResponse.data);
+                setEditedRegistration(updateResponse.data);
+              }
+            }
+
+            // Refresh the list
+            fetchRegistrationData();
+            alert(lang === 'zh' ? '批准成功！' : 'Approved successfully!');
+            // Close details modal if open
+            if (selectedRegistration?.id === id) {
+              setShowDetailsModal(false);
+            }
+          } else {
+            alert(response.error || 'Failed to approve');
+          }
         }
       } catch (error) {
         console.error('Failed to approve registration:', error);

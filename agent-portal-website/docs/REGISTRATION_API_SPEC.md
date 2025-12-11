@@ -30,7 +30,7 @@ Authorization: Bearer <admin_token>
 **Request Body:**
 ```json
 {
-  "admin_id": "string",
+  "admin_email": "admin@vend88.com",
   "notes": "string (optional)"
 }
 ```

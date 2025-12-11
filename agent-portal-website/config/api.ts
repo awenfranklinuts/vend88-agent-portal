@@ -1,5 +1,6 @@
 export const API_CONFIG = {
   BASE_URL: 'https://prod.vend88.com',
+  REGISTRATION_BASE_URL: 'http://52.63.11.1:5000', // Direct backend server for registration endpoints
   ENDPOINTS: {
     LOGIN: "/admin/login",
     ADMIN_PROFILE: "/admin/profile",
@@ -16,11 +17,12 @@ export const API_CONFIG = {
     LIST_USER: "/admin/list_user",
     USER_DETAIL: "/admin/user_detail",
     
-    // Registration Management (New APIs - Coming Soon)
+    // Registration Management
     REGISTRATION_GENERATE: "/registration/generate",
     REGISTRATION_LIST: "/registration/list",
     REGISTRATION_GET: "/registration/:id",
     REGISTRATION_UPDATE: "/registration/:id",
+    REGISTRATION_LINK: "/registration/:id/link-customer",
     REGISTRATION_APPROVE: "/registration/approve/:id",
     REGISTRATION_REJECT: "/registration/reject/:id",
     REGISTRATION_SUBMIT: "/registration/submit",
@@ -31,4 +33,9 @@ export const API_CONFIG = {
 // Get complete API URL
 export const getApiUrl = (endpoint: string): string => {
   return `${API_CONFIG.BASE_URL}${endpoint}`;
+};
+
+// Get API URL for registration endpoints (uses different base URL)
+export const getRegistrationApiUrl = (endpoint: string): string => {
+  return `${API_CONFIG.REGISTRATION_BASE_URL}${endpoint}`;
 };
