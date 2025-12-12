@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/router";
 import styled, { createGlobalStyle, keyframes } from "styled-components";
 import en from "../locales/en.json";
 import zh from "../locales/zh.json";
 import ThankYouCard from "./ThankYouCard";
 import Image from "next/image";
+import axios from "axios";
 
 type LocaleMap = typeof en;
 const locales = { en, zh } as const;
@@ -43,6 +45,119 @@ const pulse = keyframes`
   50% { 
     box-shadow: 0 12px 28px rgba(43,123,227,0.25), 0 0 0 8px rgba(43,123,227,0);
   }
+`;
+
+const spin = keyframes`
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+`;
+
+const fadeIn = keyframes`
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+`;
+
+const shake = keyframes`
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+`;
+
+const pulseWarning = keyframes`
+  0%, 100% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4);
+  }
+  50% { 
+    transform: scale(1.05);
+    box-shadow: 0 0 0 12px rgba(231, 76, 60, 0);
+  }
+`;
+
+const StatusCard = styled.div`
+  text-align: center;
+  padding: 4rem 2rem;
+  animation: ${fadeIn} 500ms ease both;
+`;
+
+const StatusIcon = styled.div<{ $type?: 'error' | 'loading' }>`
+  font-size: 4rem;
+  margin-bottom: 1.5rem;
+  display: inline-block;
+  ${props => props.$type === 'loading' && `
+    animation: ${spin} 2s linear infinite;
+  `}
+  ${props => props.$type === 'error' && `
+    animation: ${shake} 0.6s ease-in-out;
+  `}
+`;
+
+const WarningIconWrapper = styled.div`
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  height: 120px;
+  margin-bottom: 1.5rem;
+  animation: ${shake} 0.6s ease-in-out, ${fadeIn} 500ms ease both;
+`;
+
+const WarningIconCircle = styled.div`
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(231, 76, 60, 0.15), rgba(255, 107, 107, 0.1));
+  border-radius: 50%;
+  animation: ${pulseWarning} 2s ease-in-out infinite;
+`;
+
+const WarningIconSvg = styled.svg`
+  position: relative;
+  z-index: 1;
+  width: 64px;
+  height: 64px;
+  filter: drop-shadow(0 4px 12px rgba(231, 76, 60, 0.3));
+`;
+
+const StatusTitle = styled.div<{ $type?: 'error' | 'loading' }>`
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: ${props => props.$type === 'error' ? '#e74c3c' : '#2b7be3'};
+`;
+
+const StatusMessage = styled.div`
+  color: #567;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  margin-bottom: 2rem;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+`;
+
+const InfoBox = styled.div`
+  background: linear-gradient(135deg, rgba(43,123,227,0.08), rgba(94,200,255,0.05));
+  border: 1.5px solid rgba(43,123,227,0.2);
+  border-radius: 12px;
+  padding: 1.5rem;
+  font-size: 0.95rem;
+  color: #456;
+  line-height: 1.6;
+  max-width: 500px;
+  margin: 0 auto;
+  box-shadow: 0 4px 12px rgba(43,123,227,0.08);
+`;
+
+const Spinner = styled.div`
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(43,123,227,0.15);
+  border-top-color: #2b7be3;
+  border-radius: 50%;
+  animation: ${spin} 0.8s linear infinite;
+  margin: 0 auto 1.5rem;
 `;
 
 const GlobalStyle = createGlobalStyle`
@@ -820,6 +935,9 @@ const ImageCaption = styled.div`
 `;
 
 export default function OnboardingForm() {
+  const router = useRouter();
+  const { token } = router.query;
+  
   const browserLang =
     typeof navigator !== "undefined" && navigator.language.startsWith("zh")
       ? "zh"
@@ -835,6 +953,53 @@ export default function OnboardingForm() {
     payment: true,
     additional: true,
   });
+  
+  // Token validation states
+  const [tokenValidating, setTokenValidating] = useState(true);
+  const [tokenValid, setTokenValid] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+
+  // Validate token on mount
+  useEffect(() => {
+    const validateToken = async () => {
+      if (!token || typeof token !== 'string') {
+        setTokenError(lang === "zh" ? "缺少注册令牌。请使用有效的注册链接。" : "Missing registration token. Please use a valid registration link.");
+        setTokenValidating(false);
+        return;
+      }
+
+      try {
+        const response = await axios.get(`https://dev.vend88.com/registration/validate-token/${token}`);
+        
+        if (response.data.success && response.data.data.valid && !response.data.data.used && !response.data.data.expired) {
+          setTokenValid(true);
+          setTokenError(null);
+        } else {
+          const reason = response.data.data.reason || 
+            (response.data.data.used 
+              ? (lang === "zh" ? "此注册表单已提交。每个链接只能使用一次。如需更改，请联系管理员。" : "This registration form has already been submitted. Each link can only be used once. Please contact the admin if you need to make changes.")
+              : response.data.data.expired
+              ? (lang === "zh" ? "注册令牌已过期。请联系管理员获取新链接。" : "Registration token has expired. Please contact the admin for a new link.")
+              : (lang === "zh" ? "无效的注册令牌。" : "Invalid registration token."));
+          setTokenError(reason);
+          setTokenValid(false);
+        }
+      } catch (err: any) {
+        console.error("Token validation error:", err);
+        setTokenError(
+          err.response?.data?.error || 
+          (lang === "zh" ? "验证令牌时出错。请稍后重试。" : "Error validating token. Please try again later.")
+        );
+        setTokenValid(false);
+      } finally {
+        setTokenValidating(false);
+      }
+    };
+
+    if (router.isReady) {
+      validateToken();
+    }
+  }, [token, router.isReady, lang]);
 
   const handleLangChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setLang(e.target.value as LocaleKey);
@@ -1065,15 +1230,73 @@ export default function OnboardingForm() {
 
     setLoading(true);
   
-    // Skip API call - just simulate success
-    setTimeout(() => {
+    try {
+      const formData = {
+        token: token,
+        contact_email: form.email,
+        owner_name: form.ownerName,
+        contact_phone: form.phone,
+        messaging_app_type: form.messagingAppType || null,
+        messaging_app_id: form.messagingAppId || null,
+        quote_number: form.quoteNumber,
+        business_name: form.businessName,
+        abn: form.abn,
+        registered_address: form.registeredAddress,
+        registered_suburb: form.registeredSuburb,
+        registered_postcode: form.registeredPostcode,
+        registered_state: form.registeredState,
+        registered_country: form.registeredCountry,
+        eftpos_integration: eftposIntegration,
+        alipay_option: alipayOption,
+        alipay_other: alipayOption === "other" ? alipayOther : null,
+        ready_by: readyBy,
+        heard_about: heardAbout,
+        heard_other: heardAbout === "other" ? heardOther : null,
+        menu_files: menuFiles.map(file => ({
+          filename: file.name,
+          // Note: You'll need to convert files to base64 for actual upload
+          // For now, just send filename
+          mime_type: file.type
+        })),
+        menu_send_later: menuSendLater,
+        notes: form.notes
+      };
+
+      const response = await axios.post(
+        'https://dev.vend88.com/registration/submit',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.data.success) {
+        setLoading(false);
+        setIsSliding(true);
+        setTimeout(() => {
+          setShowThankYou(true);
+          setIsSliding(false);
+        }, 600);
+      } else {
+        throw new Error(response.data.error || "Submission failed");
+      }
+    } catch (err: any) {
       setLoading(false);
-      setIsSliding(true);
-      setTimeout(() => {
-        setShowThankYou(true);
-        setIsSliding(false);
-      }, 600);
-    }, 1000);
+      console.error("Submission error:", err);
+      
+      if (err.response?.status === 409) {
+        setError(lang === "zh" ? "此令牌已被使用。每个注册链接只能使用一次。" : "This token has already been used. Each registration link can only be used once.");
+      } else if (err.response?.status === 400) {
+        setError(lang === "zh" ? "无效或过期的令牌。" : "Invalid or expired token.");
+      } else {
+        setError(
+          err.response?.data?.error || 
+          (lang === "zh" ? "提交失败。请稍后重试。" : "Submission failed. Please try again later.")
+        );
+      }
+    }
   };
 
   // Close dropdown when clicking outside
@@ -1103,6 +1326,74 @@ export default function OnboardingForm() {
         <GlobalStyle />
         <Container className="slide-in">
           <ThankYouCard lang={lang} />
+        </Container>
+      </>
+    );
+  }
+  
+  // Show loading while validating token
+  if (tokenValidating) {
+    return (
+      <>
+        <GlobalStyle />
+        <Container>
+          <Card>
+            <StatusCard>
+              <Spinner />
+              <StatusTitle $type="loading">
+                {lang === "zh" ? "验证注册链接" : "Validating Registration Link"}
+              </StatusTitle>
+              <StatusMessage>
+                {lang === "zh" ? "请稍候，我们正在验证您的注册令牌..." : "Please wait while we verify your registration token..."}
+              </StatusMessage>
+            </StatusCard>
+          </Card>
+        </Container>
+      </>
+    );
+  }
+  
+  // Show error if token is invalid
+  if (!tokenValid || tokenError) {
+    return (
+      <>
+        <GlobalStyle />
+        <Container>
+          <Card>
+            <StatusCard>
+              <WarningIconWrapper>
+                <WarningIconCircle />
+                <WarningIconSvg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path 
+                    d="M12 2L2 20h20L12 2z" 
+                    fill="#FFA500"
+                    stroke="#FF6B00"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path 
+                    d="M12 9v4M12 17h.01" 
+                    stroke="#FFFFFF"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </WarningIconSvg>
+              </WarningIconWrapper>
+              <StatusTitle $type="error">
+                {lang === "zh" ? "无效的注册链接" : "Invalid Registration Link"}
+              </StatusTitle>
+              <StatusMessage>
+                {tokenError}
+              </StatusMessage>
+              <InfoBox>
+                {lang === "zh" 
+                  ? "如果您认为这是错误，请联系管理员获取新的注册链接。"
+                  : "If you believe this is an error, please contact the admin for a new registration link."}
+              </InfoBox>
+            </StatusCard>
+          </Card>
         </Container>
       </>
     );
