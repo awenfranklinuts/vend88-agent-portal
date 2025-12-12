@@ -2,7 +2,7 @@ import React from "react";
 import Head from "next/head";
 import OnboardingForm from "../components/OnboardingForm";
 
-export default function HomePage() {
+export default function RegisterPage() {
   return (
     <>
       <Head>

@@ -1262,6 +1262,9 @@ export default function OnboardingForm() {
         notes: form.notes
       };
 
+      console.log('=== SUBMITTING FORM DATA ===');
+      console.log('Form Data:', JSON.stringify(formData, null, 2));
+      
       const response = await axios.post(
         'https://dev.vend88.com/registration/submit',
         formData,
@@ -1271,6 +1274,11 @@ export default function OnboardingForm() {
           }
         }
       );
+
+      console.log('=== API RESPONSE ===');
+      console.log('Status:', response.status);
+      console.log('Response Data:', JSON.stringify(response.data, null, 2));
+      console.log('Full Response:', response);
 
       if (response.data.success) {
         setLoading(false);
@@ -1284,7 +1292,11 @@ export default function OnboardingForm() {
       }
     } catch (err: any) {
       setLoading(false);
-      console.error("Submission error:", err);
+      console.error("=== SUBMISSION ERROR ===");
+      console.error("Error:", err);
+      console.error("Error Response:", err.response);
+      console.error("Error Status:", err.response?.status);
+      console.error("Error Data:", JSON.stringify(err.response?.data, null, 2));
       
       if (err.response?.status === 409) {
         setError(lang === "zh" ? "此令牌已被使用。每个注册链接只能使用一次。" : "This token has already been used. Each registration link can only be used once.");

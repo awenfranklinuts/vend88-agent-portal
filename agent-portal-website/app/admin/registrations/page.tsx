@@ -992,7 +992,9 @@ export default function RegistrationsPage() {
       console.log('Response data:', response.data);
       
       if (response.data.success && response.data.data) {
-        setGeneratedLink(response.data.data.link);
+        // Remove /register path to use root URL which doesn't have redirect issues
+        const link = response.data.data.link.replace('/register?', '?');
+        setGeneratedLink(link);
         setShowGenerateModal(true);
         // Refresh the list
         fetchRegistrationData();
