@@ -959,12 +959,17 @@ export default function OnboardingForm() {
   const [tokenValid, setTokenValid] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
 
+  // Immediate redirect if no token - before any rendering
+  useEffect(() => {
+    if (router.isReady && (!token || typeof token !== 'string')) {
+      window.location.replace('https://vend88.com.au');
+    }
+  }, [router.isReady, token]);
+
   // Validate token on mount
   useEffect(() => {
     const validateToken = async () => {
       if (!token || typeof token !== 'string') {
-        setTokenError(lang === "zh" ? "缺少注册令牌。请使用有效的注册链接。" : "Missing registration token. Please use a valid registration link.");
-        setTokenValidating(false);
         return;
       }
 
@@ -1343,7 +1348,17 @@ export default function OnboardingForm() {
     );
   }
   
-  // Show loading while validating token
+  // Show white screen if no token (will redirect immediately)
+  if (!router.isReady || !token) {
+    return (
+      <>
+        <GlobalStyle />
+        <Container />
+      </>
+    );
+  }
+  
+  // Show loading UI while validating token
   if (tokenValidating) {
     return (
       <>
