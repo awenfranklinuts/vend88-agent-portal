@@ -74,6 +74,16 @@ const Container = styled.div`
   background: linear-gradient(135deg, #e0e7ef 0%, #f7faff 100%);
   display: flex;
   padding-top: 65px;
+  animation: fadeIn 0.5s ease;
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
 `;
 
 const MainContent = styled.main`
@@ -81,6 +91,18 @@ const MainContent = styled.main`
   padding: 0 2rem 2rem 2rem;
   margin-left: 280px;
   overflow-y: auto;
+  animation: slideUp 0.6s ease;
+  
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
   
   @media (max-width: 968px) {
     padding: 0 1rem 1rem 1rem;
@@ -129,6 +151,26 @@ const Card = styled.div`
   transition: all 0.3s ease;
   cursor: pointer;
   border: 2px solid transparent;
+  animation: cardFadeIn 0.6s ease both;
+  
+  @keyframes cardFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  &:nth-child(1) { animation-delay: 0.1s; }
+  &:nth-child(2) { animation-delay: 0.2s; }
+  &:nth-child(3) { animation-delay: 0.3s; }
+  &:nth-child(4) { animation-delay: 0.4s; }
+  &:nth-child(5) { animation-delay: 0.5s; }
+  &:nth-child(6) { animation-delay: 0.6s; }
+  &:nth-child(7) { animation-delay: 0.7s; }
 
   &:hover {
     transform: translateY(-4px);
