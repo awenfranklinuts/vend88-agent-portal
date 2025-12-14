@@ -1,15 +1,20 @@
 # Registration Management API Specification
 
-## Base URL
-```
-https://prod.vend88.com
-```
+## Deployment URLs
+- **Backend API**: `https://prod.vend88.com`
+- **Admin Portal**: `https://portal.vend88.com`
+- **Registration Form**: `https://form.vend88.com`
 
 ## Authentication
 All admin endpoints require a Bearer token in the Authorization header:
 ```
 Authorization: Bearer <admin_token>
 ```
+
+## Frontend API Proxy
+The admin portal uses Next.js API routes as a proxy to avoid CORS issues:
+- Frontend calls: `/api/registration/*`
+- Proxied to: `https://prod.vend88.com/registration/*`
 
 ---
 
@@ -42,13 +47,16 @@ Authorization: Bearer <admin_token>
   "data": {
     "id": "reg_123456",
     "token": "abc123xyz456",
-    "link": "https://form.vend88.com/register?token=abc123xyz456",
+    "link": "https://form.vend88.com?token=abc123xyz456",
     "generated_by": "admin@vend88.com",
     "generated_at": "2025-11-20T10:30:00Z",
     "expires_at": "2025-12-20T10:30:00Z",
     "status": "pending"
   }
 }
+```
+
+**Note:** The link format is `https://form.vend88.com?token=xxx` (no `/register` path) to avoid redirect issues.
 ```
 
 **Error Response (401 Unauthorized):**
@@ -618,49 +626,226 @@ CREATE TABLE registration_submissions (
 
 ---
 
-## Implementation Priority
+## Implementation Status
 
-### Phase 1 (MVP):
+### Phase 1 (MVP) - ✅ COMPLETED:
 1. ✅ Generate Token (`POST /registration/generate`)
 2. ✅ Submit Form (`POST /registration/submit`)
 3. ✅ Validate Token (`GET /registration/validate-token/:token`)
 4. ✅ List Registrations (`GET /registration/list`)
-5. ⚠️ **Link Customer** (`PUT /registration/:id/link-customer`) - **REQUIRED BEFORE APPROVAL**
+5. ✅ **Link Customer** (`PUT /registration/:id/link-customer`)
 6. ✅ Approve/Reject (`POST /registration/approve/:id`, `POST /registration/reject/:id`)
+7. ✅ Get Details (`GET /registration/:id`)
+8. ✅ Update Details (`PUT /registration/:id`)
 
-### Phase 2 (Enhanced):
-6. Get Details (`GET /registration/:id`)
-7. Update Details (`PUT /registration/:id`)
-8. Email notifications on approval/rejection
-9. File upload handling for menu files
+### Phase 2 (Enhanced) - IN PROGRESS:
+1. ⚠️ Email notifications on approval/rejection
+2. ✅ File upload handling for menu files
+3. ✅ Admin portal UI with customer linking workflow
+4. ✅ Registration form with file upload
+5. ✅ Inline error handling (no alert popups)
+6. ✅ Modal overlays for rejection reasons
 
 ---
 
-## Notes for Backend Development
+## Implementation Notes
 
-1. **Token Generation**: Use cryptographically secure random strings (at least 32 characters)
-2. **Token Expiry**: Recommend 30-day expiry from generation
-3. **⚠️ One-Time Use Enforcement**: Once a form is submitted (status changes to 'submitted'), the token MUST reject any subsequent submission attempts. Validation should return `used: true` for any token with status 'submitted', 'approved', or 'rejected'.
+### Backend Requirements
+
+1. **Token Generation**: 
+   - Use cryptographically secure random strings (at least 32 characters)
+   - Format: Alphanumeric string (e.g., `XF5JzQVN5PLcecRhOQLqg6u4t7omb2Mq`)
+
+2. **Token Expiry**: 
+   - Default: 30-day expiry from generation
+   - Check expiry on both validation and submission
+
+3. **⚠️ One-Time Use Enforcement**: 
+   - Once a form is submitted (status changes to 'submitted'), the token MUST reject any subsequent submission attempts
+   - Validation endpoint should return `used: true` for any token with status 'submitted', 'approved', or 'rejected'
+   - Frontend redirects to main website when token is already used
+
 4. **⚠️ Customer Linking (MANDATORY)**: 
    - Admin MUST link a customer before approving any registration
    - Frontend validates customer linking before allowing approval
-   - Two workflows:
-     a) **Link Existing Customer**: Admin selects from existing customer dropdown
-     b) **Create New Customer**: System generates temporary customer ID (prefix: `temp_`) and stores pending customer data. Upon approval, create real customer account and replace temp ID with actual customer ID
-   - `linked_customer_id` field must be populated before status changes to 'approved'
-   - Temporary customer format: `temp_{timestamp}` (e.g., `temp_1700000000000`)
-   - When approving registration with temp customer ID:
-     - Create new customer account using registration contact info
-     - Update `linked_customer_id` with real customer ID
-     - Clear pending customer data from session storage
+   - Two workflows implemented:
+     
+     **a) Link Existing Customer**:
+     - Admin searches customer by name or email in dropdown
+     - Selects from existing customer list
+     - `linked_customer_id` is set to actual customer ID
+     
+     **b) Create New Customer**:
+     - Admin clicks "Create New" button
+     - System generates temporary customer ID with prefix `temp_` (e.g., `temp_1700000000000`)
+     - Pending customer data stored in session storage
+     - Upon approval:
+       * Create new customer account using registration contact info
+       * Update `linked_customer_id` with real customer ID
+       * Clear pending customer data from session storage
+   
+   - Frontend behavior:
+     * Shows inline error message if approve clicked without customer link
+     * Error automatically clears when customer is linked
+     * No alert popups - all errors shown inline at bottom of form
+
 5. **File Upload**: 
-   - Use S3, Azure Blob Storage, or similar for menu files
-   - Store files in path: `registrations/{registration_id}/{filename}`
+   - Storage: S3, Azure Blob Storage, or similar cloud storage
+   - Path structure: `registrations/{registration_id}/{filename}`
    - Return downloadable URLs with expiry tokens for security
-   - Support formats: PDF, PNG, JPG, JPEG (max 10MB per file)
-   - Store metadata: filename, URL, size, upload timestamp
-4. **Email Notifications**: Send email to customer when approved/rejected
-5. **Business Account Creation**: On approval, automatically create business account with data from registration
-6. **Audit Trail**: Log all admin actions (approve, reject, edit)
-7. **Rate Limiting**: Apply rate limiting on public endpoints to prevent abuse
-8. **Input Validation**: Validate ABN format, Australian phone numbers, email addresses
+   - Supported formats: PDF, PNG, JPG, JPEG
+   - Max file size: 10MB per file
+   - Multiple files supported
+   - Store metadata: 
+     * filename
+     * url (downloadable with authentication)
+     * size (in bytes)
+     * uploaded_at timestamp
+
+6. **Email Notifications**: 
+   - Send email to customer when registration is approved/rejected
+   - Include reason if rejected
+   - Email template should match vend88 branding
+
+7. **Business Account Creation**: 
+   - On approval, automatically create business account with data from registration
+   - Link to the customer account
+   - Copy all relevant business information
+
+8. **Audit Trail**: 
+   - Log all admin actions with timestamps:
+     * Token generation (generated_by, generated_at)
+     * Customer linking (linked_at, linked_by)
+     * Approval (approved_by, approved_at)
+     * Rejection (rejected_by, rejected_at, rejection_reason)
+     * Updates (updated_by, updated_at)
+
+9. **Rate Limiting**: 
+   - Apply rate limiting on public endpoints to prevent abuse
+   - Suggested limits:
+     * Token validation: 10 requests/minute per IP
+     * Form submission: 3 requests/hour per token
+
+10. **Input Validation**: 
+    - ABN format: 11 digits
+    - Australian phone numbers: Format 04XX XXX XXX
+    - Email addresses: RFC 5322 compliant
+    - State: NSW, VIC, QLD, WA, SA, TAS, ACT, NT
+    - Postcode: 4 digits (Australian)
+
+### Frontend Implementation Notes
+
+1. **Admin Portal (portal.vend88.com)**:
+   - Built with Next.js 15, React 19, TypeScript
+   - Uses Next.js API routes as CORS proxy
+   - All API calls go through `/api/registration/*` routes
+   - No alert() popups - all feedback via inline messages or modals
+   - Copy link button shows success state (checkmark + green background)
+   - Rejection reason via modal overlay (not popup)
+   - Error messages appear inline at bottom of form
+   - Customer search with real-time filtering
+   - Generated by admin displayed as formatted name (not email)
+
+2. **Registration Form (form.vend88.com)**:
+   - Built with Next.js 16, deployed on S3+CloudFront
+   - Static export with client-side routing
+   - Token validation on page load
+   - Redirects to vend88.com.au if token invalid/used
+   - Gradient background loads immediately (no flash)
+   - File upload with preview
+   - Form validation before submission
+   - Thank you page after successful submission
+
+3. **UI/UX Guidelines**:
+   - No `alert()`, `confirm()`, or `prompt()` dialogs
+   - Use inline error messages with warning icon
+   - Modal overlays for destructive actions (reject, revoke)
+   - Success states on buttons (e.g., "Copied!" with checkmark)
+   - Auto-clear errors when user fixes the issue
+   - Loading states on async operations
+   - Responsive design for mobile/tablet
+
+---
+
+## Deployment Information
+
+### Current Deployment
+
+**Admin Portal (portal.vend88.com)**:
+- Platform: Vercel (Free tier)
+- Auto-deploy: GitHub push to main branch
+- Repository: `awenfranklinuts/vend88-agent-portal`
+- Root directory: `agent-portal-website/`
+- Build time: 1-3 minutes
+- Environment variables configured in Vercel dashboard:
+  * `NEXT_PUBLIC_API_BASE_URL=https://prod.vend88.com`
+  * `NEXT_PUBLIC_APP_NAME`
+  * `NEXT_PUBLIC_DEFAULT_LANGUAGE`
+
+**Registration Form (form.vend88.com)**:
+- Platform: AWS S3 + CloudFront
+- Distribution ID: E3UHMUQXQ9GH4M
+- Deployment: Manual via AWS CLI
+- Build command: `npm run build` (creates `out/` folder)
+- Deploy command: 
+  ```bash
+  aws s3 sync out/ s3://onboarding-registration-form --delete
+  aws cloudfront create-invalidation --distribution-id E3UHMUQXQ9GH4M --paths "/*"
+  ```
+- Cache invalidation time: 2-5 minutes
+
+### Update Workflow
+
+**Admin Portal Updates**:
+```bash
+cd d:\Github\vend88-agent-portal\agent-portal-website
+git add .
+git commit -m "Update description"
+git push origin main
+# Vercel auto-deploys in 1-3 minutes
+```
+
+**Registration Form Updates**:
+```bash
+cd d:\Github\vend88-agent-portal\onboarding-registration-form
+npm run build
+aws s3 sync out/ s3://onboarding-registration-form --delete
+aws cloudfront create-invalidation --distribution-id E3UHMUQXQ9GH4M --paths "/*"
+# Wait 2-5 minutes for cache invalidation
+```
+
+See [DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md) for detailed deployment instructions.
+
+---
+
+## API Response Format
+
+All API responses follow this consistent format:
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "data": { /* response data */ }
+}
+```
+
+**Error Response:**
+```json
+{
+  "success": false,
+  "error": "Error message description"
+}
+```
+
+**Error Response with Details:**
+```json
+{
+  "success": false,
+  "error": "Validation failed",
+  "details": {
+    "abn": "ABN must be 11 digits",
+    "contact_phone": "Invalid phone number format"
+  }
+}
+```

@@ -801,6 +801,11 @@ export default function RegistrationsPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [customerSearchQuery, setCustomerSearchQuery] = useState<string>('');
+  const [isLinkCopied, setIsLinkCopied] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [registrationToReject, setRegistrationToReject] = useState<string | null>(null);
+  const [approveError, setApproveError] = useState('');
 
   useEffect(() => {
     if (!isLoading && !token) {
@@ -824,6 +829,13 @@ export default function RegistrationsPage() {
       setCustomers(authCustomers);
     }
   }, [authCustomers]);
+
+  // Clear error when a customer is selected
+  useEffect(() => {
+    if (selectedCustomerId) {
+      setApproveError('');
+    }
+  }, [selectedCustomerId]);
 
   // Check if returning from customer creation
   useEffect(() => {
@@ -872,16 +884,20 @@ export default function RegistrationsPage() {
     }
   };
 
-  const handleLinkCustomer = async () => {
-    if (!selectedCustomerId) {
+  const handleLinkCustomer = (customerId?: string) => {
+    const customerIdToLink = customerId || selectedCustomerId;
+    
+    if (!customerIdToLink) {
       alert(lang === 'zh' ? '请选择一个客户' : 'Please select a customer');
       return;
     }
     
     if (editedRegistration) {
-      handleEditChange('linkedCustomerId', selectedCustomerId);
-      alert(lang === 'zh' ? '客户已关联' : 'Customer linked successfully');
+      handleEditChange('linkedCustomerId', customerIdToLink);
     }
+    
+    // Clear error immediately when customer is linked
+    setApproveError('');
   };
 
   const handleCreateAndLinkCustomer = () => {
@@ -903,13 +919,7 @@ export default function RegistrationsPage() {
       phone: selectedRegistration.contactPhone
     }));
     
-    // Show the customer as "pending creation"
-    alert(lang === 'zh' 
-      ? `将为 ${selectedRegistration.ownerName || 'New Customer'} 创建新客户账号\n邮箱: ${selectedRegistration.contactEmail}\n\n批准后将自动创建客户账号。`
-      : `New customer will be created for ${selectedRegistration.ownerName || 'New Customer'}\nEmail: ${selectedRegistration.contactEmail}\n\nCustomer account will be created automatically upon approval.`
-    );
-    
-    // Set as selected (temporary)
+    // Set as selected (temporary) - customer card will show automatically
     setSelectedCustomerId(tempCustomerId);
     handleEditChange('linkedCustomerId', tempCustomerId);
   };
@@ -920,6 +930,7 @@ export default function RegistrationsPage() {
     setIsEditMode(false);
     setSelectedCustomerId(registration.linkedCustomerId || '');
     setCustomerSearchQuery('');
+    setApproveError(''); // Clear any previous error when opening a form
     setShowDetailsModal(true);
   };
 
@@ -944,13 +955,11 @@ export default function RegistrationsPage() {
           setIsEditMode(false);
           // Refresh the list
           fetchRegistrationData();
-          alert(lang === 'zh' ? '保存成功！' : 'Saved successfully!');
         } else {
-          alert(response.error || 'Failed to save');
+          console.error('Failed to save:', response.error);
         }
       } catch (error) {
         console.error('Failed to save registration:', error);
-        alert('Failed to save. Please try again.');
       }
     }
   };
@@ -1025,16 +1034,21 @@ export default function RegistrationsPage() {
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(generatedLink);
-    // TODO: Show success toast
-    alert('Link copied to clipboard!');
+    setIsLinkCopied(true);
+    setTimeout(() => {
+      setIsLinkCopied(false);
+    }, 2000);
   };
 
   const handleApprove = async (id: string) => {
     // Check if customer is linked when approving from details modal (only when viewing in modal)
     if (selectedRegistration?.id === id && showDetailsModal && !selectedCustomerId) {
-      alert(lang === 'zh' ? '请先关联客户后再批准' : 'Please link a customer before approving');
+      setApproveError(lang === 'zh' ? '请先关联客户后再批准' : 'Please link a customer before approving');
       return;
     }
+    
+    // Clear any previous error
+    setApproveError('');
     
     if (confirm(lang === 'zh' ? '确定要批准此注册吗？' : 'Are you sure you want to approve this registration?')) {
       try {
@@ -1131,29 +1145,35 @@ export default function RegistrationsPage() {
   };
 
   const handleReject = async (id: string) => {
-    const reason = prompt(lang === 'zh' ? '请输入拒绝原因（可选）：' : 'Enter rejection reason (optional):');
+    setRegistrationToReject(id);
+    setRejectionReason('');
+    setShowRejectModal(true);
+  };
+
+  const handleConfirmReject = async () => {
+    if (!registrationToReject) return;
     
-    if (reason !== null) { // User didn't cancel
-      try {
-        // TODO: Replace with real API call when ready
-        // const response = await axios.post(getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_REJECT.replace(':id', id)), { reason });
-        const response = await MockAPI.rejectRegistration(id, reason || undefined, 'admin@vend88.com');
-        
-        if (response.success) {
-          // Refresh the list
-          fetchRegistrationData();
-          alert(lang === 'zh' ? '已拒绝！' : 'Rejected successfully!');
-          // Close details modal if open
-          if (selectedRegistration?.id === id) {
-            setShowDetailsModal(false);
-          }
-        } else {
-          alert(response.error || 'Failed to reject');
+    try {
+      // TODO: Replace with real API call when ready
+      // const response = await axios.post(getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_REJECT.replace(':id', registrationToReject)), { reason: rejectionReason });
+      const response = await MockAPI.rejectRegistration(registrationToReject, rejectionReason || undefined, 'admin@vend88.com');
+      
+      if (response.success) {
+        // Refresh the list
+        fetchRegistrationData();
+        // Close modals
+        setShowRejectModal(false);
+        if (selectedRegistration?.id === registrationToReject) {
+          setShowDetailsModal(false);
         }
-      } catch (error) {
-        console.error('Failed to reject registration:', error);
-        alert('Failed to reject. Please try again.');
+        setRegistrationToReject(null);
+        setRejectionReason('');
+      } else {
+        alert(response.error || 'Failed to reject');
       }
+    } catch (error) {
+      console.error('Failed to reject registration:', error);
+      alert('Failed to reject. Please try again.');
     }
   };
 
@@ -1344,7 +1364,12 @@ export default function RegistrationsPage() {
                       <Tr key={reg.id}>
                         <Td>{reg.businessName || '-'}</Td>
                         <Td>{reg.contactEmail || '-'}</Td>
-                        <Td>{new Date(reg.generatedAt).toLocaleDateString()}</Td>
+                        <Td>
+                          <div>{new Date(reg.generatedAt).toLocaleDateString()}</div>
+                          <div style={{ fontSize: '0.8125rem', color: '#5c6b7a', marginTop: '0.25rem' }}>
+                            {lang === "zh" ? "由" : "by"} {reg.generatedBy ? reg.generatedBy.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : '-'}
+                          </div>
+                        </Td>
                         <Td>
                           <StatusBadge $status={reg.status}>
                             {reg.status}
@@ -1380,14 +1405,9 @@ export default function RegistrationsPage() {
                             </ActionButton>
                           )}
                           {reg.status === 'rejected' && (
-                            <>
-                              <ActionButton $variant="view" onClick={() => handleViewDetails(reg)}>
-                                {lang === "zh" ? "查看" : "View"}
-                              </ActionButton>
-                              <ActionButton $variant="approve" onClick={() => handleApprove(reg.id)}>
-                                {lang === "zh" ? "批准" : "Approve"}
-                              </ActionButton>
-                            </>
+                            <ActionButton $variant="view" onClick={() => handleViewDetails(reg)}>
+                              {lang === "zh" ? "查看" : "View"}
+                            </ActionButton>
                           )}
                         </Td>
                       </Tr>
@@ -1413,9 +1433,11 @@ export default function RegistrationsPage() {
             <ModalButton onClick={() => setShowGenerateModal(false)}>
               {lang === "zh" ? "关闭" : "Close"}
             </ModalButton>
-            <ModalButton $primary onClick={handleCopyLink}>
-              <CopyIcon />
-              {lang === "zh" ? "复制链接" : "Copy Link"}
+            <ModalButton $primary onClick={handleCopyLink} style={isLinkCopied ? { background: '#10b981' } : {}}>
+              {isLinkCopied ? <SaveIcon /> : <CopyIcon />}
+              {isLinkCopied 
+                ? (lang === "zh" ? "已复制!" : "Copied!") 
+                : (lang === "zh" ? "复制链接" : "Copy Link")}
             </ModalButton>
           </ModalActions>
         </ModalContent>
@@ -1669,9 +1691,11 @@ export default function RegistrationsPage() {
                                   <div
                                     key={customer._id}
                                     onClick={() => {
-                                      setSelectedCustomerId(customer._id);
+                                      const customerId = customer._id;
+                                      setSelectedCustomerId(customerId);
                                       setCustomerSearchQuery('');
-                                      handleLinkCustomer();
+                                      setApproveError(''); // Clear error when customer is selected
+                                      handleLinkCustomer(customerId);
                                     }}
                                     style={{
                                       padding: '0.75rem',
@@ -2112,6 +2136,22 @@ export default function RegistrationsPage() {
             </>
           )}
 
+          {approveError && (
+            <div style={{ 
+              marginTop: '1.5rem',
+              marginBottom: '1.5rem',
+              padding: '1rem', 
+              background: '#fee2e2', 
+              border: '1px solid #fecaca',
+              borderRadius: '8px', 
+              color: '#991b1b',
+              fontSize: '0.9375rem',
+              fontWeight: '500'
+            }}>
+              ⚠️ {approveError}
+            </div>
+          )}
+
           <ModalActions>
             {isEditMode ? (
               <>
@@ -2129,7 +2169,6 @@ export default function RegistrationsPage() {
                   <>
                     <ModalButton onClick={() => {
                       handleReject(selectedRegistration.id);
-                      setShowDetailsModal(false);
                     }}>
                       {lang === "zh" ? "拒绝" : "Reject"}
                     </ModalButton>
@@ -2140,7 +2179,19 @@ export default function RegistrationsPage() {
                     </ModalButton>
                   </>
                 )}
-                {selectedRegistration?.status !== 'submitted' && (
+                {selectedRegistration?.status === 'rejected' && (
+                  <>
+                    <ModalButton onClick={() => setShowDetailsModal(false)}>
+                      {lang === "zh" ? "关闭" : "Close"}
+                    </ModalButton>
+                    <ModalButton $primary onClick={() => {
+                      handleApprove(selectedRegistration.id);
+                    }}>
+                      {lang === "zh" ? "改为批准" : "Change to Approve"}
+                    </ModalButton>
+                  </>
+                )}
+                {selectedRegistration?.status !== 'submitted' && selectedRegistration?.status !== 'rejected' && (
                   <ModalButton onClick={() => setShowDetailsModal(false)}>
                     {lang === "zh" ? "关闭" : "Close"}
                   </ModalButton>
@@ -2149,6 +2200,64 @@ export default function RegistrationsPage() {
             )}
           </ModalActions>
         </ModalContent>
+        
+        {/* Reject Modal Overlay */}
+        {showRejectModal && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.6)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 10,
+              padding: '1rem'
+            }}
+            onClick={() => setShowRejectModal(false)}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: 'white',
+                borderRadius: '16px',
+                padding: '2rem',
+                maxWidth: '600px',
+                width: '100%',
+                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
+              }}
+            >
+              <ModalTitle>{lang === 'zh' ? '拒绝注册' : 'Reject Registration'}</ModalTitle>
+              <ModalText>
+                {lang === 'zh' 
+                  ? '请输入拒绝原因（可选）：'
+                  : 'Enter rejection reason (optional):'}
+              </ModalText>
+              <EditTextarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder={lang === 'zh' ? '拒绝原因...' : 'Rejection reason...'}
+                rows={3}
+                style={{ width: '100%', marginBottom: '1.5rem' }}
+              />
+              <ModalActions>
+                <ModalButton onClick={() => {
+                  setShowRejectModal(false);
+                  setRegistrationToReject(null);
+                  setRejectionReason('');
+                }}>
+                  {lang === 'zh' ? '取消' : 'Cancel'}
+                </ModalButton>
+                <ModalButton $primary onClick={handleConfirmReject} style={{ background: '#ef4444' }}>
+                  {lang === 'zh' ? '确认拒绝' : 'Confirm Reject'}
+                </ModalButton>
+              </ModalActions>
+            </div>
+          </div>
+        )}
       </Modal>
     </MainLayout>
   );

@@ -66,10 +66,7 @@ const LoginImageSection = styled.div`
   }
 
   @media (max-width: 968px) {
-    max-width: 300px;
-    &::after {
-      display: none;
-    }
+    display: none;
   }
 `;
 
@@ -94,7 +91,18 @@ const BrandLogo = styled.div`
   
   @media (max-width: 968px) {
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 1rem;
+  }
+`;
+
+const MobilePermissionLogo = styled.div`
+  display: none;
+  
+  @media (max-width: 968px) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
   }
 `;
 
@@ -628,6 +636,16 @@ export default function LoginPage() {
               </DropdownMenu>
             </LangDropdown>
           </LanguageSwitcher>
+
+          <MobilePermissionLogo>
+            <Image
+              src="/images/login.png"
+              alt="Permission Management"
+              width={200}
+              height={200}
+              style={{ width: '100%', height: 'auto', maxWidth: '200px' }}
+            />
+          </MobilePermissionLogo>
 
           <BrandLogo>
             <Image
