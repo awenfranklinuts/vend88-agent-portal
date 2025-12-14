@@ -114,6 +114,21 @@ const SearchFilterContainer = styled.div`
   display: flex;
   gap: 1rem;
   align-items: center;
+  animation: slideDown 0.4s ease;
+  transition: all 0.3s ease;
+  
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+      max-height: 0;
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+      max-height: 200px;
+    }
+  }
   
   @media (max-width: 968px) {
     flex-direction: column;
@@ -178,9 +193,26 @@ const ClearButton = styled.button`
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  animation: slideInRight 0.3s ease;
+  
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
   
   &:hover {
     background: #d1d5db;
+    transform: scale(1.05);
+  }
+  
+  &:active {
+    transform: scale(0.98);
   }
   
   @media (max-width: 968px) {
@@ -237,6 +269,16 @@ const TabButton = styled.button<{ $active: boolean }>`
 
 const TabContent = styled.div`
   padding: 2rem;
+  animation: fadeIn 0.4s ease;
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
   
   @media (max-width: 968px) {
     padding: 1rem;
@@ -277,6 +319,18 @@ const Tbody = styled.tbody``;
 const Tr = styled.tr`
   border-bottom: 1px solid #e0e7ef;
   transition: background 0.2s ease;
+  animation: fadeInRow 0.3s ease;
+  
+  @keyframes fadeInRow {
+    from {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
   
   &:hover {
     background: #f7faff;
@@ -368,23 +422,49 @@ const EmptyState = styled.div`
   text-align: center;
   padding: 4rem 2rem;
   color: #5c6b7a;
+  animation: fadeInScale 0.5s ease;
+  
+  @keyframes fadeInScale {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
 `;
 
 const EmptyIcon = styled.div`
-  font-size: 4rem;
-  margin-bottom: 1rem;
-  opacity: 0.5;
+  font-size: 5rem;
+  margin-bottom: 1.5rem;
+  opacity: 0.6;
+  animation: float 3s ease-in-out infinite;
+  
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
 `;
 
 const EmptyText = styled.p`
-  font-size: 1.125rem;
-  font-weight: 500;
-  margin-bottom: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: #0a3655;
 `;
 
 const EmptySubtext = styled.p`
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   color: #9ca3af;
+  line-height: 1.6;
+  max-width: 400px;
+  margin: 0 auto;
 `;
 
 const Modal = styled.div<{ $show: boolean }>`
@@ -778,6 +858,146 @@ interface Registration {
   cancelledBy?: string;
 }
 
+// Sortable Header Component
+const SortableHeader = styled.th<{ $active?: boolean }>`
+  padding: 1rem;
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0a3655;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s ease;
+  
+  ${p => p.$active && `
+    background: #e0e7ef;
+  `}
+  
+  &:hover {
+    background: #e0e7ef;
+  }
+  
+  @media (max-width: 968px) {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.75rem;
+  }
+`;
+
+const SortIcon = styled.span<{ $direction?: 'asc' | 'desc' }>`
+  display: inline-block;
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  opacity: ${p => p.$direction ? 1 : 0.3};
+  transition: opacity 0.2s ease;
+  
+  ${SortableHeader}:hover & {
+    opacity: 1;
+  }
+`;
+
+const CheckboxTh = styled.th`
+  padding: 1rem;
+  width: 50px;
+  
+  @media (max-width: 968px) {
+    padding: 0.75rem 0.5rem;
+    width: 40px;
+  }
+`;
+
+const CheckboxTd = styled.td`
+  padding: 1rem;
+  width: 50px;
+  
+  @media (max-width: 968px) {
+    padding: 0.75rem 0.5rem;
+    width: 40px;
+  }
+`;
+
+const Checkbox = styled.input.attrs({ type: 'checkbox' })`
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+`;
+
+const PaginationContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  border-top: 1px solid #e0e7ef;
+  
+  @media (max-width: 968px) {
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+`;
+
+const PaginationInfo = styled.div`
+  color: #5c6b7a;
+  font-size: 0.875rem;
+`;
+
+const PaginationControls = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+`;
+
+const PageButton = styled.button<{ $active?: boolean; $disabled?: boolean }>`
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #e0e7ef;
+  border-radius: 6px;
+  background: ${p => p.$active ? '#3b82f6' : 'white'};
+  color: ${p => p.$active ? 'white' : '#0a3655'};
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: ${p => p.$disabled ? 'not-allowed' : 'pointer'};
+  opacity: ${p => p.$disabled ? 0.5 : 1};
+  transition: all 0.2s ease;
+  
+  &:hover:not(:disabled) {
+    background: ${p => p.$active ? '#2563eb' : '#f7faff'};
+    border-color: ${p => p.$active ? '#2563eb' : '#3b82f6'};
+  }
+`;
+
+const BulkActionBar = styled.div<{ $show: boolean }>`
+  display: ${p => p.$show ? 'flex' : 'none'};
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 2rem;
+  background: #f7faff;
+  border-bottom: 1px solid #e0e7ef;
+  
+  @media (max-width: 968px) {
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+`;
+
+const BulkActionText = styled.span`
+  color: #0a3655;
+  font-size: 0.875rem;
+  font-weight: 500;
+`;
+
+const BulkActionButtons = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  
+  @media (max-width: 968px) {
+    width: 100%;
+    flex-direction: column;
+  }
+`;
+
 export default function RegistrationsPage() {
   const router = useRouter();
   const { token, role, isLoading, customers: authCustomers, fetchCustomers: fetchCustomersFromAuth, userEmail, adminProfile } = useAuth();
@@ -810,6 +1030,13 @@ export default function RegistrationsPage() {
   const [approveError, setApproveError] = useState('');
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [registrationToApprove, setRegistrationToApprove] = useState<string | null>(null);
+  
+  // Table enhancements state
+  const [sortField, setSortField] = useState<string>('submittedAt');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!isLoading && !token) {
@@ -1244,6 +1471,83 @@ export default function RegistrationsPage() {
     return true;
   });
 
+  // Sort registrations
+  const sortedRegistrations = [...filteredRegistrations].sort((a, b) => {
+    let aVal: any = '';
+    let bVal: any = '';
+    
+    switch (sortField) {
+      case 'businessName':
+        aVal = a.businessName || '';
+        bVal = b.businessName || '';
+        break;
+      case 'contactEmail':
+        aVal = a.contactEmail || '';
+        bVal = b.contactEmail || '';
+        break;
+      case 'submittedAt':
+        aVal = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+        bVal = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+        break;
+      case 'status':
+        aVal = a.status || '';
+        bVal = b.status || '';
+        break;
+      default:
+        return 0;
+    }
+    
+    if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  // Pagination
+  const totalPages = Math.ceil(sortedRegistrations.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedRegistrations = sortedRegistrations.slice(startIndex, startIndex + itemsPerPage);
+
+  // Handle sort
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    setSelectedRows(new Set()); // Clear selection when changing pages
+  };
+
+  // Handle row selection
+  const handleSelectRow = (id: string) => {
+    const newSelected = new Set(selectedRows);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedRows(newSelected);
+  };
+
+  // Handle select all
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allIds = new Set(paginatedRegistrations.map(reg => reg.id));
+      setSelectedRows(allIds);
+    } else {
+      setSelectedRows(new Set());
+    }
+  };
+
+  // Check if all visible rows are selected
+  const allSelected = paginatedRegistrations.length > 0 && 
+    paginatedRegistrations.every(reg => selectedRows.has(reg.id));
+
   // If auth is loading show a full-page loader to avoid flashing before redirect.
   if (isLoading) {
     return (
@@ -1322,6 +1626,7 @@ export default function RegistrationsPage() {
                 <Table>
                   <Thead>
                     <Tr>
+                      <CheckboxTh />
                       <Th>{lang === "zh" ? "业务名称" : "Business Name"}</Th>
                       <Th>{lang === "zh" ? "联系邮箱" : "Contact Email"}</Th>
                       <Th>{lang === "zh" ? "生成时间" : "Generated"}</Th>
@@ -1332,6 +1637,9 @@ export default function RegistrationsPage() {
                   <Tbody>
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Tr key={`skeleton-${i}`}>
+                        <CheckboxTd>
+                          <div style={{ background: '#e9eef6', height: 18, width: 18, borderRadius: 4 }} />
+                        </CheckboxTd>
                         <Td>
                           <div style={{ background: '#e9eef6', height: 16, width: '60%', borderRadius: 8 }} />
                         </Td>
@@ -1357,28 +1665,144 @@ export default function RegistrationsPage() {
                 </Table>
               ) : filteredRegistrations.length === 0 ? (
                 <EmptyState>
-                  <EmptyIcon>📋</EmptyIcon>
-                  <EmptyText>{lang === "zh" ? "暂无记录" : "No records found"}</EmptyText>
+                  <EmptyIcon>
+                    {searchQuery || filterState !== 'all' ? '🔍' : activeTab === 'submitted' ? '✅' : activeTab === 'pending' ? '📝' : '📋'}
+                  </EmptyIcon>
+                  <EmptyText>
+                    {searchQuery || filterState !== 'all' 
+                      ? (lang === "zh" ? "未找到匹配结果" : "No matching results")
+                      : activeTab === 'submitted' 
+                        ? (lang === "zh" ? "暂无待审批" : "No Pending Approvals")
+                        : activeTab === 'pending'
+                          ? (lang === "zh" ? "暂无未填写表单" : "No Unfilled Forms")
+                          : (lang === "zh" ? "暂无记录" : "No Records")}
+                  </EmptyText>
                   <EmptySubtext>
-                    {activeTab === 'submitted' && (lang === "zh" ? "没有待审批的注册" : "No registrations pending approval")}
-                    {activeTab === 'pending' && (lang === "zh" ? "没有未填写的表单" : "No unfilled forms")}
-                    {activeTab === 'all' && (lang === "zh" ? "点击上方按钮生成新表单" : "Click the button above to generate a new form")}
+                    {searchQuery || filterState !== 'all'
+                      ? (lang === "zh" 
+                          ? "尝试调整您的搜索条件或筛选器以查找您要查找的内容"
+                          : "Try adjusting your search terms or filters to find what you're looking for")
+                      : activeTab === 'submitted' 
+                        ? (lang === "zh" ? "目前没有需要审批的注册申请" : "There are currently no registrations awaiting approval")
+                        : activeTab === 'pending'
+                          ? (lang === "zh" ? "所有生成的表单都已填写完成" : "All generated forms have been completed")
+                          : (lang === "zh" ? "点击上方按钮生成新的注册表单" : "Click the button above to generate a new registration form")}
                   </EmptySubtext>
                 </EmptyState>
               ) : (
-                <Table>
-                  <Thead>
-                    <Tr>
-                      <Th>{lang === "zh" ? "业务名称" : "Business Name"}</Th>
-                      <Th>{lang === "zh" ? "联系邮箱" : "Contact Email"}</Th>
-                      <Th>{lang === "zh" ? "生成时间" : "Generated"}</Th>
-                      <Th>{lang === "zh" ? "状态" : "Status"}</Th>
-                      <Th>{lang === "zh" ? "操作" : "Actions"}</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {filteredRegistrations.map(reg => (
+                <>
+                  <BulkActionBar $show={selectedRows.size > 0}>
+                    <BulkActionText>
+                      {selectedRows.size} {lang === "zh" ? "已选择" : "selected"}
+                    </BulkActionText>
+                    <BulkActionButtons>
+                      {activeTab === 'submitted' && (
+                        <>
+                          <ActionButton $variant="approve" onClick={() => {
+                            selectedRows.forEach(id => handleApprove(id));
+                            setSelectedRows(new Set());
+                          }}>
+                            {lang === "zh" ? "批准所选" : "Approve Selected"}
+                          </ActionButton>
+                          <ActionButton $variant="reject" onClick={() => {
+                            const firstId = Array.from(selectedRows)[0];
+                            handleReject(firstId);
+                            setSelectedRows(new Set());
+                          }}>
+                            {lang === "zh" ? "拒绝所选" : "Reject Selected"}
+                          </ActionButton>
+                        </>
+                      )}
+                      {activeTab === 'pending' && (
+                        <ActionButton $variant="reject" onClick={() => {
+                          selectedRows.forEach(id => handleRevoke(id));
+                          setSelectedRows(new Set());
+                        }}>
+                          {lang === "zh" ? "撤销所选" : "Revoke Selected"}
+                        </ActionButton>
+                      )}
+                      {activeTab === 'all' && (
+                        <>
+                          <ActionButton $variant="approve" onClick={() => {
+                            const submittedIds = paginatedRegistrations
+                              .filter(r => selectedRows.has(r.id) && r.status === 'submitted')
+                              .map(r => r.id);
+                            submittedIds.forEach(id => handleApprove(id));
+                            setSelectedRows(new Set());
+                          }}>
+                            {lang === "zh" ? "批准已提交" : "Approve Submitted"}
+                          </ActionButton>
+                          <ActionButton $variant="reject" onClick={() => {
+                            const pendingIds = paginatedRegistrations
+                              .filter(r => selectedRows.has(r.id) && r.status === 'pending')
+                              .map(r => r.id);
+                            pendingIds.forEach(id => handleRevoke(id));
+                            setSelectedRows(new Set());
+                          }}>
+                            {lang === "zh" ? "撤销未填写" : "Revoke Pending"}
+                          </ActionButton>
+                        </>
+                      )}
+                    </BulkActionButtons>
+                  </BulkActionBar>
+                  
+                  <Table>
+                    <Thead>
+                      <Tr>
+                        <CheckboxTh>
+                          <Checkbox
+                            checked={allSelected}
+                            onChange={(e) => handleSelectAll(e.target.checked)}
+                          />
+                        </CheckboxTh>
+                        <SortableHeader 
+                          $active={sortField === 'businessName'}
+                          onClick={() => handleSort('businessName')}
+                        >
+                          {lang === "zh" ? "业务名称" : "Business Name"}
+                          <SortIcon $direction={sortField === 'businessName' ? sortDirection : undefined}>
+                            {sortField === 'businessName' && sortDirection === 'asc' ? '↑' : '↓'}
+                          </SortIcon>
+                        </SortableHeader>
+                        <SortableHeader 
+                          $active={sortField === 'contactEmail'}
+                          onClick={() => handleSort('contactEmail')}
+                        >
+                          {lang === "zh" ? "联系邮箱" : "Contact Email"}
+                          <SortIcon $direction={sortField === 'contactEmail' ? sortDirection : undefined}>
+                            {sortField === 'contactEmail' && sortDirection === 'asc' ? '↑' : '↓'}
+                          </SortIcon>
+                        </SortableHeader>
+                        <SortableHeader 
+                          $active={sortField === 'submittedAt'}
+                          onClick={() => handleSort('submittedAt')}
+                        >
+                          {lang === "zh" ? "生成时间" : "Generated"}
+                          <SortIcon $direction={sortField === 'submittedAt' ? sortDirection : undefined}>
+                            {sortField === 'submittedAt' && sortDirection === 'asc' ? '↑' : '↓'}
+                          </SortIcon>
+                        </SortableHeader>
+                        <SortableHeader 
+                          $active={sortField === 'status'}
+                          onClick={() => handleSort('status')}
+                        >
+                          {lang === "zh" ? "状态" : "Status"}
+                          <SortIcon $direction={sortField === 'status' ? sortDirection : undefined}>
+                            {sortField === 'status' && sortDirection === 'asc' ? '↑' : '↓'}
+                          </SortIcon>
+                        </SortableHeader>
+                        <Th>{lang === "zh" ? "操作" : "Actions"}</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {paginatedRegistrations.map(reg => (
                       <Tr key={reg.id}>
+                        <CheckboxTd>
+                          <Checkbox
+                            checked={selectedRows.has(reg.id)}
+                            onChange={() => handleSelectRow(reg.id)}
+                          />
+                        </CheckboxTd>
                         <Td>{reg.businessName || '-'}</Td>
                         <Td>{reg.contactEmail || '-'}</Td>
                         <Td>
@@ -1431,6 +1855,57 @@ export default function RegistrationsPage() {
                     ))}
                   </Tbody>
                 </Table>
+                
+                {filteredRegistrations.length > 0 && (
+                  <PaginationContainer>
+                    <PaginationInfo>
+                      {lang === "zh" 
+                        ? `显示 ${startIndex + 1}-${Math.min(startIndex + itemsPerPage, sortedRegistrations.length)} 条，共 ${sortedRegistrations.length} 条`
+                        : `Showing ${startIndex + 1}-${Math.min(startIndex + itemsPerPage, sortedRegistrations.length)} of ${sortedRegistrations.length}`
+                      }
+                    </PaginationInfo>
+                    <PaginationControls>
+                      <PageButton 
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        $disabled={currentPage === 1}
+                        disabled={currentPage === 1}
+                      >
+                        {lang === "zh" ? "上一页" : "Previous"}
+                      </PageButton>
+                      
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
+                        // Show first page, last page, current page, and pages around current
+                        if (
+                          page === 1 ||
+                          page === totalPages ||
+                          (page >= currentPage - 1 && page <= currentPage + 1)
+                        ) {
+                          return (
+                            <PageButton
+                              key={page}
+                              $active={page === currentPage}
+                              onClick={() => handlePageChange(page)}
+                            >
+                              {page}
+                            </PageButton>
+                          );
+                        } else if (page === currentPage - 2 || page === currentPage + 2) {
+                          return <span key={page} style={{ padding: '0 0.25rem' }}>...</span>;
+                        }
+                        return null;
+                      })}
+                      
+                      <PageButton 
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        $disabled={currentPage === totalPages}
+                        disabled={currentPage === totalPages}
+                      >
+                        {lang === "zh" ? "下一页" : "Next"}
+                      </PageButton>
+                    </PaginationControls>
+                  </PaginationContainer>
+                )}
+              </>
               )}
             </TabContent>
           </TabContainer>
