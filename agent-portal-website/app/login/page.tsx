@@ -468,6 +468,14 @@ export default function LoginPage() {
       if (savedRole === 'admin') {
         setRoleState('admin');
       }
+      
+      // Load saved email if remember me was checked
+      const savedEmail = localStorage.getItem('rememberedEmail');
+      const wasRemembered = localStorage.getItem('rememberMe') === 'true';
+      if (savedEmail && wasRemembered) {
+        setEmail(savedEmail);
+        setRememberMe(true);
+      }
     }
   }, []);
 
@@ -523,6 +531,15 @@ export default function LoginPage() {
         setToken(userToken);
         setUserEmail(email);
         setRole(role);
+        
+        // Handle remember me functionality
+        if (rememberMe) {
+          localStorage.setItem('rememberedEmail', email);
+          localStorage.setItem('rememberMe', 'true');
+        } else {
+          localStorage.removeItem('rememberedEmail');
+          localStorage.removeItem('rememberMe');
+        }
         
         // Clear the saved role from sessionStorage on successful login
         sessionStorage.removeItem('loginRole');
