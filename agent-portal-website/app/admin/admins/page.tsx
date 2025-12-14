@@ -356,6 +356,47 @@ const LoadingText = styled.div`
   padding: 4rem;
 `;
 
+const SkeletonRow = styled.tr`
+  border-bottom: 1px solid #e0e7ef;
+`;
+
+const SkeletonCell = styled.td`
+  padding: 1rem;
+  
+  @media (max-width: 968px) {
+    padding: 0.75rem 0.5rem;
+  }
+`;
+
+const SkeletonBox = styled.div<{ width?: string; height?: string }>`
+  height: ${p => p.height || '16px'};
+  width: ${p => p.width || '100%'};
+  background: linear-gradient(90deg, #e0e7ef 25%, #f0f4f8 50%, #e0e7ef 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+`;
+
+const SkeletonButton = styled.div`
+  display: inline-block;
+  height: 32px;
+  width: 60px;
+  background: linear-gradient(90deg, #e0e7ef 25%, #f0f4f8 50%, #e0e7ef 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+  margin-right: 0.5rem;
+`;
+
 const PlusIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <line x1="12" y1="5" x2="12" y2="19"/>
@@ -478,9 +519,56 @@ export default function AdminManagementPage() {
 
   if (isLoading) {
     return (
-      <Container>
-        <LoadingText>Loading...</LoadingText>
-      </Container>
+      <MainLayout currentPage={lang === "zh" ? "管理员管理" : "Admin Management"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
+        <Container>
+          <AdminSidebar mobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+          <MainContent>
+            <ContentHeader>
+              <HeaderLeft>
+                <SkeletonBox width="200px" height="32px" style={{ marginBottom: '0.5rem' }} />
+                <SkeletonBox width="350px" height="16px" />
+              </HeaderLeft>
+              <SkeletonBox width="140px" height="48px" />
+            </ContentHeader>
+
+            <SearchFilterContainer>
+              <SkeletonBox width="100%" height="42px" />
+            </SearchFilterContainer>
+
+            <TableContainer>
+              <TableWrapper>
+                <Table>
+                  <Thead>
+                    <Tr>
+                      <Th>{lang === "zh" ? "姓名" : "Name"}</Th>
+                      <Th>{lang === "zh" ? "邮箱" : "Email"}</Th>
+                      <Th>{lang === "zh" ? "用户名" : "Username"}</Th>
+                      <Th>{lang === "zh" ? "电话" : "Phone"}</Th>
+                      <Th>{lang === "zh" ? "创建时间" : "Created At"}</Th>
+                      <Th>{lang === "zh" ? "操作" : "Actions"}</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <SkeletonRow key={i}>
+                        <SkeletonCell><SkeletonBox width="120px" /></SkeletonCell>
+                        <SkeletonCell><SkeletonBox width="180px" /></SkeletonCell>
+                        <SkeletonCell><SkeletonBox width="100px" /></SkeletonCell>
+                        <SkeletonCell><SkeletonBox width="110px" /></SkeletonCell>
+                        <SkeletonCell><SkeletonBox width="90px" /></SkeletonCell>
+                        <SkeletonCell>
+                          <SkeletonButton />
+                          <SkeletonButton />
+                        </SkeletonCell>
+                      </SkeletonRow>
+                    ))}
+                  </Tbody>
+                </Table>
+              </TableWrapper>
+            </TableContainer>
+          </MainContent>
+        </Container>
+      </MainLayout>
     );
   }
 

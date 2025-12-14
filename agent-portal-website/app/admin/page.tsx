@@ -137,6 +137,93 @@ const LoadingText = styled.div`
   padding: 4rem;
 `;
 
+const SkeletonCard = styled.div`
+  background: white;
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(30, 64, 175, 0.08);
+  animation: pulse 1.5s ease-in-out infinite;
+  
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+  }
+`;
+
+const SkeletonIcon = styled.div`
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #e0e7ef 25%, #f0f4f8 50%, #e0e7ef 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  margin-bottom: 1.25rem;
+  
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+`;
+
+const SkeletonTitle = styled.div`
+  height: 24px;
+  width: 70%;
+  background: linear-gradient(90deg, #e0e7ef 25%, #f0f4f8 50%, #e0e7ef 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+`;
+
+const SkeletonDescription = styled.div`
+  height: 14px;
+  width: 100%;
+  background: linear-gradient(90deg, #e0e7ef 25%, #f0f4f8 50%, #e0e7ef 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  
+  &:last-child {
+    width: 80%;
+  }
+`;
+
+const SkeletonHeader = styled.div`
+  background: white;
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(30, 64, 175, 0.08);
+  margin-bottom: 2rem;
+`;
+
+const SkeletonHeaderTitle = styled.div`
+  height: 32px;
+  width: 250px;
+  background: linear-gradient(90deg, #e0e7ef 25%, #f0f4f8 50%, #e0e7ef 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+`;
+
+const SkeletonHeaderDesc = styled.div`
+  height: 16px;
+  width: 400px;
+  background: linear-gradient(90deg, #e0e7ef 25%, #f0f4f8 50%, #e0e7ef 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+`;
+
 const Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -229,9 +316,28 @@ export default function AdminDashboard() {
 
   if (isLoading) {
     return (
-      <Container>
-        <LoadingText>{t("loading")}</LoadingText>
-      </Container>
+      <MainLayout currentPage={lang === "zh" ? "首页" : "Home"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
+        <Container>
+          <AdminSidebar mobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+          <MainContent>
+            <SkeletonHeader>
+              <SkeletonHeaderTitle />
+              <SkeletonHeaderDesc />
+            </SkeletonHeader>
+
+            <Grid>
+              {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                <SkeletonCard key={i}>
+                  <SkeletonIcon />
+                  <SkeletonTitle />
+                  <SkeletonDescription />
+                  <SkeletonDescription />
+                </SkeletonCard>
+              ))}
+            </Grid>
+          </MainContent>
+        </Container>
+      </MainLayout>
     );
   }
 

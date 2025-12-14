@@ -257,6 +257,49 @@ const LoadingText = styled.div`
   padding: 4rem;
 `;
 
+const SkeletonBox = styled.div<{ width?: string; height?: string; margin?: string }>`
+  height: ${p => p.height || '16px'};
+  width: ${p => p.width || '100%'};
+  margin: ${p => p.margin || '0'};
+  background: linear-gradient(90deg, #e0e7ef 25%, #f0f4f8 50%, #e0e7ef 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+`;
+
+const SkeletonStatCard = styled.div`
+  background: white;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 2px 8px rgba(30, 64, 175, 0.06);
+`;
+
+const SkeletonBusinessCard = styled.div`
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(30, 64, 175, 0.06);
+  animation: pulse 1.5s ease-in-out infinite;
+  
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+  }
+`;
+
 const StatsContainer = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -406,9 +449,44 @@ export default function BusinessManagementPage() {
 
   if (isLoading) {
     return (
-      <Container>
-        <LoadingText>{t("loading")}</LoadingText>
-      </Container>
+      <MainLayout currentPage={t("businessManagement")} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
+        <Container>
+          <AdminSidebar mobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+          <MainContent>
+            <ContentHeader>
+              <SkeletonBox width="250px" height="32px" margin="0 0 0.5rem 0" />
+              <SkeletonBox width="450px" height="16px" />
+            </ContentHeader>
+
+            <StatsContainer>
+              {[1, 2, 3, 4].map((i) => (
+                <SkeletonStatCard key={i}>
+                  <SkeletonBox width="100px" height="14px" margin="0 0 0.5rem 0" />
+                  <SkeletonBox width="60px" height="32px" />
+                </SkeletonStatCard>
+              ))}
+            </StatsContainer>
+
+            <SearchFilterContainer>
+              <SkeletonBox height="42px" />
+              <SkeletonBox width="150px" height="42px" />
+              <SkeletonBox width="150px" height="42px" />
+            </SearchFilterContainer>
+
+            <BusinessGrid>
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <SkeletonBusinessCard key={i}>
+                  <SkeletonBox width="70%" height="24px" margin="0 0 1rem 0" />
+                  <SkeletonBox width="100%" height="14px" margin="0 0 0.5rem 0" />
+                  <SkeletonBox width="100%" height="14px" margin="0 0 0.5rem 0" />
+                  <SkeletonBox width="80%" height="14px" margin="0 0 1rem 0" />
+                  <SkeletonBox width="80px" height="24px" />
+                </SkeletonBusinessCard>
+              ))}
+            </BusinessGrid>
+          </MainContent>
+        </Container>
+      </MainLayout>
     );
   }
 
@@ -482,7 +560,17 @@ export default function BusinessManagementPage() {
           </SearchFilterContainer>
 
           {isLoadingData ? (
-            <LoadingText>{lang === "zh" ? "加载中..." : "Loading..."}</LoadingText>
+            <BusinessGrid>
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <SkeletonBusinessCard key={i}>
+                  <SkeletonBox width="70%" height="24px" margin="0 0 1rem 0" />
+                  <SkeletonBox width="100%" height="14px" margin="0 0 0.5rem 0" />
+                  <SkeletonBox width="100%" height="14px" margin="0 0 0.5rem 0" />
+                  <SkeletonBox width="80%" height="14px" margin="0 0 1rem 0" />
+                  <SkeletonBox width="80px" height="24px" />
+                </SkeletonBusinessCard>
+              ))}
+            </BusinessGrid>
           ) : businesses.length === 0 ? (
             <EmptyState>
               <EmptyIcon>🏢</EmptyIcon>

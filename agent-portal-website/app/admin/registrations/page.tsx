@@ -6,6 +6,7 @@ import styled from "styled-components";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { useToast } from "@/context/ToastContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../components/layout/AdminSidebar";
 import { getApiUrl, API_CONFIG } from "@/config/api";
@@ -781,6 +782,7 @@ export default function RegistrationsPage() {
   const router = useRouter();
   const { token, role, isLoading, customers: authCustomers, fetchCustomers: fetchCustomersFromAuth, userEmail, adminProfile } = useAuth();
   const { lang } = useLanguage();
+  const { showToast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'pending' | 'submitted' | 'all'>('submitted');
   const [showGenerateModal, setShowGenerateModal] = useState(false);
@@ -806,6 +808,8 @@ export default function RegistrationsPage() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [registrationToReject, setRegistrationToReject] = useState<string | null>(null);
   const [approveError, setApproveError] = useState('');
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [registrationToApprove, setRegistrationToApprove] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && !token) {
@@ -955,11 +959,14 @@ export default function RegistrationsPage() {
           setIsEditMode(false);
           // Refresh the list
           fetchRegistrationData();
+          showToast(lang === 'zh' ? '保存成功！' : 'Saved successfully!', 'success');
         } else {
           console.error('Failed to save:', response.error);
+          showToast('Failed to save changes', 'error');
         }
       } catch (error) {
         console.error('Failed to save registration:', error);
+        showToast('Failed to save changes', 'error');
       }
     }
   };
@@ -1040,7 +1047,7 @@ export default function RegistrationsPage() {
     }, 2000);
   };
 
-  const handleApprove = async (id: string) => {
+  const handleApprove = (id: string) => {
     // Check if customer is linked when approving from details modal (only when viewing in modal)
     if (selectedRegistration?.id === id && showDetailsModal && !selectedCustomerId) {
       setApproveError(lang === 'zh' ? '请先关联客户后再批准' : 'Please link a customer before approving');
@@ -1050,7 +1057,15 @@ export default function RegistrationsPage() {
     // Clear any previous error
     setApproveError('');
     
-    if (confirm(lang === 'zh' ? '确定要批准此注册吗？' : 'Are you sure you want to approve this registration?')) {
+    // Show confirmation modal
+    setRegistrationToApprove(id);
+    setShowApproveModal(true);
+  };
+
+  const handleConfirmApprove = async () => {
+    if (!registrationToApprove) return;
+    
+    const id = registrationToApprove;
       try {
         // Save the linked customer ID before approving
         const linkedCustomer = selectedCustomerId;
@@ -1085,7 +1100,7 @@ export default function RegistrationsPage() {
               }
             } catch (err) {
               console.error('Failed to link customer before approval:', err);
-              alert('Failed to link customer. Please try again.');
+              showToast('Failed to link customer. Please try again.', 'error');
               return;
             }
           }
@@ -1101,14 +1116,14 @@ export default function RegistrationsPage() {
             if (response.data && response.data.success) {
               // Refresh the list
               fetchRegistrationData();
-              alert(lang === 'zh' ? '批准成功！' : 'Approved successfully!');
+              showToast(lang === 'zh' ? '批准成功！' : 'Approved successfully!', 'success');
               if (selectedRegistration?.id === id) setShowDetailsModal(false);
             } else {
-              alert(response.data?.error || 'Failed to approve');
+              showToast(response.data?.error || 'Failed to approve', 'error');
             }
           } catch (err) {
             console.error('Failed to approve via API:', err);
-            alert('Failed to approve. Please try again.');
+            showToast('Failed to approve. Please try again.', 'error');
           }
         } else {
           // Fallback to mock API for local dev
@@ -1128,20 +1143,21 @@ export default function RegistrationsPage() {
 
             // Refresh the list
             fetchRegistrationData();
-            alert(lang === 'zh' ? '批准成功！' : 'Approved successfully!');
-            // Close details modal if open
+            showToast(lang === 'zh' ? '批准成功！' : 'Approved successfully!', 'success');
+            // Close modals
+            setShowApproveModal(false);
+            setRegistrationToApprove(null);
             if (selectedRegistration?.id === id) {
               setShowDetailsModal(false);
             }
           } else {
-            alert(response.error || 'Failed to approve');
+            showToast(response.error || 'Failed to approve', 'error');
           }
         }
       } catch (error) {
         console.error('Failed to approve registration:', error);
-        alert('Failed to approve. Please try again.');
+        showToast('Failed to approve. Please try again.', 'error');
       }
-    }
   };
 
   const handleReject = async (id: string) => {
@@ -1161,6 +1177,7 @@ export default function RegistrationsPage() {
       if (response.success) {
         // Refresh the list
         fetchRegistrationData();
+        showToast(lang === 'zh' ? '已拒绝' : 'Rejected successfully', 'success');
         // Close modals
         setShowRejectModal(false);
         if (selectedRegistration?.id === registrationToReject) {
@@ -1169,11 +1186,11 @@ export default function RegistrationsPage() {
         setRegistrationToReject(null);
         setRejectionReason('');
       } else {
-        alert(response.error || 'Failed to reject');
+        showToast(response.error || 'Failed to reject', 'error');
       }
     } catch (error) {
       console.error('Failed to reject registration:', error);
-      alert('Failed to reject. Please try again.');
+      showToast('Failed to reject. Please try again.', 'error');
     }
   };
 
@@ -1187,17 +1204,17 @@ export default function RegistrationsPage() {
         if (response.success) {
           // Refresh the list
           fetchRegistrationData();
-          alert(lang === 'zh' ? '已撤销！' : 'Revoked successfully!');
+          showToast(lang === 'zh' ? '已撤销！' : 'Revoked successfully!', 'success');
           // Close details modal if open
           if (selectedRegistration?.id === id) {
             setShowDetailsModal(false);
           }
         } else {
-          alert(response.error || 'Failed to revoke');
+          showToast(response.error || 'Failed to revoke', 'error');
         }
       } catch (error) {
         console.error('Failed to revoke registration:', error);
-        alert('Failed to revoke. Please try again.');
+        showToast('Failed to revoke. Please try again.', 'error');
       }
     }
   };
@@ -2200,65 +2217,65 @@ export default function RegistrationsPage() {
             )}
           </ModalActions>
         </ModalContent>
-        
-        {/* Reject Modal Overlay */}
-        {showRejectModal && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: 'rgba(0, 0, 0, 0.6)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 10,
-              padding: '1rem'
-            }}
-            onClick={() => setShowRejectModal(false)}
-          >
-            <div
-              onClick={e => e.stopPropagation()}
-              style={{
-                background: 'white',
-                borderRadius: '16px',
-                padding: '2rem',
-                maxWidth: '600px',
-                width: '100%',
-                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
-              }}
-            >
-              <ModalTitle>{lang === 'zh' ? '拒绝注册' : 'Reject Registration'}</ModalTitle>
-              <ModalText>
-                {lang === 'zh' 
-                  ? '请输入拒绝原因（可选）：'
-                  : 'Enter rejection reason (optional):'}
-              </ModalText>
-              <EditTextarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder={lang === 'zh' ? '拒绝原因...' : 'Rejection reason...'}
-                rows={3}
-                style={{ width: '100%', marginBottom: '1.5rem' }}
-              />
-              <ModalActions>
-                <ModalButton onClick={() => {
-                  setShowRejectModal(false);
-                  setRegistrationToReject(null);
-                  setRejectionReason('');
-                }}>
-                  {lang === 'zh' ? '取消' : 'Cancel'}
-                </ModalButton>
-                <ModalButton $primary onClick={handleConfirmReject} style={{ background: '#ef4444' }}>
-                  {lang === 'zh' ? '确认拒绝' : 'Confirm Reject'}
-                </ModalButton>
-              </ModalActions>
-            </div>
-          </div>
-        )}
       </Modal>
+
+      {/* Reject Modal - Independent */}
+      {showRejectModal && (
+        <Modal $show={showRejectModal} onClick={() => setShowRejectModal(false)}>
+          <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+            <ModalTitle>{lang === 'zh' ? '拒绝注册' : 'Reject Registration'}</ModalTitle>
+            <ModalText>
+              {lang === 'zh' 
+                ? '请输入拒绝原因（可选）：'
+                : 'Enter rejection reason (optional):'}
+            </ModalText>
+            <EditTextarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder={lang === 'zh' ? '拒绝原因...' : 'Rejection reason...'}
+              rows={3}
+              style={{ width: '100%', marginBottom: '1.5rem' }}
+            />
+            <ModalActions>
+              <ModalButton onClick={() => {
+                setShowRejectModal(false);
+                setRegistrationToReject(null);
+                setRejectionReason('');
+              }}>
+                {lang === 'zh' ? '取消' : 'Cancel'}
+              </ModalButton>
+              <ModalButton $primary onClick={handleConfirmReject} style={{ background: '#ef4444' }}>
+                {lang === 'zh' ? '确认拒绝' : 'Confirm Reject'}
+              </ModalButton>
+            </ModalActions>
+          </ModalContent>
+        </Modal>
+      )}
+
+      {/* Approve Confirmation Modal - Independent */}
+      {showApproveModal && (
+        <Modal $show={showApproveModal} onClick={() => setShowApproveModal(false)}>
+          <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <ModalTitle>{lang === 'zh' ? '批准注册' : 'Approve Registration'}</ModalTitle>
+            <ModalText>
+              {lang === 'zh' 
+                ? '确定要批准此注册吗？'
+                : 'Are you sure you want to approve this registration?'}
+            </ModalText>
+            <ModalActions>
+              <ModalButton onClick={() => {
+                setShowApproveModal(false);
+                setRegistrationToApprove(null);
+              }}>
+                {lang === 'zh' ? '取消' : 'Cancel'}
+              </ModalButton>
+              <ModalButton $primary onClick={handleConfirmApprove} style={{ background: '#10b981' }}>
+                {lang === 'zh' ? '确认批准' : 'Confirm Approve'}
+              </ModalButton>
+            </ModalActions>
+          </ModalContent>
+        </Modal>
+      )}
     </MainLayout>
   );
 }
