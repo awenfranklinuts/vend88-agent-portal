@@ -250,16 +250,37 @@ const Button = styled.button`
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   margin-top: 0.5rem;
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+  
+  &:active:not(:disabled)::before {
+    width: 300px;
+    height: 300px;
+  }
   
   &:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(59,130,246,0.24);
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 12px 28px rgba(59,130,246,0.3);
+    background: #2563eb;
   }
   
   &:active:not(:disabled) {
-    transform: translateY(0);
+    transform: translateY(0) scale(0.98);
   }
   
   &:disabled {
@@ -368,13 +389,28 @@ const LangButton = styled.button`
   cursor: pointer;
   font-weight: 600;
   color: #2b7be3;
-  transition: all 200ms ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 0.9rem;
+  position: relative;
+  overflow: hidden;
+  
+  svg {
+    transition: transform 0.3s ease;
+  }
   
   &:hover {
     border-color: #2b7be3;
     box-shadow: 0 4px 12px rgba(43,123,227,0.15);
     transform: translateY(-2px);
+    background: rgba(43,123,227,0.05);
+  }
+  
+  &:hover svg {
+    transform: rotate(180deg) scale(1.1);
+  }
+  
+  &:active {
+    transform: translateY(0) scale(0.98);
   }
 `;
 
@@ -404,14 +440,36 @@ const MenuItem = styled.button<{ $active: boolean }>`
   text-align: left;
   cursor: pointer;
   font-weight: ${p => p.$active ? '700' : '500'};
-  transition: background 150ms ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   gap: 0.5rem;
   font-size: 0.9rem;
+  position: relative;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #2b7be3;
+    transform: scaleY(0);
+    transition: transform 0.2s ease;
+  }
   
   &:hover {
     background: rgba(43,123,227,0.08);
+    padding-left: 1.25rem;
+  }
+  
+  &:hover::before {
+    transform: scaleY(1);
+  }
+  
+  &:active {
+    background: rgba(43,123,227,0.15);
   }
   
   &:not(:last-child) {

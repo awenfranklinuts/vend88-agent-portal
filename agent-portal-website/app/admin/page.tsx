@@ -235,10 +235,27 @@ const Card = styled.div`
   padding: 2rem;
   border-radius: 16px;
   box-shadow: 0 4px 16px rgba(30, 64, 175, 0.08);
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   border: 2px solid transparent;
   animation: cardFadeIn 0.6s ease both;
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0, 234, 255, 0.1), transparent);
+    transition: left 0.5s ease;
+  }
+  
+  &:hover::before {
+    left: 100%;
+  }
   
   @keyframes cardFadeIn {
     from {
@@ -260,9 +277,13 @@ const Card = styled.div`
   &:nth-child(7) { animation-delay: 0.7s; }
 
   &:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 32px rgba(30, 64, 175, 0.15);
-    border-color: rgba(0, 234, 255, 0.3);
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 16px 40px rgba(30, 64, 175, 0.2);
+    border-color: rgba(0, 234, 255, 0.4);
+  }
+  
+  &:active {
+    transform: translateY(-4px) scale(1.01);
   }
 `;
 
@@ -276,6 +297,12 @@ const CardIcon = styled.div`
   justify-content: center;
   margin-bottom: 1.25rem;
   color: #1a237e;
+  transition: all 0.3s ease;
+  
+  ${Card}:hover & {
+    transform: rotate(10deg) scale(1.1);
+    background: linear-gradient(135deg, rgba(26, 35, 126, 0.15) 0%, rgba(0, 234, 255, 0.15) 100%);
+  }
   
   svg {
     width: 28px;

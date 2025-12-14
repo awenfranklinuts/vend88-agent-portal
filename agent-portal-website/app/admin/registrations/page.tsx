@@ -143,16 +143,27 @@ const SearchInput = styled.input`
   border-radius: 8px;
   font-size: 0.9375rem;
   color: #0a3655;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   
   &:focus {
     outline: none;
     border-color: #1a237e;
-    box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.1);
+    box-shadow: 0 0 0 4px rgba(26, 35, 126, 0.12);
+    transform: translateY(-2px);
+  }
+  
+  &:hover {
+    border-color: #1a237e;
+    box-shadow: 0 2px 8px rgba(26, 35, 126, 0.08);
   }
   
   &::placeholder {
     color: #9ca3af;
+    transition: color 0.2s ease;
+  }
+  
+  &:focus::placeholder {
+    color: #d1d5db;
   }
   
   @media (max-width: 968px) {
@@ -168,13 +179,19 @@ const FilterSelect = styled.select`
   color: #0a3655;
   background: white;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   min-width: 150px;
   
   &:focus {
     outline: none;
     border-color: #1a237e;
-    box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.1);
+    box-shadow: 0 0 0 4px rgba(26, 35, 126, 0.12);
+    transform: translateY(-2px);
+  }
+  
+  &:hover {
+    border-color: #1a237e;
+    box-shadow: 0 2px 8px rgba(26, 35, 126, 0.08);
   }
   
   @media (max-width: 968px) {
@@ -241,12 +258,18 @@ const TabButton = styled.button<{ $active: boolean }>`
   font-size: 1rem;
   font-weight: ${p => p.$active ? '600' : '500'};
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   white-space: nowrap;
   
   &:hover {
     background: rgba(26, 35, 126, 0.05);
+    color: #1a237e;
+    transform: translateY(-2px);
+  }
+  
+  &:active {
+    transform: translateY(0);
   }
   
   ${p => p.$active && `
@@ -258,6 +281,18 @@ const TabButton = styled.button<{ $active: boolean }>`
       right: 0;
       height: 2px;
       background: #3b82f6;
+      animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+      from {
+        width: 0;
+        left: 50%;
+      }
+      to {
+        width: 100%;
+        left: 0;
+      }
     }
   `}
   
@@ -355,6 +390,12 @@ const StatusBadge = styled.span<{ $status: string }>`
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
+  transition: all 0.3s ease;
+  cursor: default;
+  
+  &:hover {
+    transform: scale(1.05);
+  }
   
   ${p => {
     switch(p.$status) {
@@ -383,9 +424,29 @@ const ActionButton = styled.button<{ $variant?: 'approve' | 'reject' | 'view' }>
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   margin-right: 0.5rem;
   white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+  
+  &:active::before {
+    width: 200px;
+    height: 200px;
+  }
   
   ${p => {
     switch(p.$variant) {
@@ -393,19 +454,40 @@ const ActionButton = styled.button<{ $variant?: 'approve' | 'reject' | 'view' }>
         return `
           background: #d1fae5;
           color: #065f46;
-          &:hover { background: #a7f3d0; }
+          &:hover { 
+            background: #a7f3d0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+          }
+          &:active {
+            transform: translateY(0);
+          }
         `;
       case 'reject':
         return `
           background: #fee2e2;
           color: #991b1b;
-          &:hover { background: #fecaca; }
+          &:hover { 
+            background: #fecaca;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+          }
+          &:active {
+            transform: translateY(0);
+          }
         `;
       default:
         return `
           background: #dbeafe;
           color: #1e40af;
-          &:hover { background: #bfdbfe; }
+          &:hover { 
+            background: #bfdbfe;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+          }
+          &:active {
+            transform: translateY(0);
+          }
         `;
     }
   }}
@@ -554,25 +636,52 @@ const ModalButton = styled.button<{ $primary?: boolean }>`
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+  
+  &:active::before {
+    width: 300px;
+    height: 300px;
+  }
   
   ${p => p.$primary ? `
     background: #3b82f6;
     color: white;
     &:hover {
       background: #2563eb;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 8px 20px rgba(59, 130, 246, 0.35);
+    }
+    &:active {
+      transform: translateY(0) scale(0.98);
     }
   ` : `
     background: #e5e7eb;
     color: #374151;
     &:hover {
       background: #d1d5db;
+      transform: translateY(-1px);
+    }
+    &:active {
+      transform: translateY(0) scale(0.98);
     }
   `}
   
@@ -922,6 +1031,28 @@ const Checkbox = styled.input.attrs({ type: 'checkbox' })`
   height: 18px;
   cursor: pointer;
   accent-color: #3b82f6;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    transform: scale(1.2);
+  }
+  
+  &:active {
+    transform: scale(0.9);
+  }
+  
+  &:checked {
+    animation: checkBounce 0.3s ease;
+  }
+  
+  @keyframes checkBounce {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.2);
+    }
+  }
 `;
 
 const PaginationContainer = styled.div`
@@ -959,11 +1090,37 @@ const PageButton = styled.button<{ $active?: boolean; $disabled?: boolean }>`
   font-weight: 500;
   cursor: ${p => p.$disabled ? 'not-allowed' : 'pointer'};
   opacity: ${p => p.$disabled ? 0.5 : 1};
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: ${p => p.$active ? 'rgba(255, 255, 255, 0.3)' : 'rgba(59, 130, 246, 0.1)'};
+    transform: translate(-50%, -50%);
+    transition: width 0.4s, height 0.4s;
+  }
+  
+  &:active:not(:disabled)::before {
+    width: 100px;
+    height: 100px;
+  }
   
   &:hover:not(:disabled) {
     background: ${p => p.$active ? '#2563eb' : '#f7faff'};
     border-color: ${p => p.$active ? '#2563eb' : '#3b82f6'};
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.2);
+  }
+  
+  &:active:not(:disabled) {
+    transform: translateY(0) scale(0.95);
   }
 `;
 
@@ -1731,6 +1888,16 @@ export default function RegistrationsPage() {
                             setSelectedRows(new Set());
                           }}>
                             {lang === "zh" ? "批准已提交" : "Approve Submitted"}
+                          </ActionButton>
+                          <ActionButton $variant="reject" onClick={() => {
+                            const submittedIds = paginatedRegistrations
+                              .filter(r => selectedRows.has(r.id) && r.status === 'submitted')
+                              .map(r => r.id);
+                            const firstId = Array.from(submittedIds)[0];
+                            if (firstId) handleReject(firstId);
+                            setSelectedRows(new Set());
+                          }}>
+                            {lang === "zh" ? "拒绝已提交" : "Reject Submitted"}
                           </ActionButton>
                           <ActionButton $variant="reject" onClick={() => {
                             const pendingIds = paginatedRegistrations
