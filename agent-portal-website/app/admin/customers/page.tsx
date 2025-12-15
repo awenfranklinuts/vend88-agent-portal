@@ -50,6 +50,45 @@ const PageDescription = styled.p`
   color: #5c6b7a;
 `;
 
+const StatsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  
+  @media (max-width: 968px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const StatCard = styled.div`
+  background: white;
+  padding: 1.5rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(30, 64, 175, 0.08);
+  transition: all 0.3s ease;
+  
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(59, 130, 246, 0.15);
+  }
+`;
+
+const StatValue = styled.div`
+  font-size: 2rem;
+  font-weight: 700;
+  color: #3b82f6;
+  margin-bottom: 0.5rem;
+`;
+
+const StatLabel = styled.div`
+  font-size: 0.875rem;
+  color: #5c6b7a;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
 const SearchBar = styled.div`
   background: white;
   padding: 1.5rem;
@@ -58,8 +97,131 @@ const SearchBar = styled.div`
   margin-bottom: 1.5rem;
 `;
 
+const SearchRow = styled.div`
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  
+  @media (max-width: 968px) {
+    flex-direction: column;
+  }
+`;
+
+const AdvancedSearchToggle = styled.button`
+  padding: 0.5rem 1rem;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 8px;
+  color: #374151;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: #e5e7eb;
+  }
+`;
+
+const AdvancedSearchPanel = styled.div<{ $show: boolean }>`
+  display: ${p => p.$show ? 'grid' : 'none'};
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e7ef;
+`;
+
+const ControlBar = styled.div`
+  background: white;
+  padding: 1rem 1.5rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(30, 64, 175, 0.08);
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+`;
+
+const ControlGroup = styled.div`
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  
+  @media (max-width: 968px) {
+    width: 100%;
+    justify-content: space-between;
+  }
+`;
+
+const Select = styled.select`
+  padding: 0.5rem 1rem;
+  border: 2px solid #e0e7ef;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #0a3655;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+  }
+`;
+
+const ViewToggle = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  background: #f3f4f6;
+  padding: 0.25rem;
+  border-radius: 8px;
+`;
+
+const ViewButton = styled.button<{ $active: boolean }>`
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  background: ${p => p.$active ? '#3b82f6' : 'transparent'};
+  color: ${p => p.$active ? 'white' : '#5c6b7a'};
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  
+  &:hover {
+    background: ${p => p.$active ? '#2563eb' : '#e5e7eb'};
+  }
+`;
+
+const ExportButton = styled.button`
+  padding: 0.5rem 1rem;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  
+  &:hover {
+    background: #059669;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  }
+`;
+
 const SearchInput = styled.input`
-  width: 100%;
+  flex: 1;
   padding: 0.75rem 1rem;
   border: 2px solid #e0e7ef;
   border-radius: 8px;
@@ -81,6 +243,80 @@ const SearchInput = styled.input`
   
   &::placeholder {
     color: #9ca3af;
+  }
+`;
+
+const TableContainer = styled.div`
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(30, 64, 175, 0.08);
+  overflow: hidden;
+`;
+
+const Table = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+`;
+
+const Thead = styled.thead`
+  background: #f7faff;
+`;
+
+const Th = styled.th`
+  padding: 1rem;
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0a3655;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s ease;
+  
+  &:hover {
+    background: #e0e7ef;
+  }
+`;
+
+const Tbody = styled.tbody``;
+
+const Tr = styled.tr`
+  border-bottom: 1px solid #e0e7ef;
+  transition: background 0.2s ease;
+  
+  &:hover {
+    background: #f7faff;
+  }
+`;
+
+const Td = styled.td`
+  padding: 1rem;
+  color: #0a3655;
+  font-size: 0.875rem;
+`;
+
+const ActionButtons = styled.div`
+  display: flex;
+  gap: 0.5rem;
+`;
+
+const IconButton = styled.button`
+  padding: 0.5rem;
+  border: none;
+  border-radius: 6px;
+  background: #f3f4f6;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  &:hover {
+    background: #3b82f6;
+    color: white;
+    transform: scale(1.1);
   }
 `;
 
@@ -389,6 +625,125 @@ const InfoValue = styled.span`
   font-weight: 500;
 `;
 
+const PaginationContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(30, 64, 175, 0.08);
+  margin-top: 1.5rem;
+  
+  @media (max-width: 968px) {
+    flex-direction: column;
+    gap: 1rem;
+  }
+`;
+
+const PaginationInfo = styled.div`
+  color: #5c6b7a;
+  font-size: 0.875rem;
+`;
+
+const PaginationControls = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+`;
+
+const PageButton = styled.button<{ $active?: boolean; $disabled?: boolean }>`
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #e0e7ef;
+  border-radius: 6px;
+  background: ${p => p.$active ? '#3b82f6' : 'white'};
+  color: ${p => p.$active ? 'white' : '#0a3655'};
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: ${p => p.$disabled ? 'not-allowed' : 'pointer'};
+  opacity: ${p => p.$disabled ? 0.5 : 1};
+  transition: all 0.2s ease;
+  
+  &:hover:not(:disabled) {
+    background: ${p => p.$active ? '#2563eb' : '#f7faff'};
+    border-color: ${p => p.$active ? '#2563eb' : '#3b82f6'};
+  }
+`;
+
+const ModalActions = styled.div`
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e0e7ef;
+  
+  @media (max-width: 968px) {
+    flex-direction: column;
+  }
+`;
+
+const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' | 'danger' }>`
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  
+  ${p => {
+    if (p.$variant === 'primary') {
+      return `
+        background: #3b82f6;
+        color: white;
+        &:hover {
+          background: #2563eb;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+      `;
+    } else if (p.$variant === 'danger') {
+      return `
+        background: #ef4444;
+        color: white;
+        &:hover {
+          background: #dc2626;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+      `;
+    } else {
+      return `
+        background: #f3f4f6;
+        color: #374151;
+        &:hover {
+          background: #e5e7eb;
+        }
+      `;
+    }
+  }}
+`;
+
+const EditInput = styled.input`
+  padding: 0.75rem;
+  border: 1.5px solid #e0e7ef;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  color: #0a3655;
+  background: white;
+  transition: all 0.2s ease;
+  width: 100%;
+  
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+`;
+
 // Icon Components
 const EmailIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -415,6 +770,68 @@ const UsersIcon = () => (
     <circle cx="9" cy="7" r="4"/>
     <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
     <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+  </svg>
+);
+
+const GridIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="3" y="3" width="7" height="7"/>
+    <rect x="14" y="3" width="7" height="7"/>
+    <rect x="14" y="14" width="7" height="7"/>
+    <rect x="3" y="14" width="7" height="7"/>
+  </svg>
+);
+
+const ListIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <line x1="8" y1="6" x2="21" y2="6"/>
+    <line x1="8" y1="12" x2="21" y2="12"/>
+    <line x1="8" y1="18" x2="21" y2="18"/>
+    <line x1="3" y1="6" x2="3.01" y2="6"/>
+    <line x1="3" y1="12" x2="3.01" y2="12"/>
+    <line x1="3" y1="18" x2="3.01" y2="18"/>
+  </svg>
+);
+
+const DownloadIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+    <polyline points="7 10 12 15 17 10"/>
+    <line x1="12" y1="15" x2="12" y2="3"/>
+  </svg>
+);
+
+const EditIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+  </svg>
+);
+
+const SaveIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+    <polyline points="20 6 9 17 4 12"/>
+  </svg>
+);
+
+const EyeIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+    <circle cx="12" cy="12" r="3"/>
+  </svg>
+);
+
+const MailIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+    <polyline points="22,6 12,13 2,6"/>
+  </svg>
+);
+
+const SortIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polyline points="17 11 12 6 7 11"/>
+    <polyline points="7 13 12 18 17 13"/>
   </svg>
 );
 
@@ -450,6 +867,19 @@ export default function CustomerManagementPage() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  
+  // Enhanced features state
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [sortField, setSortField] = useState<'name' | 'created_at' | 'businessCount'>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [filterOption, setFilterOption] = useState<'all' | 'withBusiness' | 'withoutBusiness'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(12);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editedCustomer, setEditedCustomer] = useState<Customer | null>(null);
+  const [advancedSearchVisible, setAdvancedSearchVisible] = useState(false);
+  const [searchByABN, setSearchByABN] = useState('');
+  const [searchByAddress, setSearchByAddress] = useState('');
 
   const t = (key: keyof typeof dict) => dict[key][lang];
 
@@ -468,11 +898,12 @@ export default function CustomerManagementPage() {
   }, [token, role]);
 
   useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredCustomers(customers);
-    } else {
+    let filtered = [...customers];
+    
+    // Apply search filters
+    if (searchQuery.trim() !== '') {
       const query = searchQuery.toLowerCase();
-      const filtered = customers.filter(customer => 
+      filtered = filtered.filter(customer => 
         customer.name.toLowerCase().includes(query) ||
         customer.email.toLowerCase().includes(query) ||
         customer.phone?.toLowerCase().includes(query) ||
@@ -480,9 +911,55 @@ export default function CustomerManagementPage() {
           business.name.toLowerCase().includes(query)
         )
       );
-      setFilteredCustomers(filtered);
     }
-  }, [searchQuery, customers]);
+    
+    // Apply ABN search
+    if (searchByABN.trim() !== '') {
+      const abnQuery = searchByABN.toLowerCase();
+      filtered = filtered.filter(customer => 
+        customer.businesses.some(business => 
+          business.abn?.toLowerCase().includes(abnQuery)
+        )
+      );
+    }
+    
+    // Apply address search
+    if (searchByAddress.trim() !== '') {
+      const addressQuery = searchByAddress.toLowerCase();
+      filtered = filtered.filter(customer => 
+        customer.businesses.some(business => 
+          business.address?.toLowerCase().includes(addressQuery)
+        )
+      );
+    }
+    
+    // Apply filter option
+    if (filterOption === 'withBusiness') {
+      filtered = filtered.filter(customer => customer.businesses.length > 0);
+    } else if (filterOption === 'withoutBusiness') {
+      filtered = filtered.filter(customer => customer.businesses.length === 0);
+    }
+    
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let compareValue = 0;
+      
+      if (sortField === 'name') {
+        compareValue = a.name.localeCompare(b.name);
+      } else if (sortField === 'created_at') {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        compareValue = dateA - dateB;
+      } else if (sortField === 'businessCount') {
+        compareValue = a.businesses.length - b.businesses.length;
+      }
+      
+      return sortDirection === 'asc' ? compareValue : -compareValue;
+    });
+    
+    setFilteredCustomers(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [searchQuery, searchByABN, searchByAddress, filterOption, sortField, sortDirection, customers]);
 
   const fetchCustomers = async () => {
     setIsLoadingData(true);
@@ -537,12 +1014,128 @@ export default function CustomerManagementPage() {
 
   const handleCustomerClick = (customer: Customer) => {
     setSelectedCustomer(customer);
+    setEditedCustomer(customer);
+    setIsEditMode(false);
     setShowDetailsModal(true);
   };
 
   const handleCloseModal = () => {
     setShowDetailsModal(false);
     setSelectedCustomer(null);
+    setEditedCustomer(null);
+    setIsEditMode(false);
+  };
+  
+  const handleEditToggle = () => {
+    setIsEditMode(!isEditMode);
+    if (!isEditMode) {
+      setEditedCustomer(selectedCustomer);
+    }
+  };
+  
+  const handleEditChange = (field: keyof Customer, value: any) => {
+    if (editedCustomer) {
+      setEditedCustomer({ ...editedCustomer, [field]: value });
+    }
+  };
+  
+  const handleSaveEdit = async () => {
+    if (!editedCustomer) return;
+    
+    try {
+      // TODO: Replace with real API call
+      // const response = await axios.put(
+      //   `/api/customer/${editedCustomer._id}`,
+      //   editedCustomer,
+      //   { headers: { Authorization: `Bearer ${token}` } }
+      // );
+      
+      // For now, just update local state
+      setCustomers(customers.map(c => 
+        c._id === editedCustomer._id ? editedCustomer : c
+      ));
+      setSelectedCustomer(editedCustomer);
+      setIsEditMode(false);
+      showToast(
+        lang === 'zh' ? '客户信息已更新' : 'Customer updated successfully',
+        'success'
+      );
+    } catch (error) {
+      console.error('Failed to update customer:', error);
+      showToast(
+        lang === 'zh' ? '更新失败' : 'Failed to update customer',
+        'error'
+      );
+    }
+  };
+  
+  const handleExportCSV = () => {
+    const csvData = filteredCustomers.map(customer => ({
+      'Customer ID': customer._id,
+      'Name': customer.name,
+      'Email': customer.email,
+      'Phone': customer.phone || 'N/A',
+      'Messaging App': customer.messagingAppType ? `${customer.messagingAppType}: ${customer.messagingAppId}` : 'N/A',
+      'Businesses Count': customer.businesses.length,
+      'Business Names': customer.businesses.map(b => b.name).join('; '),
+      'Created Date': customer.created_at ? new Date(customer.created_at).toLocaleDateString() : 'N/A'
+    }));
+    
+    const headers = Object.keys(csvData[0] || {});
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => headers.map(header => `"${row[header as keyof typeof row]}"`).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `customers_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showToast(
+      lang === 'zh' ? '导出成功' : 'Export successful',
+      'success'
+    );
+  };
+  
+  const handleEmailCustomer = (email: string) => {
+    window.location.href = `mailto:${email}`;
+  };
+  
+  const handleSort = (field: 'name' | 'created_at' | 'businessCount') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+  
+  // Calculate statistics
+  const stats = {
+    total: customers.length,
+    totalBusinesses: customers.reduce((sum, c) => sum + c.businesses.length, 0),
+    withoutBusinesses: customers.filter(c => c.businesses.length === 0).length,
+    recentAdditions: customers.filter(c => {
+      if (!c.created_at) return false;
+      const daysDiff = (Date.now() - new Date(c.created_at).getTime()) / (1000 * 60 * 60 * 24);
+      return daysDiff <= 30;
+    }).length
+  };
+  
+  // Pagination
+  const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedCustomers = filteredCustomers.slice(startIndex, startIndex + itemsPerPage);
+  
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   if (isLoading) {
@@ -571,14 +1164,82 @@ export default function CustomerManagementPage() {
             </PageDescription>
           </ContentHeader>
 
+          <StatsGrid>
+            <StatCard>
+              <StatValue>{stats.total}</StatValue>
+              <StatLabel>{lang === 'zh' ? '总客户数' : 'Total Customers'}</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatValue>{stats.totalBusinesses}</StatValue>
+              <StatLabel>{lang === 'zh' ? '总业务数' : 'Total Businesses'}</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatValue>{stats.recentAdditions}</StatValue>
+              <StatLabel>{lang === 'zh' ? '近30天新增' : 'Added Last 30 Days'}</StatLabel>
+            </StatCard>
+          </StatsGrid>
+
           <SearchBar>
-            <SearchInput
-              type="text"
-              placeholder={lang === "zh" ? "搜索客户姓名、邮箱、电话或业务..." : "Search by customer name, email, phone, or business..."}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+            <SearchRow>
+              <SearchInput
+                type="text"
+                placeholder={lang === "zh" ? "搜索客户姓名、邮箱、电话或业务..." : "Search by customer name, email, phone, or business..."}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <AdvancedSearchToggle onClick={() => setAdvancedSearchVisible(!advancedSearchVisible)}>
+                {advancedSearchVisible 
+                  ? (lang === 'zh' ? '隐藏高级搜索' : 'Hide Advanced') 
+                  : (lang === 'zh' ? '高级搜索' : 'Advanced Search')}
+              </AdvancedSearchToggle>
+            </SearchRow>
+            <AdvancedSearchPanel $show={advancedSearchVisible}>
+              <SearchInput
+                type="text"
+                placeholder={lang === "zh" ? "按 ABN 搜索..." : "Search by ABN..."}
+                value={searchByABN}
+                onChange={(e) => setSearchByABN(e.target.value)}
+              />
+              <SearchInput
+                type="text"
+                placeholder={lang === "zh" ? "按地址搜索..." : "Search by address..."}
+                value={searchByAddress}
+                onChange={(e) => setSearchByAddress(e.target.value)}
+              />
+            </AdvancedSearchPanel>
           </SearchBar>
+          
+          <ControlBar>
+            <ControlGroup>
+              <Select value={filterOption} onChange={(e) => setFilterOption(e.target.value as any)}>
+                <option value="all">{lang === 'zh' ? '所有客户' : 'All Customers'}</option>
+                <option value="withBusiness">{lang === 'zh' ? '有业务' : 'With Businesses'}</option>
+                <option value="withoutBusiness">{lang === 'zh' ? '无业务' : 'Without Businesses'}</option>
+              </Select>
+              <Select value={sortField} onChange={(e) => setSortField(e.target.value as any)}>
+                <option value="name">{lang === 'zh' ? '按名称排序' : 'Sort by Name'}</option>
+                <option value="created_at">{lang === 'zh' ? '按日期排序' : 'Sort by Date'}</option>
+                <option value="businessCount">{lang === 'zh' ? '按业务数排序' : 'Sort by Business Count'}</option>
+              </Select>
+              <Select value={sortDirection} onChange={(e) => setSortDirection(e.target.value as any)}>
+                <option value="asc">{lang === 'zh' ? '升序' : 'Ascending'}</option>
+                <option value="desc">{lang === 'zh' ? '降序' : 'Descending'}</option>
+              </Select>
+            </ControlGroup>
+            <ControlGroup>
+              <ViewToggle>
+                <ViewButton $active={viewMode === 'grid'} onClick={() => setViewMode('grid')}>
+                  <GridIcon /> {lang === 'zh' ? '网格' : 'Grid'}
+                </ViewButton>
+                <ViewButton $active={viewMode === 'table'} onClick={() => setViewMode('table')}>
+                  <ListIcon /> {lang === 'zh' ? '表格' : 'Table'}
+                </ViewButton>
+              </ViewToggle>
+              <ExportButton onClick={handleExportCSV}>
+                <DownloadIcon /> {lang === 'zh' ? '导出 CSV' : 'Export CSV'}
+              </ExportButton>
+            </ControlGroup>
+          </ControlBar>
 
           {isLoadingData ? (
             <LoadingText>{lang === "zh" ? "加载中..." : "Loading..."}</LoadingText>
@@ -586,14 +1247,60 @@ export default function CustomerManagementPage() {
             <EmptyState>
               <EmptyIcon><UsersIcon /></EmptyIcon>
               <EmptyText>
-                {searchQuery 
+                {searchQuery || searchByABN || searchByAddress
                   ? (lang === "zh" ? "未找到客户" : "No customers found")
                   : (lang === "zh" ? "暂无客户" : "No customers yet")}
               </EmptyText>
             </EmptyState>
+          ) : viewMode === 'table' ? (
+            <TableContainer>
+              <Table>
+                <Thead>
+                  <Tr>
+                    <Th onClick={() => handleSort('name')}>
+                      {lang === 'zh' ? '姓名' : 'Name'} <SortIcon />
+                    </Th>
+                    <Th>{lang === 'zh' ? '邮箱' : 'Email'}</Th>
+                    <Th>{lang === 'zh' ? '电话' : 'Phone'}</Th>
+                    <Th onClick={() => handleSort('businessCount')}>
+                      {lang === 'zh' ? '业务数' : 'Businesses'} <SortIcon />
+                    </Th>
+                    <Th onClick={() => handleSort('created_at')}>
+                      {lang === 'zh' ? '创建日期' : 'Created'} <SortIcon />
+                    </Th>
+                    <Th>{lang === 'zh' ? '操作' : 'Actions'}</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {paginatedCustomers.map((customer) => (
+                    <Tr key={customer._id}>
+                      <Td style={{ fontWeight: 600 }}>{customer.name}</Td>
+                      <Td>{customer.email}</Td>
+                      <Td>{customer.phone || 'N/A'}</Td>
+                      <Td>{customer.businesses.length}</Td>
+                      <Td>
+                        {customer.created_at 
+                          ? new Date(customer.created_at).toLocaleDateString()
+                          : 'N/A'}
+                      </Td>
+                      <Td>
+                        <ActionButtons>
+                          <IconButton onClick={() => handleCustomerClick(customer)} title={lang === 'zh' ? '查看详情' : 'View Details'}>
+                            <EyeIcon />
+                          </IconButton>
+                          <IconButton onClick={() => handleEmailCustomer(customer.email)} title={lang === 'zh' ? '发送邮件' : 'Send Email'}>
+                            <MailIcon />
+                          </IconButton>
+                        </ActionButtons>
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </TableContainer>
           ) : (
             <CustomerGrid>
-              {filteredCustomers.map((customer) => (
+              {paginatedCustomers.map((customer) => (
                 <CustomerCard key={customer._id} onClick={() => handleCustomerClick(customer)}>
                   <CustomerName>{customer.name}</CustomerName>
                   <CustomerDetail>
@@ -642,6 +1349,53 @@ export default function CustomerManagementPage() {
               ))}
             </CustomerGrid>
           )}
+          
+          {filteredCustomers.length > 0 && (
+            <PaginationContainer>
+              <PaginationInfo>
+                {lang === 'zh' 
+                  ? `显示 ${startIndex + 1} - ${Math.min(startIndex + itemsPerPage, filteredCustomers.length)} / 共 ${filteredCustomers.length}` 
+                  : `Showing ${startIndex + 1} - ${Math.min(startIndex + itemsPerPage, filteredCustomers.length)} of ${filteredCustomers.length}`}
+              </PaginationInfo>
+              <PaginationControls>
+                <PageButton 
+                  onClick={() => handlePageChange(currentPage - 1)} 
+                  $disabled={currentPage === 1}
+                  disabled={currentPage === 1}
+                >
+                  {lang === 'zh' ? '上一页' : 'Previous'}
+                </PageButton>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(page => {
+                    // Show first, last, current, and adjacent pages
+                    return page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1;
+                  })
+                  .map((page, index, array) => {
+                    // Add ellipsis
+                    const showEllipsisBefore = index > 0 && page - array[index - 1] > 1;
+                    return (
+                      <>
+                        {showEllipsisBefore && <span style={{ padding: '0 0.5rem' }}>...</span>}
+                        <PageButton
+                          key={page}
+                          $active={currentPage === page}
+                          onClick={() => handlePageChange(page)}
+                        >
+                          {page}
+                        </PageButton>
+                      </>
+                    );
+                  })}
+                <PageButton 
+                  onClick={() => handlePageChange(currentPage + 1)} 
+                  $disabled={currentPage === totalPages}
+                  disabled={currentPage === totalPages}
+                >
+                  {lang === 'zh' ? '下一页' : 'Next'}
+                </PageButton>
+              </PaginationControls>
+            </PaginationContainer>
+          )}
         </MainContent>
       </Container>
 
@@ -649,7 +1403,11 @@ export default function CustomerManagementPage() {
       <Modal $show={showDetailsModal} onClick={handleCloseModal}>
         <ModalContent onClick={(e) => e.stopPropagation()}>
           <ModalHeader>
-            <ModalTitle>{selectedCustomer?.name}</ModalTitle>
+            <ModalTitle>
+              {isEditMode 
+                ? (lang === 'zh' ? '编辑客户' : 'Edit Customer')
+                : selectedCustomer?.name}
+            </ModalTitle>
             <CloseButton onClick={handleCloseModal}>×</CloseButton>
           </ModalHeader>
 
@@ -661,19 +1419,55 @@ export default function CustomerManagementPage() {
                 <DetailValue>{selectedCustomer?._id}</DetailValue>
               </DetailItem>
               <DetailItem>
+                <DetailLabel>{lang === "zh" ? "姓名" : "Name"}</DetailLabel>
+                {isEditMode ? (
+                  <EditInput
+                    value={editedCustomer?.name || ''}
+                    onChange={(e) => handleEditChange('name', e.target.value)}
+                  />
+                ) : (
+                  <DetailValue>{selectedCustomer?.name}</DetailValue>
+                )}
+              </DetailItem>
+              <DetailItem>
                 <DetailLabel>{lang === "zh" ? "邮箱" : "Email"}</DetailLabel>
-                <DetailValue>{selectedCustomer?.email}</DetailValue>
+                {isEditMode ? (
+                  <EditInput
+                    type="email"
+                    value={editedCustomer?.email || ''}
+                    onChange={(e) => handleEditChange('email', e.target.value)}
+                  />
+                ) : (
+                  <DetailValue>{selectedCustomer?.email}</DetailValue>
+                )}
               </DetailItem>
               <DetailItem>
                 <DetailLabel>{lang === "zh" ? "电话" : "Phone"}</DetailLabel>
-                <DetailValue>{selectedCustomer?.phone || 'N/A'}</DetailValue>
+                {isEditMode ? (
+                  <EditInput
+                    value={editedCustomer?.phone || ''}
+                    onChange={(e) => handleEditChange('phone', e.target.value)}
+                  />
+                ) : (
+                  <DetailValue>{selectedCustomer?.phone || 'N/A'}</DetailValue>
+                )}
               </DetailItem>
-              {selectedCustomer?.messagingAppType && selectedCustomer?.messagingAppId && (
+              {(selectedCustomer?.messagingAppType || isEditMode) && (
                 <DetailItem>
                   <DetailLabel>{lang === "zh" ? "消息应用" : "Messaging App"}</DetailLabel>
-                  <DetailValue>
-                    {selectedCustomer.messagingAppType === 'wechat' ? 'WeChat' : 'WhatsApp'}: {selectedCustomer.messagingAppId}
-                  </DetailValue>
+                  {isEditMode ? (
+                    <EditInput
+                      value={editedCustomer?.messagingAppId || ''}
+                      onChange={(e) => handleEditChange('messagingAppId', e.target.value)}
+                      placeholder={lang === 'zh' ? '消息应用 ID' : 'Messaging App ID'}
+                    />
+                  ) : selectedCustomer?.messagingAppType && selectedCustomer?.messagingAppId ? (
+                    <DetailValue>
+                      {selectedCustomer.messagingAppType === 'wechat' ? 'WeChat' : 'WhatsApp'}: {selectedCustomer.messagingAppId}
+                    </DetailValue>
+                  ) : (
+                    <DetailValue>N/A</DetailValue>
+                  )}
                 </DetailItem>
               )}
               <DetailItem>
@@ -726,6 +1520,31 @@ export default function CustomerManagementPage() {
               </DetailValue>
             )}
           </Section>
+          
+          <ModalActions>
+            {isEditMode ? (
+              <>
+                <ActionButton onClick={handleEditToggle}>
+                  {lang === 'zh' ? '取消' : 'Cancel'}
+                </ActionButton>
+                <ActionButton $variant="primary" onClick={handleSaveEdit}>
+                  <SaveIcon /> {lang === 'zh' ? '保存更改' : 'Save Changes'}
+                </ActionButton>
+              </>
+            ) : (
+              <>
+                <ActionButton onClick={handleCloseModal}>
+                  {lang === 'zh' ? '关闭' : 'Close'}
+                </ActionButton>
+                <ActionButton onClick={() => handleEmailCustomer(selectedCustomer?.email || '')}>
+                  <MailIcon /> {lang === 'zh' ? '发送邮件' : 'Send Email'}
+                </ActionButton>
+                <ActionButton $variant="primary" onClick={handleEditToggle}>
+                  <EditIcon /> {lang === 'zh' ? '编辑客户' : 'Edit Customer'}
+                </ActionButton>
+              </>
+            )}
+          </ModalActions>
         </ModalContent>
       </Modal>
     </MainLayout>
