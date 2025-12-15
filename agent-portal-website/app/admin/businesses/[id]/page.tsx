@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import styled from "styled-components";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { useToast } from "@/context/ToastContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../../components/layout/AdminSidebar";
 import axios from "axios";
@@ -356,21 +357,6 @@ const ModalButton = styled.button<{ $primary?: boolean }>`
   `}
 `;
 
-const Message = styled.div<{ $type: 'success' | 'error' }>`
-  padding: 1rem;
-  margin-bottom: 1rem;
-  border-radius: 8px;
-  font-weight: 500;
-  
-  ${p => p.$type === 'success' ? `
-    background: #d1fae5;
-    color: #065f46;
-  ` : `
-    background: #fee2e2;
-    color: #991b1b;
-  `}
-`;
-
 interface Business {
   _id: string;
   owner_id: string;
@@ -394,6 +380,7 @@ export default function BusinessDetailPage() {
   const businessId = params?.id as string;
   const { token, role, isLoading: authLoading } = useAuth();
   const { lang } = useLanguage();
+  const { showToast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [business, setBusiness] = useState<Business | null>(null);
   const [permissions, setPermissions] = useState<Permission[]>([]);
@@ -409,7 +396,6 @@ export default function BusinessDetailPage() {
   const [showDeleteDeviceModal, setShowDeleteDeviceModal] = useState(false);
   const [selectedPermission, setSelectedPermission] = useState<Permission | null>(null);
   const [selectedDevice, setSelectedDevice] = useState<any>(null);
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   
   // Form states
   const [editForm, setEditForm] = useState({
@@ -562,13 +548,13 @@ export default function BusinessDetailPage() {
   };
 
   const handleAddDeviceSubmit = async () => {
-    if (!addDeviceForm.serialNumber || !addDeviceForm.deviceType || !addDeviceForm.deviceName || !addDeviceForm.deviceBrand) {
-      setMessage({ type: 'error', text: lang === "zh" ? "请填写所有字段" : "Please fill all fields" });
+    if (!addDeviceForm.deviceName || !addDeviceForm.deviceType) {
+      showToast(lang === "zh" ? "请填写所有必填字段" : "Please fill all required fields", 'error');
       return;
     }
     
     if (addDeviceForm.deviceType === 'Other' && !addDeviceForm.otherDeviceType) {
-      setMessage({ type: 'error', text: lang === "zh" ? "请指定设备类型" : "Please specify device type" });
+      showToast(lang === "zh" ? "请指定设备类型" : "Please specify device type", 'error');
       return;
     }
     
@@ -593,9 +579,8 @@ export default function BusinessDetailPage() {
       // );
 
       // Temporary success message
-      setMessage({ type: 'success', text: lang === "zh" ? "设备已添加" : "Device added successfully" });
+      showToast(lang === "zh" ? "设备已添加" : "Device added successfully", 'success');
       setShowAddDeviceModal(false);
-      setTimeout(() => setMessage(null), 3000);
       
       // if (response.data.status_code === 200) {
       //   setMessage({ type: 'success', text: lang === "zh" ? "设备已添加" : "Device added" });
@@ -605,18 +590,18 @@ export default function BusinessDetailPage() {
       // }
     } catch (err) {
       console.error("Failed to add device:", err);
-      setMessage({ type: 'error', text: lang === "zh" ? "添加失败" : "Add failed" });
+      showToast(lang === "zh" ? "添加失败" : "Add failed", 'error');
     }
   };
 
   const handleEditDeviceSubmit = async () => {
-    if (!editDeviceForm.serialNumber || !editDeviceForm.deviceType || !editDeviceForm.deviceName || !editDeviceForm.deviceBrand) {
-      setMessage({ type: 'error', text: lang === "zh" ? "请填写所有字段" : "Please fill all fields" });
+    if (!editDeviceForm.deviceName || !editDeviceForm.deviceType) {
+      showToast(lang === "zh" ? "请填写所有必填字段" : "Please fill all required fields", 'error');
       return;
     }
     
     if (editDeviceForm.deviceType === 'Other' && !editDeviceForm.otherDeviceType) {
-      setMessage({ type: 'error', text: lang === "zh" ? "请指定设备类型" : "Please specify device type" });
+      showToast(lang === "zh" ? "请指定设备类型" : "Please specify device type", 'error');
       return;
     }
     
@@ -640,12 +625,11 @@ export default function BusinessDetailPage() {
       //   }
       // );
 
-      setMessage({ type: 'success', text: lang === "zh" ? "设备已更新" : "Device updated successfully" });
+      showToast(lang === "zh" ? "设备已更新" : "Device updated successfully", 'success');
       setShowEditDeviceModal(false);
-      setTimeout(() => setMessage(null), 3000);
     } catch (err) {
       console.error("Failed to update device:", err);
-      setMessage({ type: 'error', text: lang === "zh" ? "更新失败" : "Update failed" });
+      showToast(lang === "zh" ? "更新失败" : "Update failed", 'error');
     }
   };
 
@@ -663,12 +647,11 @@ export default function BusinessDetailPage() {
       //   }
       // );
 
-      setMessage({ type: 'success', text: lang === "zh" ? "设备已删除" : "Device deleted successfully" });
+      showToast(lang === "zh" ? "设备已删除" : "Device deleted successfully", 'success');
       setShowDeleteDeviceModal(false);
-      setTimeout(() => setMessage(null), 3000);
     } catch (err) {
       console.error("Failed to delete device:", err);
-      setMessage({ type: 'error', text: lang === "zh" ? "删除失败" : "Delete failed" });
+      showToast(lang === "zh" ? "删除失败" : "Delete failed", 'error');
     }
   };
 
@@ -694,16 +677,15 @@ export default function BusinessDetailPage() {
       );
 
       if (response.data.status_code === 200) {
-        setMessage({ type: 'success', text: lang === "zh" ? "权限已更新" : "Permission updated" });
+        showToast(lang === "zh" ? "权限已更新" : "Permission updated", 'success');
         setShowEditModal(false);
         fetchBusinessDetails();
-        setTimeout(() => setMessage(null), 3000);
       } else {
-        setMessage({ type: 'error', text: response.data.status_msg || (lang === "zh" ? "更新失败" : "Update failed") });
+        showToast(response.data.status_msg || (lang === "zh" ? "更新失败" : "Update failed"), 'error');
       }
     } catch (err) {
       console.error("Failed to update permission:", err);
-      setMessage({ type: 'error', text: lang === "zh" ? "更新失败" : "Update failed" });
+      showToast(lang === "zh" ? "更新失败" : "Update failed", 'error');
     }
   };
 
@@ -723,22 +705,21 @@ export default function BusinessDetailPage() {
       );
 
       if (response.data.status_code === 200) {
-        setMessage({ type: 'success', text: lang === "zh" ? "权限已删除" : "Permission deleted" });
+        showToast(lang === "zh" ? "权限已删除" : "Permission deleted", 'success');
         setShowDeleteModal(false);
         fetchBusinessDetails();
-        setTimeout(() => setMessage(null), 3000);
       } else {
-        setMessage({ type: 'error', text: response.data.status_msg || (lang === "zh" ? "删除失败" : "Delete failed") });
+        showToast(response.data.status_msg || (lang === "zh" ? "删除失败" : "Delete failed"), 'error');
       }
     } catch (err) {
       console.error("Failed to delete permission:", err);
-      setMessage({ type: 'error', text: lang === "zh" ? "删除失败" : "Delete failed" });
+      showToast(lang === "zh" ? "删除失败" : "Delete failed", 'error');
     }
   };
 
   const handleAddSubmit = async () => {
     if (!business || !addForm.name || !addForm.level) {
-      setMessage({ type: 'error', text: lang === "zh" ? "请填写所有字段" : "Please fill all fields" });
+      showToast(lang === "zh" ? "请填写所有必填字段" : "Please fill all required fields", 'error');
       return;
     }
     
@@ -764,16 +745,15 @@ export default function BusinessDetailPage() {
       );
 
       if (response.data.status_code === 200) {
-        setMessage({ type: 'success', text: lang === "zh" ? "权限已添加" : "Permission added" });
+        showToast(lang === "zh" ? "权限已添加" : "Permission added", 'success');
         setShowAddModal(false);
         fetchBusinessDetails();
-        setTimeout(() => setMessage(null), 3000);
       } else {
-        setMessage({ type: 'error', text: response.data.status_msg || (lang === "zh" ? "添加失败" : "Add failed") });
+        showToast(response.data.status_msg || (lang === "zh" ? "添加失败" : "Add failed"), 'error');
       }
     } catch (err) {
       console.error("Failed to add permission:", err);
-      setMessage({ type: 'error', text: lang === "zh" ? "添加失败" : "Add failed" });
+      showToast(lang === "zh" ? "添加失败" : "Add failed", 'error');
     }
   };
 
@@ -830,9 +810,6 @@ export default function BusinessDetailPage() {
 
               <Card>
                 <CardTitle>{lang === "zh" ? "注册设备" : "Registered Devices"}</CardTitle>
-                {message && (
-                  <Message $type={message.type}>{message.text}</Message>
-                )}
                 <PermissionList>
                   <PermissionCard>
                     <PermissionName>Device 1</PermissionName>
@@ -1111,7 +1088,7 @@ export default function BusinessDetailPage() {
             />
           </FormGroup>
           <FormGroup>
-            <Label>{lang === "zh" ? "设备品牌" : "Device Brand"}</Label>
+            <Label>{lang === "zh" ? "设备品牌 (可选)" : "Device Brand (Optional)"}</Label>
             <Input 
               value={editDeviceForm.deviceBrand}
               onChange={(e) => setEditDeviceForm({ ...editDeviceForm, deviceBrand: e.target.value })}
@@ -1119,7 +1096,7 @@ export default function BusinessDetailPage() {
             />
           </FormGroup>
           <FormGroup>
-            <Label>{lang === "zh" ? "序列号" : "Serial Number"}</Label>
+            <Label>{lang === "zh" ? "序列号 (可选)" : "Serial Number (Optional)"}</Label>
             <Input 
               value={editDeviceForm.serialNumber}
               onChange={(e) => setEditDeviceForm({ ...editDeviceForm, serialNumber: e.target.value })}
@@ -1205,7 +1182,7 @@ export default function BusinessDetailPage() {
             />
           </FormGroup>
           <FormGroup>
-            <Label>{lang === "zh" ? "设备品牌" : "Device Brand"}</Label>
+            <Label>{lang === "zh" ? "设备品牌 (可选)" : "Device Brand (Optional)"}</Label>
             <Input 
               value={addDeviceForm.deviceBrand}
               onChange={(e) => setAddDeviceForm({ ...addDeviceForm, deviceBrand: e.target.value })}
@@ -1213,7 +1190,7 @@ export default function BusinessDetailPage() {
             />
           </FormGroup>
           <FormGroup>
-            <Label>{lang === "zh" ? "序列号" : "Serial Number"}</Label>
+            <Label>{lang === "zh" ? "序列号 (可选)" : "Serial Number (Optional)"}</Label>
             <Input 
               value={addDeviceForm.serialNumber}
               onChange={(e) => setAddDeviceForm({ ...addDeviceForm, serialNumber: e.target.value })}
