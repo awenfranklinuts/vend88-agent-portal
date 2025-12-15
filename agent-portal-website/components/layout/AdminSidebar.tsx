@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import styled from "styled-components";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -144,7 +145,7 @@ const NavList = styled.nav`
   overflow-y: auto;
 `;
 
-const NavItem = styled.button<{ $active?: boolean }>`
+const NavItem = styled(Link)<{ $active?: boolean }>`
   width: 100%;
   display: flex;
   align-items: center;
@@ -156,6 +157,7 @@ const NavItem = styled.button<{ $active?: boolean }>`
   font-size: 0.9375rem;
   font-weight: ${p => p.$active ? '600' : '500'};
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
@@ -200,7 +202,6 @@ interface AdminSidebarProps {
 }
 
 export default function AdminSidebar({ mobileOpen, onClose }: AdminSidebarProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const { userEmail, adminProfile, fetchAdminProfile } = useAuth();
   const { lang } = useLanguage();
@@ -214,11 +215,6 @@ export default function AdminSidebar({ mobileOpen, onClose }: AdminSidebarProps)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const navigate = (path: string) => {
-    router.push(path);
-    onClose();
-  };
 
   const displayName = adminProfile 
     ? `${adminProfile.first_name} ${adminProfile.last_name}`.trim() || userEmail?.split("@")[0]
@@ -237,42 +233,42 @@ export default function AdminSidebar({ mobileOpen, onClose }: AdminSidebarProps)
         </SidebarHeader>
 
         <NavList>
-          <NavItem $active={pathname === "/admin"} onClick={() => navigate("/admin")}>
+          <NavItem href="/admin" $active={pathname === "/admin"} onClick={onClose} prefetch={true}>
             <NavIcon><HomeIcon /></NavIcon>
             {lang === "zh" ? "首页" : "Home"}
           </NavItem>
 
-          <NavItem $active={pathname === "/admin/businesses"} onClick={() => navigate("/admin/businesses")}>
+          <NavItem href="/admin/businesses" $active={pathname === "/admin/businesses"} onClick={onClose} prefetch={true}>
             <NavIcon><BusinessIcon /></NavIcon>
             {t("businessManagement")}
           </NavItem>
 
-          <NavItem $active={pathname === "/admin/customers"} onClick={() => navigate("/admin/customers")}>
+          <NavItem href="/admin/customers" $active={pathname === "/admin/customers"} onClick={onClose} prefetch={true}>
             <NavIcon><CustomersIcon /></NavIcon>
             {t("customerManagement")}
           </NavItem>
 
-          <NavItem $active={pathname === "/admin/agents"} onClick={() => navigate("/admin/agents")}>
+          <NavItem href="/admin/agents" $active={pathname === "/admin/agents"} onClick={onClose} prefetch={true}>
             <NavIcon><AgentIcon /></NavIcon>
             {lang === "zh" ? "代理管理" : "Agent Management"}
           </NavItem>
 
-          <NavItem $active={pathname === "/admin/registrations"} onClick={() => navigate("/admin/registrations")}>
+          <NavItem href="/admin/registrations" $active={pathname === "/admin/registrations"} onClick={onClose} prefetch={true}>
             <NavIcon><RegistrationIcon /></NavIcon>
             {lang === "zh" ? "注册管理" : "Registration Management"}
           </NavItem>
 
-          <NavItem $active={pathname === "/admin/admins"} onClick={() => navigate("/admin/admins")}>
+          <NavItem href="/admin/admins" $active={pathname === "/admin/admins"} onClick={onClose} prefetch={true}>
             <NavIcon><AdminIcon /></NavIcon>
             {lang === "zh" ? "管理员管理" : "Admin Management"}
           </NavItem>
 
-          <NavItem $active={pathname === "/admin/reports"} onClick={() => navigate("/admin/reports")}>
+          <NavItem href="/admin/reports" $active={pathname === "/admin/reports"} onClick={onClose} prefetch={true}>
             <NavIcon><ReportsIcon /></NavIcon>
             {lang === "zh" ? "报告与分析" : "Reports & Analytics"}
           </NavItem>
 
-          <NavItem $active={pathname === "/admin/settings"} onClick={() => navigate("/admin/settings")}>
+          <NavItem href="/admin/settings" $active={pathname === "/admin/settings"} onClick={onClose} prefetch={true}>
             <NavIcon><SettingsIcon /></NavIcon>
             {lang === "zh" ? "系统设置" : "System Settings"}
           </NavItem>

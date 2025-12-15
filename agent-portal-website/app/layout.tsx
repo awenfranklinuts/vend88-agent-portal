@@ -6,6 +6,8 @@ import { AuthProvider } from "@/context/AuthContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { ToastProvider } from "@/context/ToastContext";
 import NavigationProgress from "@/components/layout/NavigationProgress";
+import SWRProvider from "@/components/layout/SWRProvider";
+import PrefetchLinks from "@/components/layout/PrefetchLinks";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -46,14 +48,17 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <StyledComponentsRegistry>
-          <NavigationProgress />
-          <LanguageProvider>
-            <AuthProvider>
-              <ToastProvider>
-                {children}
-              </ToastProvider>
-            </AuthProvider>
-          </LanguageProvider>
+          <SWRProvider>
+            <NavigationProgress />
+            <PrefetchLinks />
+            <LanguageProvider>
+              <AuthProvider>
+                <ToastProvider>
+                  {children}
+                </ToastProvider>
+              </AuthProvider>
+            </LanguageProvider>
+          </SWRProvider>
         </StyledComponentsRegistry>
       </body>
     </html>
