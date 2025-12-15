@@ -13,6 +13,8 @@ const mockCustomers = [
     name: 'John Smith',
     email: 'john.smith@coffeeshop.com',
     phone: '+61412345678',
+    messagingAppType: 'whatsapp',
+    messagingAppId: '+61412345678',
     created_at: '2024-01-15T10:30:00Z'
   },
   {
@@ -20,6 +22,8 @@ const mockCustomers = [
     name: 'Jane Doe',
     email: 'jane.doe@restaurant.com',
     phone: '+61498765432',
+    messagingAppType: 'wechat',
+    messagingAppId: 'janedoe_wechat',
     created_at: '2024-02-20T14:15:00Z'
   },
   {
@@ -34,6 +38,8 @@ const mockCustomers = [
     name: 'Sarah Williams',
     email: 'sarah.williams@cafe.com',
     phone: '+61433987654',
+    messagingAppType: 'whatsapp',
+    messagingAppId: '+61433987654',
     created_at: '2024-04-05T11:20:00Z'
   },
   {
@@ -41,6 +47,8 @@ const mockCustomers = [
     name: 'David Brown',
     email: 'david.brown@pizzeria.com',
     phone: '+61422567890',
+    messagingAppType: 'wechat',
+    messagingAppId: 'davidb_wechat88',
     created_at: '2024-05-12T08:45:00Z'
   },
   {
@@ -55,6 +63,8 @@ const mockCustomers = [
     name: 'Robert Wilson',
     email: 'robert.wilson@bistro.com',
     phone: '+61477234567',
+    messagingAppType: 'whatsapp',
+    messagingAppId: '+61477234567',
     created_at: '2024-07-22T13:10:00Z'
   },
   {
