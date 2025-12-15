@@ -436,6 +436,49 @@ const LoadingText = styled.div`
   padding: 4rem;
 `;
 
+const SkeletonBox = styled.div<{ width?: string; height?: string; margin?: string }>`
+  height: ${p => p.height || '16px'};
+  width: ${p => p.width || '100%'};
+  margin: ${p => p.margin || '0'};
+  background: linear-gradient(90deg, #e0e7ef 25%, #f0f4f8 50%, #e0e7ef 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+`;
+
+const SkeletonStatCard = styled.div`
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 16px rgba(30, 64, 175, 0.08);
+`;
+
+const SkeletonCustomerCard = styled.div`
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 16px rgba(30, 64, 175, 0.08);
+  animation: pulse 1.5s ease-in-out infinite;
+  
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+  }
+`;
+
 const EmptyState = styled.div`
   text-align: center;
   padding: 4rem 2rem;
@@ -1242,7 +1285,18 @@ export default function CustomerManagementPage() {
           </ControlBar>
 
           {isLoadingData ? (
-            <LoadingText>{lang === "zh" ? "加载中..." : "Loading..."}</LoadingText>
+            <CustomerGrid>
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <SkeletonCustomerCard key={i}>
+                  <SkeletonBox width="70%" height="24px" margin="0 0 1rem 0" />
+                  <SkeletonBox width="100%" height="14px" margin="0 0 0.5rem 0" />
+                  <SkeletonBox width="100%" height="14px" margin="0 0 0.5rem 0" />
+                  <SkeletonBox width="80%" height="14px" margin="0 0 0.5rem 0" />
+                  <SkeletonBox width="50%" height="14px" margin="0 0 1rem 0" />
+                  <SkeletonBox width="80px" height="32px" />
+                </SkeletonCustomerCard>
+              ))}
+            </CustomerGrid>
           ) : filteredCustomers.length === 0 ? (
             <EmptyState>
               <EmptyIcon><UsersIcon /></EmptyIcon>
