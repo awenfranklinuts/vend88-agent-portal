@@ -10,6 +10,11 @@ import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../../components/layout/AdminSidebar";
 import axios from "axios";
 import { getApiUrl, API_CONFIG } from "@/config/api";
+import { 
+  getBusinessDevices, 
+  getBusinessNotes, 
+  getBusinessActivityLog 
+} from "@/lib/mockBusinessData";
 
 const Container = styled.div`
   min-height: 100vh;
@@ -957,27 +962,9 @@ export default function BusinessDetailPage() {
       }
       
       // TODO: Fetch real devices when API is available
-      // For now using mock data
-      setDevices([
-        {
-          id: '1',
-          deviceName: 'Device 1',
-          deviceBrand: 'Verifone',
-          serialNumber: 'SN12345678',
-          deviceType: 'POS Terminal',
-          status: 'active',
-          registeredAt: '2024-01-15'
-        },
-        {
-          id: '2',
-          deviceName: 'Device 2',
-          deviceBrand: 'PAX',
-          serialNumber: 'SN87654321',
-          deviceType: 'Payment Gateway',
-          status: 'active',
-          registeredAt: '2024-02-20'
-        }
-      ]);
+      // Using comprehensive mock data from mockBusinessData
+      const mockDevices = getBusinessDevices(businessId);
+      setDevices(mockDevices);
       
       // Mock activity log
       setActivityLog([

@@ -10,6 +10,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../components/layout/AdminSidebar";
 import axios from "axios";
 import { getApiUrl, API_CONFIG } from "@/config/api";
+import { mockBusinesses, mockCustomers, getBusinessOwner } from "@/lib/mockBusinessData";
 
 const Container = styled.div`
   min-height: 100vh;
@@ -938,7 +939,7 @@ export default function BusinessManagementPage() {
     
     setIsLoadingData(true);
     try {
-      // Fetch businesses
+      // Fetch businesses from API
       const businessResponse = await axios.post(
         '/api/search/business',
         { detail: true },
@@ -950,7 +951,7 @@ export default function BusinessManagementPage() {
         }
       );
       
-      // Fetch customers
+      // Fetch customers from API
       const customerResponse = await axios.post(
         '/api/customer/list',
         {},
@@ -963,15 +964,29 @@ export default function BusinessManagementPage() {
       );
       
       if (businessResponse.data.status_code === 200) {
-        const businessList = businessResponse.data.business || [];
-        setAllBusinesses(businessList);
+        const apiBusinessList = businessResponse.data.business || [];
+        // Combine API data with comprehensive mock data
+        // API data first, then mock data for demonstration
+        setAllBusinesses([...apiBusinessList, ...mockBusinesses]);
         
         if (customerResponse.data.status_code === 200) {
-          setCustomers(customerResponse.data.customers || []);
+          const apiCustomers = customerResponse.data.customers || [];
+          // Combine API customers with mock customers
+          setCustomers([...apiCustomers, ...mockCustomers]);
+        } else {
+          // If customer API fails, still use mock customers
+          setCustomers(mockCustomers);
         }
+      } else {
+        // If business API fails, fallback to mock data only
+        setAllBusinesses(mockBusinesses);
+        setCustomers(mockCustomers);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
+      // On error, fallback to mock data
+      setAllBusinesses(mockBusinesses);
+      setCustomers(mockCustomers);
     } finally {
       setIsLoadingData(false);
     }
@@ -1040,7 +1055,11 @@ export default function BusinessManagementPage() {
       } else if (sortField === 'createdAt') {
         compareValue = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       } else if (sortField === 'status') {
-        compareValue = a.status.localeCompare(b.status);
+        // Sort by status priority: active > setup > inactive > suspended
+        const statusOrder = { active: 1, setup: 2, inactive: 3, suspended: 4 };
+        const statusA = statusOrder[a.status] || 999;
+        const statusB = statusOrder[b.status] || 999;
+        compareValue = statusA - statusB;
       }
       
       return sortDirection === 'asc' ? compareValue : -compareValue;
