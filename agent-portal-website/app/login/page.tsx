@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import styled from "styled-components";
@@ -9,6 +9,10 @@ import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { dict } from "@/i18n/translations";
 import { getApiUrl, API_CONFIG } from "@/config/api";
+import crypto from "crypto-js";
+
+// Add lazy loading for images
+import dynamic from 'next/dynamic';
 
 const Container = styled.div`
   display: flex;
@@ -239,6 +243,15 @@ const Input = styled.input`
   &::placeholder {
     color: #b0bec5;
   }
+`;
+
+const HoneypotField = styled.input`
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 `;
 
 const Button = styled.button`
@@ -502,6 +515,163 @@ const ChevronIcon = ({ open }: { open: boolean }) => (
   </svg>
 );
 
+// Security utilities
+const sanitizeInput = (input: string): string => {
+  return input.trim().replace(/[<>"']/g, '');
+};
+
+// Optimize device fingerprint generation - only compute once
+const useDeviceFingerprint = () => {
+  return useMemo(() => {
+    if (typeof window === 'undefined') return '';
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.textBaseline = 'top';
+      ctx.font = '14px Arial';
+      ctx.fillText('fingerprint', 2, 2);
+    }
+    const fingerprint = [
+      navigator.userAgent,
+      navigator.language,
+      screen.colorDepth,
+      screen.width + 'x' + screen.height,
+      new Date().getTimezoneOffset(),
+      !!window.sessionStorage,
+      !!window.localStorage,
+      canvas.toDataURL()
+    ].join('|');
+    return btoa(fingerprint).substring(0, 32);
+  }, []);
+};
+
+const checkRateLimit = (email: string): { allowed: boolean; waitTime: number } => {
+  if (typeof window === 'undefined') return { allowed: true, waitTime: 0 };
+  
+  const now = Date.now();
+  const key = `login_attempts_${email}`;
+  const lockKey = `login_locked_${email}`;
+  
+  // Check if account is locked
+  const lockData = sessionStorage.getItem(lockKey);
+  if (lockData) {
+    const { until } = JSON.parse(lockData);
+    if (now < until) {
+      return { allowed: false, waitTime: Math.ceil((until - now) / 1000) };
+    } else {
+      sessionStorage.removeItem(lockKey);
+      sessionStorage.removeItem(key);
+    }
+  }
+  
+  const attemptsData = sessionStorage.getItem(key);
+  if (!attemptsData) return { allowed: true, waitTime: 0 };
+  
+  const { attempts, firstAttempt } = JSON.parse(attemptsData);
+  
+  // Reset if first attempt was more than 15 minutes ago
+  if (now - firstAttempt > 15 * 60 * 1000) {
+    sessionStorage.removeItem(key);
+    return { allowed: true, waitTime: 0 };
+  }
+  
+  // Lock account after 5 failed attempts
+  if (attempts >= 5) {
+    const lockUntil = now + 15 * 60 * 1000; // 15 minutes
+    sessionStorage.setItem(lockKey, JSON.stringify({ until: lockUntil }));
+    return { allowed: false, waitTime: 900 };
+  }
+  
+  // Implement exponential backoff
+  if (attempts >= 3) {
+    const backoffTime = Math.pow(2, attempts - 3) * 5000; // 5s, 10s, 20s...
+    const lastAttempt = JSON.parse(attemptsData).lastAttempt || 0;
+    const timeSinceLastAttempt = now - lastAttempt;
+    
+    if (timeSinceLastAttempt < backoffTime) {
+      return { allowed: false, waitTime: Math.ceil((backoffTime - timeSinceLastAttempt) / 1000) };
+    }
+  }
+  
+  return { allowed: true, waitTime: 0 };
+};
+
+const recordFailedAttempt = (email: string) => {
+  if (typeof window === 'undefined') return;
+  
+  const now = Date.now();
+  const key = `login_attempts_${email}`;
+  const attemptsData = sessionStorage.getItem(key);
+  
+  if (!attemptsData) {
+    sessionStorage.setItem(key, JSON.stringify({
+      attempts: 1,
+      firstAttempt: now,
+      lastAttempt: now
+    }));
+  } else {
+    const data = JSON.parse(attemptsData);
+    sessionStorage.setItem(key, JSON.stringify({
+      attempts: data.attempts + 1,
+      firstAttempt: data.firstAttempt,
+      lastAttempt: now
+    }));
+  }
+};
+
+const clearFailedAttempts = (email: string) => {
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem(`login_attempts_${email}`);
+  sessionStorage.removeItem(`login_locked_${email}`);
+};
+
+// Create a centralized error logger
+const logError = (error: any, context: string) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.error(`[${context}]`, {
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+      response: error.response?.data,
+      status: error.response?.status,
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  // In production, send to error tracking service (e.g., Sentry)
+  if (process.env.NODE_ENV === 'production' && typeof window !== 'undefined') {
+    // Example: Sentry.captureException(error);
+  }
+};
+
+// Add a loading overlay with spinner
+const LoadingOverlay = styled.div<{ $show: boolean }>`
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  opacity: ${p => p.$show ? 1 : 0};
+  visibility: ${p => p.$show ? 'visible' : 'hidden'};
+  transition: all 0.3s ease;
+  z-index: 10;
+`;
+
+const Spinner = styled.div`
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e0e7ef;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+`;
+
 export default function LoginPage() {
   const router = useRouter();
   const { setToken, setUserEmail, setRole } = useAuth();
@@ -511,13 +681,50 @@ export default function LoginPage() {
   const [role, setRoleState] = useState<"agent" | "admin">("agent");
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [errorKey, setErrorKey] = useState<keyof typeof dict | "">("");
+  const [errorKey, setErrorKey] = useState<keyof typeof dict | "">("")
   const [errorMessage, setErrorMessage] = useState("");
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [showForgotPasswordMessage, setShowForgotPasswordMessage] = useState(false);
+  const [honeypot, setHoneypot] = useState("");
+  const [requestId, setRequestId] = useState("");
+  
+  // Call the hook at the top level, not inside callbacks
+  const deviceFingerprint = useDeviceFingerprint();
 
   const t = (key: keyof typeof dict) => dict[key][lang];
+
+  // Check for existing authentication on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      const userEmail = localStorage.getItem('userEmail');
+      const userRole = localStorage.getItem('role');
+      const sessionTimeout = sessionStorage.getItem('sessionTimeout');
+      
+      // If we have a valid token and session hasn't expired
+      if (token && userEmail && userRole) {
+        const now = Date.now();
+        const timeout = sessionTimeout ? parseInt(sessionTimeout) : 0;
+        
+        // Check if session is still valid
+        if (!sessionTimeout || now < timeout) {
+          // Session is valid, redirect to appropriate dashboard
+          console.log("Valid session found, redirecting to dashboard");
+          const redirectPath = userRole === "admin" ? "/admin" : "/agent";
+          router.push(redirectPath);
+          return;
+        } else {
+          // Session expired, clear auth data
+          console.log("Session expired, clearing auth data");
+          localStorage.removeItem('token');
+          localStorage.removeItem('userEmail');
+          localStorage.removeItem('role');
+          sessionStorage.removeItem('sessionTimeout');
+        }
+      }
+    }
+  }, [router]);
 
   // Initialize role from sessionStorage after mount
   useEffect(() => {
@@ -535,6 +742,9 @@ export default function LoginPage() {
         setEmail(savedEmail);
         setRememberMe(true);
       }
+      
+      // Generate unique request ID
+      setRequestId(crypto.lib.WordArray.random(16).toString());
     }
   }, []);
 
@@ -553,12 +763,73 @@ export default function LoginPage() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [showLangMenu]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Add keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Alt + L to focus login button
+      if (e.altKey && e.key === 'l') {
+        e.preventDefault();
+        document.querySelector('button[type="submit"]')?.focus();
+      }
+      // Escape to clear form
+      if (e.key === 'Escape') {
+        setEmail('');
+        setPassword('');
+        setErrorKey('');
+        setErrorMessage('');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
+
+  // Generate and validate CSRF token
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      let csrfToken = sessionStorage.getItem('csrf_token');
+      if (!csrfToken) {
+        csrfToken = crypto.lib.WordArray.random(32).toString();
+        sessionStorage.setItem('csrf_token', csrfToken);
+      }
+    }
+  }, []);
+
+  // Use callback for event handlers
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Form submitted, role:", role);
     setErrorKey("");
     setErrorMessage("");
     setShowForgotPasswordMessage(false);
+    
+    // Security Check 1: Honeypot detection (bot prevention)
+    if (honeypot) {
+      console.warn("Honeypot triggered - potential bot detected");
+      setIsLoading(true);
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Fake delay
+      setErrorKey("loginFailedCredentials");
+      setIsLoading(false);
+      return;
+    }
+    
+    // Security Check 2: Input sanitization
+    const sanitizedEmail = sanitizeInput(email);
+    const sanitizedPassword = password; // Don't sanitize password to preserve special chars
+    
+    // Security Check 3: Basic validation
+    if (!sanitizedEmail || !sanitizedPassword) {
+      setErrorKey("loginFailedCredentials");
+      return;
+    }
+    
+    // Security Check 4: Rate limiting
+    const rateCheck = checkRateLimit(sanitizedEmail);
+    if (!rateCheck.allowed) {
+      setErrorMessage(`Too many failed attempts. Please wait ${rateCheck.waitTime} seconds before trying again.`);
+      return;
+    }
+    
     setIsLoading(true);
 
     // Only allow admin login for now
@@ -573,27 +844,47 @@ export default function LoginPage() {
     // Use proxy to bypass SSL certificate errors
     const apiUrl = '/api/login';
     console.log("API URL:", apiUrl);
+    
+    // Security Check 5: Use device fingerprint from hook (already called at top level)
+    // const deviceFingerprint = useDeviceFingerprint(); // REMOVED - already called above
+    
+    // Security Check 6: Generate request timestamp and nonce
+    const timestamp = Date.now();
+    const nonce = crypto.lib.WordArray.random(16).toString();
+    
     try {
       const response = await axios.post(apiUrl, {
-        email: email,
-        password: password,
+        email: sanitizedEmail,
+        password: sanitizedPassword,
       }, {
         timeout: 15000, // 15 second timeout
+        headers: {
+          'X-Request-ID': requestId,
+          'X-Device-Fingerprint': deviceFingerprint,
+          'X-Timestamp': timestamp.toString(),
+          'X-Nonce': nonce,
+          'X-Client-Version': '1.0.0',
+          'X-CSRF-Token': sessionStorage.getItem('csrf_token') || '',
+        },
+        withCredentials: true, // Enable cookies for CSRF protection if backend supports it
       });
 
       console.log("Login response:", response.data);
 
       if (response.data.status_code === 200 && response.data.token) {
+        // Security: Clear failed login attempts on success
+        clearFailedAttempts(sanitizedEmail);
+        
         // Set authentication data
         const userToken = response.data.token;
         console.log("Setting token:", userToken);
         setToken(userToken);
-        setUserEmail(email);
+        setUserEmail(sanitizedEmail);
         setRole(role);
         
-        // Handle remember me functionality
+        // Handle remember me functionality (only store email, never password)
         if (rememberMe) {
-          localStorage.setItem('rememberedEmail', email);
+          localStorage.setItem('rememberedEmail', sanitizedEmail);
           localStorage.setItem('rememberMe', 'true');
         } else {
           localStorage.removeItem('rememberedEmail');
@@ -602,6 +893,10 @@ export default function LoginPage() {
         
         // Clear the saved role from sessionStorage on successful login
         sessionStorage.removeItem('loginRole');
+        
+        // Security: Set session timeout (30 minutes of inactivity)
+        const sessionTimeout = Date.now() + (30 * 60 * 1000);
+        sessionStorage.setItem('sessionTimeout', sessionTimeout.toString());
         
         console.log("Login successful, redirecting to:", role === "admin" ? "/admin" : "/agent");
         
@@ -612,24 +907,15 @@ export default function LoginPage() {
           router.push(redirectPath);
         }, 100);
       } else {
-        // Handle specific error messages
-        const message = response.data.message || "";
-        if (message.toLowerCase().includes("not belong to an active user")) {
-          setErrorKey("emailNotRegistered");
-        } else if (message.toLowerCase().includes("invalid password")) {
-          setErrorKey("incorrectPassword");
-        } else if (message.toLowerCase().includes("login successful")) {
-          // Ignore success message from API since we're redirecting
-          return;
-        } else {
-          if (message) {
-            setErrorMessage(message);
-          } else {
-            setErrorKey("loginFailedCredentials");
-          }
-        }
+        // Security: Record failed attempt
+        recordFailedAttempt(sanitizedEmail);
+        
+        // Security: Use generic error messages to prevent username enumeration
+        // Don't reveal whether email exists or password is wrong
+        setErrorKey("invalidCredentials");
       }
     } catch (err: any) {
+      logError(err, 'Login Attempt');
       console.error("Login error:", err);
       console.error("Error details:", {
         message: err.message,
@@ -638,35 +924,30 @@ export default function LoginPage() {
         status: err.response?.status
       });
       
-      const apiErrorMessage = err.response?.data?.message || "";
+      // Security: Record failed attempt
+      recordFailedAttempt(sanitizedEmail);
       
+      // Security: Use generic error messages to prevent information leakage
       // Network errors (cannot reach server)
       if (err.code === 'ERR_NETWORK' || err.message.includes('Network Error')) {
-        setErrorMessage(`Cannot reach server at ${API_CONFIG.BASE_URL}. Please check if the backend is running.`);
-      } else if (apiErrorMessage.toLowerCase().includes("not belong to an active user")) {
-        setErrorKey("emailNotRegistered");
-      } else if (apiErrorMessage.toLowerCase().includes("invalid password")) {
-        setErrorKey("incorrectPassword");
-      } else if (err.response?.status === 401) {
+        setErrorMessage("Cannot reach server. Please check your connection.");
+      } else if (err.response?.status === 401 || err.response?.status === 403) {
+        // Generic message - don't reveal if email exists or password is wrong
         setErrorKey("invalidCredentials");
-      } else if (err.response?.status === 404) {
-        setErrorMessage(`Endpoint not found: ${getApiUrl(API_CONFIG.ENDPOINTS.LOGIN)}`);
+      } else if (err.response?.status === 429) {
+        setErrorMessage("Too many requests. Please try again later.");
       } else if (err.response?.status >= 500) {
         setErrorKey("serverErrorTryAgain");
       } else if (err.code === "ECONNABORTED" || err.message.includes("timeout")) {
-        setErrorMessage("Request timeout. Server is taking too long to respond.");
-      } else if (apiErrorMessage) {
-        // Don't show 'Login successful' as error
-        if (!apiErrorMessage.toLowerCase().includes("login successful")) {
-          setErrorMessage(apiErrorMessage);
-        }
+        setErrorMessage("Request timeout. Please try again.");
       } else {
-        setErrorMessage(`Connection error: ${err.message || 'Unable to connect to server'}`);
+        // Generic error message
+        setErrorKey("invalidCredentials");
       }
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [email, password, role, rememberMe, honeypot, requestId, deviceFingerprint]);
 
   return (
     <Container>
@@ -739,9 +1020,20 @@ export default function LoginPage() {
           </LoginModeIndicator>
           
           <FormContainer>
-            <Form onSubmit={handleSubmit}>
-              <FormGroup>
-                <Label>{t("email")}</Label>
+            <Form onSubmit={handleSubmit} role="form" aria-label={t("login")} style={{ position: 'relative' }}>
+              {/* Honeypot field - hidden from users, catches bots */}
+              <HoneypotField
+                type="text"
+                name="website"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+              />
+              
+              <FormGroup role="group" aria-labelledby="email-label">
+                <Label id="email-label">{t("email")}</Label>
                 <InputWrapper className="email">
                   <Input
                     type="email"
@@ -749,6 +1041,10 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder={t("enterAccount")}
                     required
+                    autoComplete="username"
+                    aria-required="true"
+                    aria-invalid={!!errorKey || !!errorMessage}
+                    aria-describedby={errorKey || errorMessage ? "error-message" : undefined}
                   />
                 </InputWrapper>
               </FormGroup>
@@ -762,6 +1058,7 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={t("enterPassword")}
                     required
+                    autoComplete="current-password"
                   />
                 </InputWrapper>
               </FormGroup>
@@ -793,14 +1090,23 @@ export default function LoginPage() {
               )}
               
               {(errorKey || errorMessage) && (
-                <ErrorMessage>
+                <ErrorMessage id="error-message" role="alert" aria-live="assertive">
                   {errorKey ? t(errorKey) : errorMessage}
                 </ErrorMessage>
               )}
 
-              <Button type="submit" disabled={isLoading}>
+              <Button 
+                type="submit" 
+                disabled={isLoading}
+                aria-busy={isLoading}
+                aria-label={isLoading ? t("loggingIn") : t("login")}
+              >
                 {isLoading ? t("loggingIn") : t("login")}
               </Button>
+
+              <LoadingOverlay $show={isLoading}>
+                <Spinner />
+              </LoadingOverlay>
             </Form>
             
             <SwitchRole onClick={() => {
