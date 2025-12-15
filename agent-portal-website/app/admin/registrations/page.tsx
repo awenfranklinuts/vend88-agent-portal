@@ -1187,6 +1187,8 @@ export default function RegistrationsPage() {
   const [approveError, setApproveError] = useState('');
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [registrationToApprove, setRegistrationToApprove] = useState<string | null>(null);
+  const [showRevokeModal, setShowRevokeModal] = useState(false);
+  const [registrationToRevoke, setRegistrationToRevoke] = useState<string | null>(null);
   
   // Table enhancements state
   const [sortField, setSortField] = useState<string>('submittedAt');
@@ -1578,28 +1580,37 @@ export default function RegistrationsPage() {
     }
   };
 
-  const handleRevoke = async (id: string) => {
-    if (confirm(lang === 'zh' ? '确定要撤销此注册链接吗？撤销后该链接将无法使用。' : 'Are you sure you want to revoke this registration link? Once revoked, the link cannot be used.')) {
-      try {
-        // TODO: Replace with real API call when ready
-        // const response = await axios.post(getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_REVOKE.replace(':id', id)));
-        const response = await MockAPI.revokeRegistration(id, 'admin@vend88.com');
-        
-        if (response.success) {
-          // Refresh the list
-          fetchRegistrationData();
-          showToast(lang === 'zh' ? '已撤销！' : 'Revoked successfully!', 'success');
-          // Close details modal if open
-          if (selectedRegistration?.id === id) {
-            setShowDetailsModal(false);
-          }
-        } else {
-          showToast(response.error || 'Failed to revoke', 'error');
+  const handleRevoke = (id: string) => {
+    setRegistrationToRevoke(id);
+    setShowRevokeModal(true);
+  };
+
+  const handleConfirmRevoke = async () => {
+    if (!registrationToRevoke) return;
+    
+    const id = registrationToRevoke;
+    try {
+      // TODO: Replace with real API call when ready
+      // const response = await axios.post(getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_REVOKE.replace(':id', id)));
+      const response = await MockAPI.revokeRegistration(id, 'admin@vend88.com');
+      
+      if (response.success) {
+        // Refresh the list
+        fetchRegistrationData();
+        showToast(lang === 'zh' ? '已撤销！' : 'Revoked successfully!', 'success');
+        // Close details modal if open
+        if (selectedRegistration?.id === id) {
+          setShowDetailsModal(false);
         }
-      } catch (error) {
-        console.error('Failed to revoke registration:', error);
-        showToast('Failed to revoke. Please try again.', 'error');
+        // Close revoke modal
+        setShowRevokeModal(false);
+        setRegistrationToRevoke(null);
+      } else {
+        showToast(response.error || 'Failed to revoke', 'error');
       }
+    } catch (error) {
+      console.error('Failed to revoke registration:', error);
+      showToast('Failed to revoke. Please try again.', 'error');
     }
   };
 
@@ -2913,6 +2924,31 @@ export default function RegistrationsPage() {
               </ModalButton>
               <ModalButton $primary onClick={handleConfirmApprove} style={{ background: '#10b981' }}>
                 {lang === 'zh' ? '确认批准' : 'Confirm Approve'}
+              </ModalButton>
+            </ModalActions>
+          </ModalContent>
+        </Modal>
+      )}
+
+      {/* Revoke Confirmation Modal - Independent */}
+      {showRevokeModal && (
+        <Modal $show={showRevokeModal} onClick={() => setShowRevokeModal(false)}>
+          <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <ModalTitle>{lang === 'zh' ? '撤销注册链接' : 'Revoke Registration Link'}</ModalTitle>
+            <ModalText>
+              {lang === 'zh' 
+                ? '确定要撤销此注册链接吗？撤销后该链接将无法使用。'
+                : 'Are you sure you want to revoke this registration link? Once revoked, the link cannot be used.'}
+            </ModalText>
+            <ModalActions>
+              <ModalButton onClick={() => {
+                setShowRevokeModal(false);
+                setRegistrationToRevoke(null);
+              }}>
+                {lang === 'zh' ? '取消' : 'Cancel'}
+              </ModalButton>
+              <ModalButton $primary onClick={handleConfirmRevoke} style={{ background: '#ef4444' }}>
+                {lang === 'zh' ? '确认撤销' : 'Confirm Revoke'}
               </ModalButton>
             </ModalActions>
           </ModalContent>
