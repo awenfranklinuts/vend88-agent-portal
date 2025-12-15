@@ -71,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFetchingProfile, setIsFetchingProfile] = useState(false);
 
   useEffect(() => {
     // Initialize from localStorage
@@ -113,8 +114,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const fetchAdminProfile = useCallback(async () => {
-    if (!token) return;
+    if (!token || isFetchingProfile) return;
 
+    setIsFetchingProfile(true);
     try {
       const response = await axios.post(
         '/api/admin/profile',
@@ -137,8 +139,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error("Failed to fetch admin profile:", error);
+    } finally {
+      setIsFetchingProfile(false);
     }
-  }, [token]);
+  }, [token, isFetchingProfile]);
 
   const fetchCustomers = useCallback(async () => {
     if (!token) return;

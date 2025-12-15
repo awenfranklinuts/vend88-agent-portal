@@ -385,7 +385,8 @@ export default function Header({ currentPage = "Home", onMenuToggle }: HeaderPro
     if (token && role === "admin" && !adminProfile) {
       fetchAdminProfile();
     }
-  }, [token, role, adminProfile, fetchAdminProfile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, role]);
   
   // Get user initials
   const getUserInitials = () => {

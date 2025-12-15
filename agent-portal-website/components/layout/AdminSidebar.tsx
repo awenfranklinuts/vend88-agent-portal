@@ -212,7 +212,8 @@ export default function AdminSidebar({ mobileOpen, onClose }: AdminSidebarProps)
     if (!adminProfile) {
       fetchAdminProfile();
     }
-  }, [adminProfile, fetchAdminProfile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const navigate = (path: string) => {
     router.push(path);
