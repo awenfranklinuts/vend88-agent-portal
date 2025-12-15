@@ -89,4 +89,5 @@ export const dict = {
   unableToConnect: { zh: "无法连接。请检查您的网络连接并重试。", en: "Unable to connect. Please check your internet connection and try again." },
   contactAdminResetPassword: { zh: "请联系您的管理员重置密码。", en: "Please contact your administrator to reset your password." },
   loginSuccessful: { zh: "登录成功", en: "Login successful" },
+  redirecting: { zh: "跳转中...", en: "Redirecting..." },
 };

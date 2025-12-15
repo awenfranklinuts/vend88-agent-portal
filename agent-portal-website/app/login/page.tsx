@@ -254,6 +254,40 @@ const HoneypotField = styled.input`
   pointer-events: none;
 `;
 
+const PageLoader = styled.div<{ $show: boolean }>`
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #e0e7ef 0%, #f7faff 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 1rem;
+  z-index: 9999;
+  opacity: ${p => p.$show ? 1 : 0};
+  visibility: ${p => p.$show ? 'visible' : 'hidden'};
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+`;
+
+const PageSpinner = styled.div`
+  width: 50px;
+  height: 50px;
+  border: 4px solid #e0e7ef;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+`;
+
+const LoadingText = styled.p`
+  color: #3b82f6;
+  font-size: 0.95rem;
+  font-weight: 600;
+`;
+
 const Button = styled.button`
   background: #3b82f6;
   color: white;
@@ -688,6 +722,7 @@ export default function LoginPage() {
   const [showForgotPasswordMessage, setShowForgotPasswordMessage] = useState(false);
   const [honeypot, setHoneypot] = useState("");
   const [requestId, setRequestId] = useState("");
+  const [isNavigating, setIsNavigating] = useState(false);
   
   // Call the hook at the top level, not inside callbacks
   const deviceFingerprint = useDeviceFingerprint();
@@ -769,7 +804,8 @@ export default function LoginPage() {
       // Alt + L to focus login button
       if (e.altKey && e.key === 'l') {
         e.preventDefault();
-        document.querySelector('button[type="submit"]')?.focus();
+        const button = document.querySelector('button[type="submit"]') as HTMLButtonElement;
+        button?.focus();
       }
       // Escape to clear form
       if (e.key === 'Escape') {
@@ -900,12 +936,16 @@ export default function LoginPage() {
         
         console.log("Login successful, redirecting to:", role === "admin" ? "/admin" : "/agent");
         
+        // Show loading screen during navigation
+        setIsNavigating(true);
+        setIsLoading(false);
+        
         // Small delay to ensure state is saved, then redirect
         setTimeout(() => {
           const redirectPath = role === "admin" ? "/admin" : "/agent";
           console.log("Navigating to:", redirectPath);
           router.push(redirectPath);
-        }, 100);
+        }, 300);
       } else {
         // Security: Record failed attempt
         recordFailedAttempt(sanitizedEmail);
@@ -950,7 +990,14 @@ export default function LoginPage() {
   }, [email, password, role, rememberMe, honeypot, requestId, deviceFingerprint]);
 
   return (
-    <Container>
+    <>
+      {/* Page loader for navigation */}
+      <PageLoader $show={isNavigating}>
+        <PageSpinner />
+        <LoadingText>{t("redirecting") || "Redirecting..."}</LoadingText>
+      </PageLoader>
+
+      <Container>
       <LoginBox>
         <LoginImageSection>
           <Image
@@ -1120,5 +1167,6 @@ export default function LoginPage() {
         </LoginFormSection>
       </LoginBox>
     </Container>
+    </>
   );
 }
