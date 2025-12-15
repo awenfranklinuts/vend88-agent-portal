@@ -638,13 +638,113 @@ CREATE TABLE registration_submissions (
 7. ✅ Get Details (`GET /registration/:id`)
 8. ✅ Update Details (`PUT /registration/:id`)
 
-### Phase 2 (Enhanced) - IN PROGRESS:
+### Phase 2 (Enhanced) - ✅ COMPLETED:
+1. ✅ Inline error handling (no alert popups)
+2. ✅ Modal overlays for rejection/revoke confirmations
+3. ✅ File upload handling for menu files
+4. ✅ Admin portal UI with customer linking workflow
+5. ✅ Registration form with file upload
+6. ✅ Status filtering (all, pending, submitted, approved, rejected, expired, revoked)
+7. ✅ Date range filtering
+8. ✅ Search by business name, owner, email, ABN
+9. ✅ Sorting (by date, status, business name)
+10. ✅ Pagination with smart page controls
+11. ✅ Statistics cards (total, pending, submitted, approved, rejected, expired)
+12. ✅ Copy link to clipboard with success feedback
+13. ✅ View full form details in modal
+14. ✅ Revoke link with modal confirmation (no browser alerts)
+
+### Phase 3 (TODO) - PENDING:
 1. ⚠️ Email notifications on approval/rejection
-2. ✅ File upload handling for menu files
-3. ✅ Admin portal UI with customer linking workflow
-4. ✅ Registration form with file upload
-5. ✅ Inline error handling (no alert popups)
-6. ✅ Modal overlays for rejection reasons
+2. 🔴 Revoke API endpoint (`POST /registration/revoke/:id`)
+3. 🔴 Reject API endpoint with reason (`POST /registration/reject/:id`)
+4. 🔴 Resend email notification (`POST /registration/resend-email/:id`)
+
+---
+
+## Customer Management Integration
+
+### Current Implementation
+The admin portal includes comprehensive customer management features integrated with the registration system:
+
+**API Endpoints Used:**
+- `POST /customer/list` - List all customers with business counts
+- `POST /api/search/business` - Get businesses to calculate per-customer counts
+
+**Features Implemented:**
+- ✅ View toggle (grid/table)
+- ✅ Statistics cards (total customers, total businesses, recent additions)
+- ✅ Advanced search (name, ABN, address, email)
+- ✅ Sorting (by name, date, business count)
+- ✅ Pagination (12 items per page)
+- ✅ Export to CSV (all or filtered data)
+- ✅ Customer details modal with action buttons
+- ✅ Email customer action
+- ✅ Inline edit customer (frontend ready, API needed)
+
+**Missing API Endpoints:**
+- 🔴 `PUT /customer/:id` - Update customer information
+- 🔴 `DELETE /customer/:id` - Delete customer (soft delete recommended)
+- 🔴 `POST /customer/search` - Advanced search with filters
+- 🔴 `GET /customer/:id/businesses` - Get all businesses for a customer
+
+---
+
+## Business Management Integration
+
+### Current Implementation
+The admin portal includes comprehensive business management features:
+
+**API Endpoints Used:**
+- `POST /api/search/business` - List all businesses with details
+- `POST /customer/list` - Get customer names for owner display
+- `POST /api/shop/get-permission` - Get business permissions
+- `POST /api/shop/add-permission` - Add permission
+- `POST /api/shop/update-permission` - Update permission
+- `POST /api/shop/delete-permission` - Delete permission
+
+**Features Implemented:**
+
+**Business List Page:**
+- ✅ View toggle (grid/table)
+- ✅ Statistics cards (total, active, setup, inactive)
+- ✅ Advanced search (ABN, address, owner name, date range)
+- ✅ Sorting (by name, date, status)
+- ✅ Pagination (12 items per page)
+- ✅ Bulk selection and export
+- ✅ Business details modal
+- ✅ Status change with confirmation modal
+- ✅ Export to CSV with owner information
+- ✅ Display business name and suburb prominently
+
+**Business Details Page:**
+- ✅ Business name and location prominently displayed at top
+- ✅ Statistics cards (active devices, permissions, days active, status)
+- ✅ Tab-based organization (Overview, Devices, Permissions, Activity, Notes)
+- ✅ Quick actions bar (Edit, Export CSV/PDF, Contact Owner)
+- ✅ Edit mode for business information with inline editing
+- ✅ Owner information card with customer details
+- ✅ Complete business information display (editable)
+- ✅ Address and contact information sections
+- ✅ Device management UI (display, add, edit, delete)
+- ✅ Permission management (full CRUD operations)
+- ✅ Activity log timeline with icons
+- ✅ Notes section (add and view notes)
+- ✅ Registration details link
+- ✅ Export functionality (CSV with all data)
+
+**Missing API Endpoints:**
+- 🔴 `PUT /api/business/:id` - Update business information
+- 🔴 `PUT /api/business/:id/status` - Update business status
+- 🔴 `GET /api/business/:id/devices` - Get devices for business
+- 🔴 `POST /api/business/:id/devices` - Add device
+- 🔴 `PUT /api/business/:id/devices/:deviceId` - Update device
+- 🔴 `DELETE /api/business/:id/devices/:deviceId` - Delete device
+- 🔴 `GET /api/business/:id/activity` - Get activity log
+- 🔴 `GET /api/business/:id/notes` - Get notes
+- 🔴 `POST /api/business/:id/notes` - Add note
+- 🔴 `PUT /api/business/:id/notes/:noteId` - Update note
+- 🔴 `DELETE /api/business/:id/notes/:noteId` - Delete note
 
 ---
 
@@ -759,11 +859,70 @@ CREATE TABLE registration_submissions (
 3. **UI/UX Guidelines**:
    - No `alert()`, `confirm()`, or `prompt()` dialogs
    - Use inline error messages with warning icon
-   - Modal overlays for destructive actions (reject, revoke)
+   - Modal overlays for destructive actions (reject, revoke, status change)
    - Success states on buttons (e.g., "Copied!" with checkmark)
    - Auto-clear errors when user fixes the issue
    - Loading states on async operations
    - Responsive design for mobile/tablet
+   - Business name and suburb displayed prominently in all views
+   - Professional card layouts with hover effects
+   - Smooth transitions and animations
+   - Icon integration for better visual hierarchy
+   - Toast notifications for success/error feedback
+   - Skeleton loading states for better perceived performance
+   - Advanced search panels with collapsible sections
+   - Bulk action bars for multi-select operations
+   - Export buttons with download icons
+   - Pagination with smart ellipsis (1, 2, 3, ..., 10)
+   - View toggles (grid/table) with persistent state
+   - Sortable table headers with direction indicators
+   - Status badges with color coding
+   - Action buttons grouped logically
+   - Modal close on backdrop click
+   - Form validation with inline error display
+
+---
+
+## Deployment Information
+
+## Admin Portal Features Summary
+
+### Pages Implemented
+
+1. **Dashboard** - Overview statistics and quick actions
+2. **Customers** - Full customer management with search, filter, export
+3. **Businesses** - Comprehensive business management
+4. **Business Details** - Detailed view with tabs (Overview, Devices, Permissions, Activity, Notes)
+5. **Registrations** - Registration form management with approval workflow
+6. **Admins** - Admin user management
+7. **Agents** - Agent management (future feature)
+8. **Settings** - System settings and preferences
+
+### Common Features Across All Pages
+
+- ✅ Bilingual support (English/Chinese)
+- ✅ Responsive design (mobile, tablet, desktop)
+- ✅ Professional UI with styled-components
+- ✅ Toast notifications for user feedback
+- ✅ Loading states and skeleton screens
+- ✅ Error handling with inline messages
+- ✅ Authentication with role-based access
+- ✅ Sidebar navigation with active state
+- ✅ Header with language toggle and user menu
+- ✅ Modal patterns for confirmations
+- ✅ Export functionality (CSV)
+- ✅ Search and filter capabilities
+- ✅ Pagination with smart controls
+- ✅ Sorting with direction toggle
+- ✅ View modes (grid/table where applicable)
+- ✅ Statistics cards with real-time data
+- ✅ Action buttons with icons
+- ✅ Status badges with color coding
+- ✅ Copy to clipboard functionality
+- ✅ Email integration (mailto links)
+- ✅ Date formatting (relative and absolute)
+- ✅ Empty states with helpful messages
+- ✅ Form validation
 
 ---
 
