@@ -1219,6 +1219,12 @@ export default function RegistrationsPage() {
   const [showRevokeModal, setShowRevokeModal] = useState(false);
   const [registrationToRevoke, setRegistrationToRevoke] = useState<string | null>(null);
   
+  // Store admin names for display
+  const [adminNames, setAdminNames] = useState<{ [email: string]: string }>({});
+  
+  // Track counts for smart refresh
+  const [previousCounts, setPreviousCounts] = useState<{ submitted: number; pending: number }>({ submitted: 0, pending: 0 });
+  
   // Table enhancements state
   const [sortField, setSortField] = useState<string>('submittedAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -1242,20 +1248,19 @@ export default function RegistrationsPage() {
     }
   }, [token]);
 
-  // Auto-refresh table data every 30 seconds
+  // Auto-refresh table data every 30 seconds (only if submitted/pending counts change)
   useEffect(() => {
     if (!token) return;
 
     const refreshInterval = setInterval(() => {
-      console.log('[Auto-refresh] Refreshing registration data...');
-      fetchRegistrationData();
+      fetchRegistrationData(true); // Pass true to indicate this is auto-refresh
     }, 30000); // 30 seconds
 
     return () => {
       console.log('[Auto-refresh] Cleanup interval');
       clearInterval(refreshInterval);
     };
-  }, [token]);
+  }, [token, previousCounts]);
 
   // Sync customers from auth context
   useEffect(() => {
@@ -1287,10 +1292,10 @@ export default function RegistrationsPage() {
     }
   }, [selectedRegistration, customers]);
 
-  const fetchRegistrationData = async () => {
+  const fetchRegistrationData = async (isAutoRefresh = false) => {
     setIsDataLoading(true);
     try {
-      console.log('[Fetch] Fetching registration data...');
+      console.log(isAutoRefresh ? '[Auto-refresh] Checking for updates...' : '[Fetch] Fetching registration data...');
       
       // Fetch from new backend API
       const response = await axios.get('/api/registration/list', {
@@ -1331,8 +1336,30 @@ export default function RegistrationsPage() {
         console.log('[Fetch] Normalized registrations:', normalizedRegistrations.length, 'items');
         console.log('[Fetch] Sample normalized item:', normalizedRegistrations[0]);
         
-        setAllRegistrations(normalizedRegistrations);
-        setRegistrations(normalizedRegistrations);
+        // Count submitted and pending registrations
+        const submittedCount = normalizedRegistrations.filter((r: any) => r.status === 'submitted').length;
+        const pendingCount = normalizedRegistrations.filter((r: any) => r.status === 'pending').length;
+        
+        // If this is an auto-refresh, only update if counts changed
+        if (isAutoRefresh) {
+          const hasChanges = submittedCount !== previousCounts.submitted || pendingCount !== previousCounts.pending;
+          
+          if (hasChanges) {
+            console.log('[Auto-refresh] Changes detected!');
+            console.log('[Auto-refresh] Submitted:', previousCounts.submitted, '->', submittedCount);
+            console.log('[Auto-refresh] Pending:', previousCounts.pending, '->', pendingCount);
+            setAllRegistrations(normalizedRegistrations);
+            setRegistrations(normalizedRegistrations);
+            setPreviousCounts({ submitted: submittedCount, pending: pendingCount });
+          } else {
+            console.log('[Auto-refresh] No changes in submitted/pending counts, skipping update');
+          }
+        } else {
+          // Manual refresh or initial load - always update
+          setAllRegistrations(normalizedRegistrations);
+          setRegistrations(normalizedRegistrations);
+          setPreviousCounts({ submitted: submittedCount, pending: pendingCount });
+        }
       } else {
         console.error('[Fetch] Failed to fetch registrations:', response.data);
         showToast('Failed to fetch registrations', 'error');
@@ -1710,6 +1737,35 @@ export default function RegistrationsPage() {
   const getSubmittedAt = (reg: Registration) => reg.submitted_at || reg.submittedAt || '';
   const getGeneratedBy = (reg: Registration) => reg.generated_by || reg.generatedBy || '';
   const getGeneratedAt = (reg: Registration) => reg.generated_at || reg.generatedAt || reg.created_at || '';
+  
+  // Helper to get admin name from email
+  const getAdminName = (email: string) => {
+    if (!email) return '';
+    
+    // Check if we have this admin's name in our cache
+    if (adminNames[email]) {
+      return adminNames[email];
+    }
+    
+    // If it's the current admin, use their profile
+    if (adminProfile && (email === adminProfile.email || email === userEmail)) {
+      const fullName = `${adminProfile.first_name} ${adminProfile.last_name}`.trim();
+      if (fullName) {
+        // Cache it for future use
+        setAdminNames(prev => ({ ...prev, [email]: fullName }));
+        return fullName;
+      }
+    }
+    
+    // Fallback: extract name from email (e.g., john.doe@vend88.com -> John Doe)
+    const namePart = email.split('@')[0];
+    const formattedName = namePart
+      .split(/[._-]/)
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(' ');
+    
+    return formattedName;
+  };
 
   const filteredRegistrations = allRegistrations.filter(reg => {
     // Filter by tab status
@@ -2094,7 +2150,7 @@ export default function RegistrationsPage() {
                         <Td>
                           <div>{getGeneratedAt(reg) ? new Date(getGeneratedAt(reg)).toLocaleDateString() : '-'}</div>
                           <div style={{ fontSize: '0.8125rem', color: '#5c6b7a', marginTop: '0.25rem' }}>
-                            {reg.form_id || reg.id}
+                            {getGeneratedBy(reg) ? `By ${getAdminName(getGeneratedBy(reg))}` : '-'}
                           </div>
                         </Td>
                         <Td>

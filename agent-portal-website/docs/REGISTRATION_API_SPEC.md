@@ -1,9 +1,11 @@
 # Registration Management API Specification
 
 ## Deployment URLs
-- **Backend API**: `https://prod.vend88.com`
+- **Backend API**: `https://dev.vend88.com` (Development Environment)
 - **Admin Portal**: `https://portal.vend88.com`
 - **Registration Form**: `https://form.vend88.com`
+
+**Note**: Currently using development environment (dev.vend88.com) for all backend API calls.
 
 ## Authentication
 All admin endpoints require a Bearer token in the Authorization header:
@@ -14,7 +16,9 @@ Authorization: Bearer <admin_token>
 ## Frontend API Proxy
 The admin portal uses Next.js API routes as a proxy to avoid CORS issues:
 - Frontend calls: `/api/registration/*`
-- Proxied to: `https://prod.vend88.com/registration/*`
+- Proxied to: `https://dev.vend88.com/registration/*`
+
+**Current Configuration**: All API endpoints route through dev.vend88.com for testing and development.
 
 ---
 
@@ -653,6 +657,15 @@ CREATE TABLE registration_submissions (
 12. ✅ Copy link to clipboard with success feedback
 13. ✅ View full form details in modal
 14. ✅ Revoke link with modal confirmation (no browser alerts)
+15. ✅ Dark/Light theme system with persistence
+16. ✅ Theme toggle in header with moon/sun icons
+17. ✅ Auto-refresh table (30s interval, smart update on changes only)
+18. ✅ Generated column shows date and admin full name
+19. ✅ Admin name extraction from email profile (first_name + last_name)
+20. ✅ Messaging app fields (WhatsApp/WeChat) in customer management
+21. ✅ Field compatibility layer (snake_case backend ↔ camelCase frontend)
+22. ✅ Comprehensive console logging for debugging
+23. ✅ Skeleton loading states for better UX
 
 ### Phase 3 (TODO) - PENDING:
 1. ⚠️ Email notifications on approval/rejection
@@ -681,6 +694,9 @@ The admin portal includes comprehensive customer management features integrated 
 - ✅ Customer details modal with action buttons
 - ✅ Email customer action
 - ✅ Inline edit customer (frontend ready, API needed)
+- ✅ Messaging app integration (WhatsApp/WeChat ID display)
+- ✅ Messaging app icon with conditional rendering
+- ✅ Theme support (dark/light mode)
 
 **Missing API Endpoints:**
 - 🔴 `PUT /customer/:id` - Update customer information
@@ -864,6 +880,23 @@ The admin portal includes comprehensive business management features:
    - Auto-clear errors when user fixes the issue
    - Loading states on async operations
    - Responsive design for mobile/tablet
+   - Theme persistence across sessions
+   - Smooth color transitions on theme changes
+
+4. **Registration Table Auto-Refresh**:
+   - Polls backend every 30 seconds for updates
+   - Smart update logic: only refreshes UI if submitted or pending counts change
+   - Prevents unnecessary re-renders when no data changes
+   - Console logging for debugging auto-refresh behavior
+   - Tracks previous counts to detect changes
+   - Manual refresh always updates (bypasses smart logic)
+
+5. **Admin Display Features**:
+   - Generated column shows formatted date and admin full name
+   - Admin names extracted from email profile (first_name + last_name)
+   - Fallback to formatted email if profile not available
+   - Format: "By John Smith" instead of email address
+   - Name caching for performance optimization
    - Business name and suburb displayed prominently in all views
    - Professional card layouts with hover effects
    - Smooth transitions and animations
@@ -880,6 +913,9 @@ The admin portal includes comprehensive business management features:
    - Action buttons grouped logically
    - Modal close on backdrop click
    - Form validation with inline error display
+   - Theme-aware component styling
+   - Dark mode with carefully selected color palette
+   - Light mode with clean, professional appearance
 
 ---
 
@@ -909,6 +945,10 @@ The admin portal includes comprehensive business management features:
 - ✅ Authentication with role-based access
 - ✅ Sidebar navigation with active state
 - ✅ Header with language toggle and user menu
+- ✅ Dark/Light theme system with localStorage persistence
+- ✅ Theme toggle button with animated icons (moon/sun)
+- ✅ CSS variables for consistent theming across app
+- ✅ Smooth transitions on theme changes
 - ✅ Modal patterns for confirmations
 - ✅ Export functionality (CSV)
 - ✅ Search and filter capabilities
