@@ -949,16 +949,22 @@ interface Registration {
   messaging_app_type?: string;
   messagingAppType?: string; // Keep for backwards compatibility
   // Business Information
-  quoteNumber?: string;
+  quote_number?: string;
+  quoteNumber?: string; // Keep for backwards compatibility
   business_name?: string;
   businessName?: string; // Keep for backwards compatibility
   abn?: string;
   // Registered Address
-  registeredAddress?: string;
-  registeredSuburb?: string;
-  registeredPostcode?: string;
-  registeredState?: string;
-  registeredCountry?: string;
+  registered_address?: string;
+  registeredAddress?: string; // Keep for backwards compatibility
+  registered_suburb?: string;
+  registeredSuburb?: string; // Keep for backwards compatibility
+  registered_postcode?: string;
+  registeredPostcode?: string; // Keep for backwards compatibility
+  registered_state?: string;
+  registeredState?: string; // Keep for backwards compatibility
+  registered_country?: string;
+  registeredCountry?: string; // Keep for backwards compatibility
   // Payment & Integration
   eftpos_integration?: string;
   eftposIntegration?: string; // Keep for backwards compatibility
@@ -967,7 +973,8 @@ interface Registration {
   alipay_other?: string;
   alipayOther?: string; // Keep for backwards compatibility
   // Additional Information
-  readyBy?: string;
+  ready_by?: string;
+  readyBy?: string; // Keep for backwards compatibility
   heard_about?: string;
   heardAbout?: string; // Keep for backwards compatibility
   heard_other?: string;
@@ -1738,6 +1745,26 @@ export default function RegistrationsPage() {
   const getGeneratedBy = (reg: Registration) => reg.generated_by || reg.generatedBy || '';
   const getGeneratedAt = (reg: Registration) => reg.generated_at || reg.generatedAt || reg.created_at || '';
   
+  // Additional helper functions for all fields
+  const getQuoteNumber = (reg: Registration) => reg.quote_number || reg.quoteNumber || '';
+  const getABN = (reg: Registration) => reg.abn || '';
+  const getRegisteredAddress = (reg: Registration) => reg.registered_address || reg.registeredAddress || '';
+  const getRegisteredSuburb = (reg: Registration) => reg.registered_suburb || reg.registeredSuburb || '';
+  const getRegisteredPostcode = (reg: Registration) => reg.registered_postcode || reg.registeredPostcode || '';
+  const getRegisteredState = (reg: Registration) => reg.registered_state || reg.registeredState || '';
+  const getRegisteredCountry = (reg: Registration) => reg.registered_country || reg.registeredCountry || '';
+  const getEftposIntegration = (reg: Registration) => reg.eftpos_integration || reg.eftposIntegration || '';
+  const getAlipayOption = (reg: Registration) => reg.alipay_option || reg.alipayOption || '';
+  const getAlipayOther = (reg: Registration) => reg.alipay_other || reg.alipayOther || '';
+  const getReadyBy = (reg: Registration) => reg.ready_by || reg.readyBy || '';
+  const getHeardAbout = (reg: Registration) => reg.heard_about || reg.heardAbout || '';
+  const getHeardOther = (reg: Registration) => reg.heard_other || reg.heardOther || '';
+  const getMessagingAppType = (reg: Registration) => reg.messaging_app_type || reg.messagingAppType || '';
+  const getMessagingAppId = (reg: Registration) => reg.messaging_app_id || reg.messagingAppId || '';
+  const getMenuFiles = (reg: Registration) => reg.menu_files || reg.menuFiles || [];
+  const getMenuSendLater = (reg: Registration) => reg.menu_send_later || reg.menuSendLater || false;
+  const getNotes = (reg: Registration) => reg.notes || '';
+  
   // Helper to get admin name from email
   const getAdminName = (email: string) => {
     if (!email) return '';
@@ -2331,7 +2358,7 @@ export default function RegistrationsPage() {
                 )}
               </DetailSection>
 
-              {(selectedRegistration.messagingAppType || isEditMode) && (
+              {(getMessagingAppType(selectedRegistration) || isEditMode) && (
                 <DetailSection>
                   <DetailLabel>
                     {lang === "zh" ? "即时通讯" : "Messaging App"}
@@ -2339,18 +2366,18 @@ export default function RegistrationsPage() {
                   {isEditMode ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       <EditSelect 
-                        value={editedRegistration.messagingAppType || ''}
+                        value={editedRegistration.messaging_app_type || editedRegistration.messagingAppType || ''}
                         onChange={(e) => handleEditChange('messagingAppType', e.target.value)}
                       >
                         <option value="">{lang === "zh" ? "-- 选择应用 --" : "-- Select app --"}</option>
                         <option value="wechat">{lang === "zh" ? "微信号" : "WeChat ID"}</option>
                         <option value="whatsapp">{lang === "zh" ? "WhatsApp 号码" : "WhatsApp Number"}</option>
                       </EditSelect>
-                      {editedRegistration.messagingAppType && (
+                      {(editedRegistration.messaging_app_type || editedRegistration.messagingAppType) && (
                         <EditInput 
-                          value={editedRegistration.messagingAppId || ''}
+                          value={editedRegistration.messaging_app_id || editedRegistration.messagingAppId || ''}
                           onChange={(e) => handleEditChange('messagingAppId', e.target.value)}
-                          placeholder={editedRegistration.messagingAppType === 'wechat' 
+                          placeholder={(editedRegistration.messaging_app_type || editedRegistration.messagingAppType) === 'wechat' 
                             ? (lang === "zh" ? "输入微信号" : "Enter WeChat ID")
                             : (lang === "zh" ? "输入 WhatsApp 号码" : "Enter WhatsApp number")
                           }
@@ -2359,7 +2386,7 @@ export default function RegistrationsPage() {
                     </div>
                   ) : (
                     <DetailValue>
-                      {selectedRegistration.messagingAppType === 'wechat' ? 'WeChat' : 'WhatsApp'}: {selectedRegistration.messagingAppId}
+                      {getMessagingAppType(selectedRegistration) === 'wechat' ? 'WeChat' : 'WhatsApp'}: {getMessagingAppId(selectedRegistration)}
                     </DetailValue>
                   )}
                 </DetailSection>
@@ -2590,11 +2617,11 @@ export default function RegistrationsPage() {
                 <DetailLabel>{lang === "zh" ? "报价单/发票号码" : "Quote/Invoice Number"}</DetailLabel>
                 {isEditMode ? (
                   <EditInput 
-                    value={editedRegistration.quoteNumber || ''}
+                    value={editedRegistration.quote_number || editedRegistration.quoteNumber || ''}
                     onChange={(e) => handleEditChange('quoteNumber', e.target.value)}
                   />
                 ) : (
-                  <DetailValue>{selectedRegistration.quoteNumber || '-'}</DetailValue>
+                  <DetailValue>{getQuoteNumber(selectedRegistration) || '-'}</DetailValue>
                 )}
               </DetailSection>
 
@@ -2619,7 +2646,7 @@ export default function RegistrationsPage() {
                     maxLength={11}
                   />
                 ) : (
-                  <DetailValue>{selectedRegistration.abn || '-'}</DetailValue>
+                  <DetailValue>{getABN(selectedRegistration) || '-'}</DetailValue>
                 )}
               </DetailSection>
 
@@ -2631,11 +2658,11 @@ export default function RegistrationsPage() {
                 <DetailLabel>{lang === "zh" ? "街道地址" : "Street Address"}</DetailLabel>
                 {isEditMode ? (
                   <EditInput 
-                    value={editedRegistration.registeredAddress || ''}
+                    value={editedRegistration.registered_address || editedRegistration.registeredAddress || ''}
                     onChange={(e) => handleEditChange('registeredAddress', e.target.value)}
                   />
                 ) : (
-                  <DetailValue>{selectedRegistration.registeredAddress || '-'}</DetailValue>
+                  <DetailValue>{getRegisteredAddress(selectedRegistration) || '-'}</DetailValue>
                 )}
               </DetailSection>
 
@@ -2643,11 +2670,11 @@ export default function RegistrationsPage() {
                 <DetailLabel>{lang === "zh" ? "城市/郊区" : "City/Suburb"}</DetailLabel>
                 {isEditMode ? (
                   <EditInput 
-                    value={editedRegistration.registeredSuburb || ''}
+                    value={editedRegistration.registered_suburb || editedRegistration.registeredSuburb || ''}
                     onChange={(e) => handleEditChange('registeredSuburb', e.target.value)}
                   />
                 ) : (
-                  <DetailValue>{selectedRegistration.registeredSuburb || '-'}</DetailValue>
+                  <DetailValue>{getRegisteredSuburb(selectedRegistration) || '-'}</DetailValue>
                 )}
               </DetailSection>
 
@@ -2655,12 +2682,12 @@ export default function RegistrationsPage() {
                 <DetailLabel>{lang === "zh" ? "邮政编码" : "Postcode"}</DetailLabel>
                 {isEditMode ? (
                   <EditInput 
-                    value={editedRegistration.registeredPostcode || ''}
+                    value={editedRegistration.registered_postcode || editedRegistration.registeredPostcode || ''}
                     onChange={(e) => handleEditChange('registeredPostcode', e.target.value)}
                     maxLength={4}
                   />
                 ) : (
-                  <DetailValue>{selectedRegistration.registeredPostcode || '-'}</DetailValue>
+                  <DetailValue>{getRegisteredPostcode(selectedRegistration) || '-'}</DetailValue>
                 )}
               </DetailSection>
 
@@ -2668,7 +2695,7 @@ export default function RegistrationsPage() {
                 <DetailLabel>{lang === "zh" ? "州/领地" : "State/Territory"}</DetailLabel>
                 {isEditMode ? (
                   <EditSelect 
-                    value={editedRegistration.registeredState || ''}
+                    value={editedRegistration.registered_state || editedRegistration.registeredState || ''}
                     onChange={(e) => handleEditChange('registeredState', e.target.value)}
                   >
                     <option value="">{lang === "zh" ? "-- 选择 --" : "-- Select --"}</option>
@@ -2682,7 +2709,7 @@ export default function RegistrationsPage() {
                     <option value="NT">NT</option>
                   </EditSelect>
                 ) : (
-                  <DetailValue>{selectedRegistration.registeredState || '-'}</DetailValue>
+                  <DetailValue>{getRegisteredState(selectedRegistration) || '-'}</DetailValue>
                 )}
               </DetailSection>
 
@@ -2690,13 +2717,13 @@ export default function RegistrationsPage() {
                 <DetailLabel>{lang === "zh" ? "国家" : "Country"}</DetailLabel>
                 {isEditMode ? (
                   <EditSelect 
-                    value={editedRegistration.registeredCountry || 'Australia'}
+                    value={editedRegistration.registered_country || editedRegistration.registeredCountry || 'Australia'}
                     onChange={(e) => handleEditChange('registeredCountry', e.target.value)}
                   >
                     <option value="Australia">Australia</option>
                   </EditSelect>
                 ) : (
-                  <DetailValue>{selectedRegistration.registeredCountry || '-'}</DetailValue>
+                  <DetailValue>{getRegisteredCountry(selectedRegistration) || '-'}</DetailValue>
                 )}
               </DetailSection>
 
@@ -2727,9 +2754,9 @@ export default function RegistrationsPage() {
                   </div>
                 ) : (
                   <DetailValue>
-                    {selectedRegistration.eftposIntegration === 'yes' 
+                    {getEftposIntegration(selectedRegistration) === 'yes' 
                       ? (lang === "zh" ? "是" : "Yes") 
-                      : selectedRegistration.eftposIntegration === 'no'
+                      : getEftposIntegration(selectedRegistration) === 'no'
                       ? (lang === "zh" ? "否" : "No")
                       : '-'}
                   </DetailValue>
@@ -2741,7 +2768,7 @@ export default function RegistrationsPage() {
                 {isEditMode ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     <EditSelect 
-                      value={editedRegistration.alipayOption || ''}
+                      value={editedRegistration.alipay_option || editedRegistration.alipayOption || ''}
                       onChange={(e) => handleEditChange('alipayOption', e.target.value)}
                     >
                       <option value="">{lang === "zh" ? "-- 选择 --" : "-- Select --"}</option>
@@ -2761,12 +2788,12 @@ export default function RegistrationsPage() {
                   </div>
                 ) : (
                   <DetailValue>
-                    {selectedRegistration.alipayOption === 'open' && (lang === "zh" ? "开通" : "Open Account")}
-                    {selectedRegistration.alipayOption === 'not-interested' && (lang === "zh" ? "不感兴趣" : "Not Interested")}
-                    {selectedRegistration.alipayOption === 'superpay' && "Superpay"}
-                    {selectedRegistration.alipayOption === 'royalpay' && "Royalpay"}
-                    {selectedRegistration.alipayOption === 'other' && `${lang === "zh" ? "其他" : "Other"}: ${selectedRegistration.alipayOther || ''}`}
-                    {!selectedRegistration.alipayOption && '-'}
+                    {getAlipayOption(selectedRegistration) === 'open' && (lang === "zh" ? "开通" : "Open Account")}
+                    {getAlipayOption(selectedRegistration) === 'not-interested' && (lang === "zh" ? "不感兴趣" : "Not Interested")}
+                    {getAlipayOption(selectedRegistration) === 'superpay' && "Superpay"}
+                    {getAlipayOption(selectedRegistration) === 'royalpay' && "Royalpay"}
+                    {getAlipayOption(selectedRegistration) === 'other' && `${lang === "zh" ? "其他" : "Other"}: ${getAlipayOther(selectedRegistration)}`}
+                    {!getAlipayOption(selectedRegistration) && '-'}
                   </DetailValue>
                 )}
               </DetailSection>
@@ -2779,12 +2806,12 @@ export default function RegistrationsPage() {
                 <DetailLabel>{lang === "zh" ? "预期部署时间" : "Expected Deployment"}</DetailLabel>
                 {isEditMode ? (
                   <EditTextarea 
-                    value={editedRegistration.readyBy || ''}
+                    value={editedRegistration.ready_by || editedRegistration.readyBy || ''}
                     onChange={(e) => handleEditChange('readyBy', e.target.value)}
                     rows={2}
                   />
                 ) : (
-                  <DetailValue>{selectedRegistration.readyBy || '-'}</DetailValue>
+                  <DetailValue>{getReadyBy(selectedRegistration) || '-'}</DetailValue>
                 )}
               </DetailSection>
 
@@ -2793,7 +2820,7 @@ export default function RegistrationsPage() {
                 {isEditMode ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     <EditSelect 
-                      value={editedRegistration.heardAbout || ''}
+                      value={editedRegistration.heard_about || editedRegistration.heardAbout || ''}
                       onChange={(e) => handleEditChange('heardAbout', e.target.value)}
                     >
                       <option value="">{lang === "zh" ? "-- 选择 --" : "-- Select --"}</option>
@@ -2803,9 +2830,9 @@ export default function RegistrationsPage() {
                       <option value="saw">{lang === "zh" ? "看到使用" : "Saw in Use"}</option>
                       <option value="other">{lang === "zh" ? "其他" : "Other"}</option>
                     </EditSelect>
-                    {editedRegistration.heardAbout === 'other' && (
+                    {(editedRegistration.heard_about || editedRegistration.heardAbout) === 'other' && (
                       <EditInput 
-                        value={editedRegistration.heardOther || ''}
+                        value={editedRegistration.heard_other || editedRegistration.heardOther || ''}
                         onChange={(e) => handleEditChange('heardOther', e.target.value)}
                         placeholder={lang === "zh" ? "请描述" : "Please describe"}
                       />
@@ -2813,21 +2840,21 @@ export default function RegistrationsPage() {
                   </div>
                 ) : (
                   <DetailValue>
-                    {selectedRegistration.heardAbout === 'friend' && (lang === "zh" ? "朋友推荐" : "Friend Referral")}
-                    {selectedRegistration.heardAbout === 'google' && "Google"}
-                    {selectedRegistration.heardAbout === 'wechat' && (lang === "zh" ? "微信" : "WeChat")}
-                    {selectedRegistration.heardAbout === 'saw' && (lang === "zh" ? "看到使用" : "Saw in Use")}
-                    {selectedRegistration.heardAbout === 'other' && `${lang === "zh" ? "其他" : "Other"}: ${selectedRegistration.heardOther || ''}`}
-                    {!selectedRegistration.heardAbout && '-'}
+                    {getHeardAbout(selectedRegistration) === 'friend' && (lang === "zh" ? "朋友推荐" : "Friend Referral")}
+                    {getHeardAbout(selectedRegistration) === 'google' && "Google"}
+                    {getHeardAbout(selectedRegistration) === 'wechat' && (lang === "zh" ? "微信" : "WeChat")}
+                    {getHeardAbout(selectedRegistration) === 'saw' && (lang === "zh" ? "看到使用" : "Saw in Use")}
+                    {getHeardAbout(selectedRegistration) === 'other' && `${lang === "zh" ? "其他" : "Other"}: ${getHeardOther(selectedRegistration)}`}
+                    {!getHeardAbout(selectedRegistration) && '-'}
                   </DetailValue>
                 )}
               </DetailSection>
 
-              {selectedRegistration.menuFiles && selectedRegistration.menuFiles.length > 0 && (
+              {getMenuFiles(selectedRegistration).length > 0 && (
                 <DetailSection>
                   <DetailLabel>{lang === "zh" ? "菜单文件" : "Menu Files"}</DetailLabel>
                   <DetailValue>
-                    {selectedRegistration.menuFiles.map((file, idx) => {
+                    {getMenuFiles(selectedRegistration).map((file, idx) => {
                       // Handle both old string format and new object format
                       if (typeof file === 'string') {
                         return (
@@ -2877,14 +2904,14 @@ export default function RegistrationsPage() {
                 </DetailSection>
               )}
 
-              {selectedRegistration.menuSendLater && (
+              {getMenuSendLater(selectedRegistration) && (
                 <DetailSection>
                   <DetailLabel>{lang === "zh" ? "菜单" : "Menu"}</DetailLabel>
                   <DetailValue>{lang === "zh" ? "稍后发送" : "Will send later"}</DetailValue>
                 </DetailSection>
               )}
 
-              {(selectedRegistration.notes || isEditMode) && (
+              {(getNotes(selectedRegistration) || isEditMode) && (
                 <DetailSection>
                   <DetailLabel>{lang === "zh" ? "备注" : "Notes"}</DetailLabel>
                   {isEditMode ? (
@@ -2894,7 +2921,7 @@ export default function RegistrationsPage() {
                       rows={3}
                     />
                   ) : (
-                    <DetailValue style={{ whiteSpace: 'pre-wrap' }}>{selectedRegistration.notes}</DetailValue>
+                    <DetailValue style={{ whiteSpace: 'pre-wrap' }}>{getNotes(selectedRegistration)}</DetailValue>
                   )}
                 </DetailSection>
               )}
@@ -2904,8 +2931,8 @@ export default function RegistrationsPage() {
               <DetailSection>
                 <DetailLabel>{lang === "zh" ? "提交时间" : "Submitted At"}</DetailLabel>
                 <DetailValue>
-                  {selectedRegistration.submittedAt 
-                    ? new Date(selectedRegistration.submittedAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')
+                  {getSubmittedAt(selectedRegistration)
+                    ? new Date(getSubmittedAt(selectedRegistration)).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')
                     : '-'}
                 </DetailValue>
               </DetailSection>
@@ -2917,40 +2944,40 @@ export default function RegistrationsPage() {
                     {selectedRegistration.status}
                   </StatusBadge>
                   <div style={{ fontSize: '0.875rem', color: '#5c6b7a', marginTop: '0.75rem' }}>
-                    {selectedRegistration.status === 'pending' && selectedRegistration.generatedAt && (
+                    {selectedRegistration.status === 'pending' && getGeneratedAt(selectedRegistration) && (
                       <>
                         {lang === "zh" ? "生成时间：" : "Generated at: "}
-                        {new Date(selectedRegistration.generatedAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
+                        {new Date(getGeneratedAt(selectedRegistration)).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
                       </>
                     )}
-                    {selectedRegistration.status === 'submitted' && selectedRegistration.submittedAt && (
+                    {selectedRegistration.status === 'submitted' && getSubmittedAt(selectedRegistration) && (
                       <>
                         {lang === "zh" ? "提交时间：" : "Submitted at: "}
-                        {new Date(selectedRegistration.submittedAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
+                        {new Date(getSubmittedAt(selectedRegistration)).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
                       </>
                     )}
-                    {selectedRegistration.status === 'approved' && selectedRegistration.approvedAt && (
+                    {selectedRegistration.status === 'approved' && (selectedRegistration.approved_at || selectedRegistration.approvedAt) && (
                       <>
                         {lang === "zh" ? "批准时间：" : "Approved at: "}
-                        {new Date(selectedRegistration.approvedAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
-                        {selectedRegistration.approvedBy && (
+                        {new Date((selectedRegistration.approved_at || selectedRegistration.approvedAt)!).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
+                        {(selectedRegistration.approved_by || selectedRegistration.approvedBy) && (
                           <>
                             <br />
                             {lang === "zh" ? "批准人：" : "Approved by: "}
-                            {selectedRegistration.approvedBy}
+                            {selectedRegistration.approved_by || selectedRegistration.approvedBy}
                           </>
                         )}
                       </>
                     )}
-                    {selectedRegistration.status === 'rejected' && selectedRegistration.rejectedAt && (
+                    {selectedRegistration.status === 'rejected' && (selectedRegistration.rejected_at || selectedRegistration.rejectedAt) && (
                       <>
                         {lang === "zh" ? "拒绝时间：" : "Rejected at: "}
-                        {new Date(selectedRegistration.rejectedAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
-                        {selectedRegistration.rejectedBy && (
+                        {new Date((selectedRegistration.rejected_at || selectedRegistration.rejectedAt)!).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
+                        {(selectedRegistration.rejected_by || selectedRegistration.rejectedBy) && (
                           <>
                             <br />
                             {lang === "zh" ? "拒绝人：" : "Rejected by: "}
-                            {selectedRegistration.rejectedBy}
+                            {selectedRegistration.rejected_by || selectedRegistration.rejectedBy}
                           </>
                         )}
                       </>
@@ -2959,11 +2986,11 @@ export default function RegistrationsPage() {
                 </DetailValue>
               </DetailSection>
 
-              {selectedRegistration.status === 'rejected' && selectedRegistration.rejectionReason && (
+              {selectedRegistration.status === 'rejected' && (selectedRegistration.rejection_reason || selectedRegistration.rejectionReason) && (
                 <DetailSection>
                   <DetailLabel>{lang === "zh" ? "拒绝原因" : "Rejection Reason"}</DetailLabel>
                   <DetailValue style={{ color: '#991b1b', background: '#fee2e2', padding: '0.75rem', borderRadius: '8px' }}>
-                    {selectedRegistration.rejectionReason}
+                    {selectedRegistration.rejection_reason || selectedRegistration.rejectionReason}
                   </DetailValue>
                 </DetailSection>
               )}

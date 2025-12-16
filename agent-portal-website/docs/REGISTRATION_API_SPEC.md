@@ -409,7 +409,60 @@ The admin portal uses Next.js API routes as a proxy to avoid CORS issues:
 
 ---
 
-## 8. Submit Registration Form (Public Endpoint)
+## 8. Revoke Registration
+
+**Endpoint:** `POST /registration/revoke/:id`
+
+**Description:** Revoke a pending registration link that hasn't been submitted yet. This invalidates the token and changes status to 'cancelled' or 'expired'. Only applies to registrations with status 'pending'.
+
+**Request Headers:**
+```json
+{
+  "Authorization": "Bearer <admin_token>",
+  "Content-Type": "application/json"
+}
+```
+
+**Request Body (optional):**
+```json
+{
+  "reason": "Customer no longer interested (optional)"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "registration_id": "reg_123456",
+    "status": "cancelled",
+    "revoked_at": "2025-11-20T16:30:00Z",
+    "revoked_by": "admin@vend88.com",
+    "revoke_reason": "Customer no longer interested"
+  }
+}
+```
+
+**Error Response (400 Bad Request - Not Pending):**
+```json
+{
+  "success": false,
+  "error": "Can only revoke registrations with pending status"
+}
+```
+
+**Error Response (404 Not Found):**
+```json
+{
+  "success": false,
+  "error": "Registration not found"
+}
+```
+
+---
+
+## 9. Submit Registration Form (Public Endpoint)
 
 **Endpoint:** `POST /registration/submit`
 
@@ -493,7 +546,7 @@ The admin portal uses Next.js API routes as a proxy to avoid CORS issues:
 
 ---
 
-## 9. Validate Registration Token (Public Endpoint)
+## 10. Validate Registration Token (Public Endpoint)
 
 **Endpoint:** `GET /registration/validate-token/:token`
 
@@ -641,6 +694,7 @@ CREATE TABLE registration_submissions (
 6. ✅ Approve/Reject (`POST /registration/approve/:id`, `POST /registration/reject/:id`)
 7. ✅ Get Details (`GET /registration/:id`)
 8. ✅ Update Details (`PUT /registration/:id`)
+9. ✅ Revoke Link (`POST /registration/revoke/:id`) - Frontend implemented, awaiting backend
 
 ### Phase 2 (Enhanced) - ✅ COMPLETED:
 1. ✅ Inline error handling (no alert popups)
@@ -669,9 +723,8 @@ CREATE TABLE registration_submissions (
 
 ### Phase 3 (TODO) - PENDING:
 1. ⚠️ Email notifications on approval/rejection
-2. 🔴 Revoke API endpoint (`POST /registration/revoke/:id`)
-3. 🔴 Reject API endpoint with reason (`POST /registration/reject/:id`)
-4. 🔴 Resend email notification (`POST /registration/resend-email/:id`)
+2. 🔴 Resend email notification (`POST /registration/resend-email/:id`)
+3. 🔴 Backend implementation of Revoke API endpoint (`POST /registration/revoke/:id`) - Spec ready, frontend implemented
 
 ---
 
