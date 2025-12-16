@@ -203,7 +203,7 @@ export default async function handler(
     // Try to fetch from real API first
     try {
       const response = await axios.post(
-        'https://prod.vend88.com/customer/detail',
+        'https://dev.vend88.com/customer/detail',
         req.body,
         {
           headers: {

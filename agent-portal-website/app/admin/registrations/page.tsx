@@ -924,21 +924,34 @@ const formatFileSize = (bytes?: number): string => {
 };
 
 interface Registration {
+  _id?: string; // MongoDB ID from backend
   id: string;
-  token: string;
-  generatedBy: string;
-  generatedAt: string;
+  form_id?: string; // Backend API uses form_id (e.g., V88-REG-001)
+  token?: string;
+  generated_by?: string;
+  generatedBy?: string; // Keep for backwards compatibility
+  generated_at?: string;
+  generatedAt?: string; // Keep for backwards compatibility
+  expires_at?: string;
   status: 'pending' | 'submitted' | 'approved' | 'rejected' | 'expired' | 'cancelled';
-  linkedCustomerId?: string;
+  linked_customer_id?: string;
+  linkedCustomerId?: string; // Keep for backwards compatibility
   // Contact Information
-  contactEmail?: string;
-  ownerName?: string;
-  contactPhone?: string;
-  messagingAppType?: string;
-  messagingAppId?: string;
+  contact_email?: string;
+  contactEmail?: string; // Keep for backwards compatibility
+  contact_name?: string;
+  owner_name?: string;
+  ownerName?: string; // Keep for backwards compatibility
+  contact_phone?: string;
+  contactPhone?: string; // Keep for backwards compatibility
+  messaging_app_id?: string;
+  messagingAppId?: string; // Keep for backwards compatibility
+  messaging_app_type?: string;
+  messagingAppType?: string; // Keep for backwards compatibility
   // Business Information
   quoteNumber?: string;
-  businessName?: string;
+  business_name?: string;
+  businessName?: string; // Keep for backwards compatibility
   abn?: string;
   // Registered Address
   registeredAddress?: string;
@@ -947,24 +960,40 @@ interface Registration {
   registeredState?: string;
   registeredCountry?: string;
   // Payment & Integration
-  eftposIntegration?: string;
-  alipayOption?: string;
-  alipayOther?: string;
+  eftpos_integration?: string;
+  eftposIntegration?: string; // Keep for backwards compatibility
+  alipay_option?: string;
+  alipayOption?: string; // Keep for backwards compatibility
+  alipay_other?: string;
+  alipayOther?: string; // Keep for backwards compatibility
   // Additional Information
   readyBy?: string;
-  heardAbout?: string;
-  heardOther?: string;
-  menuFiles?: (string | { filename: string; url: string; size?: number; uploadedAt?: string })[];
-  menuSendLater?: boolean;
+  heard_about?: string;
+  heardAbout?: string; // Keep for backwards compatibility
+  heard_other?: string;
+  heardOther?: string; // Keep for backwards compatibility
+  menu_files?: any[];
+  menuFiles?: (string | { filename: string; url: string; size?: number; uploadedAt?: string })[]; // Keep for backwards compatibility
+  menu_send_later?: boolean;
+  menuSendLater?: boolean; // Keep for backwards compatibility
   notes?: string;
-  submittedAt?: string;
-  approvedAt?: string;
-  approvedBy?: string;
-  rejectionReason?: string;
-  rejectedAt?: string;
-  rejectedBy?: string;
-  cancelledAt?: string;
-  cancelledBy?: string;
+  submitted_at?: string;
+  submittedAt?: string; // Keep for backwards compatibility
+  approved_at?: string;
+  approvedAt?: string; // Keep for backwards compatibility
+  approved_by?: string;
+  approvedBy?: string; // Keep for backwards compatibility
+  rejection_reason?: string;
+  rejectionReason?: string; // Keep for backwards compatibility
+  rejected_at?: string;
+  rejectedAt?: string; // Keep for backwards compatibility
+  rejected_by?: string;
+  rejectedBy?: string; // Keep for backwards compatibility
+  cancelled_at?: string;
+  cancelledAt?: string; // Keep for backwards compatibility
+  cancelled_by?: string;
+  cancelledBy?: string; // Keep for backwards compatibility
+  created_at?: string;
 }
 
 // Sortable Header Component
@@ -1213,6 +1242,21 @@ export default function RegistrationsPage() {
     }
   }, [token]);
 
+  // Auto-refresh table data every 30 seconds
+  useEffect(() => {
+    if (!token) return;
+
+    const refreshInterval = setInterval(() => {
+      console.log('[Auto-refresh] Refreshing registration data...');
+      fetchRegistrationData();
+    }, 30000); // 30 seconds
+
+    return () => {
+      console.log('[Auto-refresh] Cleanup interval');
+      clearInterval(refreshInterval);
+    };
+  }, [token]);
+
   // Sync customers from auth context
   useEffect(() => {
     if (authCustomers) {
@@ -1246,17 +1290,57 @@ export default function RegistrationsPage() {
   const fetchRegistrationData = async () => {
     setIsDataLoading(true);
     try {
-      // Always fetch all registrations, filter in UI
-      const response = await MockAPI.fetchRegistrations({
-        status: 'all',
+      console.log('[Fetch] Fetching registration data...');
+      
+      // Fetch from new backend API
+      const response = await axios.get('/api/registration/list', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       });
 
-      if (response.success && response.data) {
-        setAllRegistrations(response.data.registrations);
-        setRegistrations(response.data.registrations);
+      console.log('[Fetch] Response status:', response.status);
+      console.log('[Fetch] Response data:', response.data);
+
+      if (response.data.status_code === 200 || response.data.success) {
+        const registrations = response.data.registrations || response.data.data || [];
+        
+        console.log('[Fetch] Raw registrations array:', registrations);
+        console.log('[Fetch] Array length:', registrations.length);
+        
+        if (registrations.length > 0) {
+          console.log('[Fetch] First item structure:', registrations[0]);
+          console.log('[Fetch] First item _id:', registrations[0]._id);
+          console.log('[Fetch] First item form_id:', registrations[0].form_id);
+          console.log('[Fetch] First item id:', registrations[0].id);
+        }
+        
+        // Normalize the data - ensure id field is set
+        const normalizedRegistrations = registrations.map((reg: any) => {
+          const normalizedId = reg.id || reg._id || reg.form_id || `temp_${Math.random()}`;
+          console.log('[Normalize]', reg.form_id || reg._id, '-> id:', normalizedId);
+          
+          return {
+            ...reg,
+            id: normalizedId,
+            // Ensure status has a value
+            status: reg.status || 'pending'
+          };
+        });
+        
+        console.log('[Fetch] Normalized registrations:', normalizedRegistrations.length, 'items');
+        console.log('[Fetch] Sample normalized item:', normalizedRegistrations[0]);
+        
+        setAllRegistrations(normalizedRegistrations);
+        setRegistrations(normalizedRegistrations);
+      } else {
+        console.error('[Fetch] Failed to fetch registrations:', response.data);
+        showToast('Failed to fetch registrations', 'error');
       }
-    } catch (error) {
-      console.error('Failed to fetch registrations:', error);
+    } catch (error: any) {
+      console.error('[Fetch] Error fetching registrations:', error);
+      console.error('[Fetch] Error response:', error.response?.data);
+      showToast('Failed to fetch registrations', 'error');
     } finally {
       setIsDataLoading(false);
       setHasFetched(true);
@@ -1294,7 +1378,7 @@ export default function RegistrationsPage() {
     if (!selectedRegistration) return;
     
     // Create a temporary customer entry in the search field
-    const tempCustomerDisplay = `${selectedRegistration.ownerName || 'New Customer'} - ${selectedRegistration.contactEmail || ''}`;
+    const tempCustomerDisplay = `${getContactName(selectedRegistration) || 'New Customer'} - ${getContactEmail(selectedRegistration) || ''}`;
     setCustomerSearchQuery(tempCustomerDisplay);
     
     // Generate a temporary customer ID (will be replaced with real ID after API call)
@@ -1304,9 +1388,9 @@ export default function RegistrationsPage() {
     sessionStorage.setItem('pendingCustomer', JSON.stringify({
       tempId: tempCustomerId,
       registrationId: selectedRegistration.id,
-      name: selectedRegistration.ownerName,
-      email: selectedRegistration.contactEmail,
-      phone: selectedRegistration.contactPhone
+      name: getContactName(selectedRegistration),
+      email: getContactEmail(selectedRegistration),
+      phone: getContactPhone(selectedRegistration)
     }));
     
     // Set as selected (temporary) - customer card will show automatically
@@ -1398,9 +1482,13 @@ export default function RegistrationsPage() {
         const link = response.data.data.link.replace('/register?', '?');
         setGeneratedLink(link);
         setShowGenerateModal(true);
-        // Refresh the list
-        fetchRegistrationData();
         console.log('✅ Registration form generated successfully');
+        
+        // Refresh the list after a short delay to ensure backend has saved the data
+        setTimeout(() => {
+          console.log('[Generate] Refreshing registration list...');
+          fetchRegistrationData();
+        }, 500);
       } else {
         console.error('❌ Response indicates failure:', response.data);
         const errorMessage = response.data.error || response.data.message || 'Failed to generate form';
@@ -1469,8 +1557,8 @@ export default function RegistrationsPage() {
                   {
                     create_new: true,
                     customer_data: {
-                      name: selectedRegistration?.ownerName,
-                      email: selectedRegistration?.contactEmail,
+                      name: selectedRegistration ? getContactName(selectedRegistration) : undefined,
+                      email: selectedRegistration ? getContactEmail(selectedRegistration) : undefined,
                       phone: selectedRegistration?.contactPhone,
                     }
                   },
@@ -1614,6 +1702,15 @@ export default function RegistrationsPage() {
     }
   };
 
+  // Helper functions to get values from either field format
+  const getBusinessName = (reg: Registration) => reg.business_name || reg.businessName || '';
+  const getContactEmail = (reg: Registration) => reg.contact_email || reg.contactEmail || '';
+  const getContactName = (reg: Registration) => reg.contact_name || reg.owner_name || reg.ownerName || '';
+  const getContactPhone = (reg: Registration) => reg.contact_phone || reg.contactPhone || '';
+  const getSubmittedAt = (reg: Registration) => reg.submitted_at || reg.submittedAt || '';
+  const getGeneratedBy = (reg: Registration) => reg.generated_by || reg.generatedBy || '';
+  const getGeneratedAt = (reg: Registration) => reg.generated_at || reg.generatedAt || reg.created_at || '';
+
   const filteredRegistrations = allRegistrations.filter(reg => {
     // Filter by tab status
     if (activeTab === 'pending' && reg.status !== 'pending') return false;
@@ -1625,13 +1722,14 @@ export default function RegistrationsPage() {
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      const matchesBusinessName = reg.businessName?.toLowerCase().includes(query);
-      const matchesEmail = reg.contactEmail?.toLowerCase().includes(query);
-      const matchesOwner = reg.ownerName?.toLowerCase().includes(query);
-      const matchesPhone = reg.contactPhone?.toLowerCase().includes(query);
+      const matchesBusinessName = getBusinessName(reg).toLowerCase().includes(query);
+      const matchesEmail = getContactEmail(reg).toLowerCase().includes(query);
+      const matchesOwner = getContactName(reg).toLowerCase().includes(query);
+      const matchesPhone = getContactPhone(reg).toLowerCase().includes(query);
       const matchesABN = reg.abn?.toLowerCase().includes(query);
+      const matchesFormId = (reg.form_id || reg.id)?.toLowerCase().includes(query);
       
-      if (!matchesBusinessName && !matchesEmail && !matchesOwner && !matchesPhone && !matchesABN) {
+      if (!matchesBusinessName && !matchesEmail && !matchesOwner && !matchesPhone && !matchesABN && !matchesFormId) {
         return false;
       }
     }
@@ -1646,16 +1744,18 @@ export default function RegistrationsPage() {
     
     switch (sortField) {
       case 'businessName':
-        aVal = a.businessName || '';
-        bVal = b.businessName || '';
+        aVal = getBusinessName(a);
+        bVal = getBusinessName(b);
         break;
       case 'contactEmail':
-        aVal = a.contactEmail || '';
-        bVal = b.contactEmail || '';
+        aVal = getContactEmail(a);
+        bVal = getContactEmail(b);
         break;
       case 'submittedAt':
-        aVal = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
-        bVal = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+        const aSubmitted = getSubmittedAt(a);
+        const bSubmitted = getSubmittedAt(b);
+        aVal = aSubmitted ? new Date(aSubmitted).getTime() : 0;
+        bVal = bSubmitted ? new Date(bSubmitted).getTime() : 0;
         break;
       case 'status':
         aVal = a.status || '';
@@ -1674,6 +1774,14 @@ export default function RegistrationsPage() {
   const totalPages = Math.ceil(sortedRegistrations.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedRegistrations = sortedRegistrations.slice(startIndex, startIndex + itemsPerPage);
+  
+  // Debug logging
+  console.log('[Table] All registrations count:', allRegistrations.length);
+  console.log('[Table] Filtered registrations count:', filteredRegistrations.length);
+  console.log('[Table] Sorted registrations count:', sortedRegistrations.length);
+  console.log('[Table] Paginated registrations count:', paginatedRegistrations.length);
+  console.log('[Table] Active tab:', activeTab);
+  console.log('[Table] Current page:', currentPage, '/', totalPages);
 
   // Handle sort
   const handleSort = (field: string) => {
@@ -1981,12 +2089,12 @@ export default function RegistrationsPage() {
                             onChange={() => handleSelectRow(reg.id)}
                           />
                         </CheckboxTd>
-                        <Td>{reg.businessName || '-'}</Td>
-                        <Td>{reg.contactEmail || '-'}</Td>
+                        <Td>{getBusinessName(reg) || '-'}</Td>
+                        <Td>{getContactEmail(reg) || '-'}</Td>
                         <Td>
-                          <div>{new Date(reg.generatedAt).toLocaleDateString()}</div>
+                          <div>{getGeneratedAt(reg) ? new Date(getGeneratedAt(reg)).toLocaleDateString() : '-'}</div>
                           <div style={{ fontSize: '0.8125rem', color: '#5c6b7a', marginTop: '0.25rem' }}>
-                            {lang === "zh" ? "由" : "by"} {reg.generatedBy ? reg.generatedBy.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : '-'}
+                            {reg.form_id || reg.id}
                           </div>
                         </Td>
                         <Td>
@@ -2134,11 +2242,11 @@ export default function RegistrationsPage() {
                 {isEditMode ? (
                   <EditInput 
                     type="email"
-                    value={editedRegistration.contactEmail || ''}
+                    value={editedRegistration.contactEmail || editedRegistration.contact_email || ''}
                     onChange={(e) => handleEditChange('contactEmail', e.target.value)}
                   />
                 ) : (
-                  <DetailValue>{selectedRegistration.contactEmail || '-'}</DetailValue>
+                  <DetailValue>{getContactEmail(selectedRegistration) || '-'}</DetailValue>
                 )}
               </DetailSection>
 
@@ -2146,11 +2254,11 @@ export default function RegistrationsPage() {
                 <DetailLabel>{lang === "zh" ? "全名" : "Full Name"}</DetailLabel>
                 {isEditMode ? (
                   <EditInput 
-                    value={editedRegistration.ownerName || ''}
+                    value={editedRegistration.ownerName || editedRegistration.contact_name || ''}
                     onChange={(e) => handleEditChange('ownerName', e.target.value)}
                   />
                 ) : (
-                  <DetailValue>{selectedRegistration.ownerName || '-'}</DetailValue>
+                  <DetailValue>{getContactName(selectedRegistration) || '-'}</DetailValue>
                 )}
               </DetailSection>
 
@@ -2159,11 +2267,11 @@ export default function RegistrationsPage() {
                 {isEditMode ? (
                   <EditInput 
                     type="tel"
-                    value={editedRegistration.contactPhone || ''}
+                    value={editedRegistration.contactPhone || editedRegistration.contact_phone || ''}
                     onChange={(e) => handleEditChange('contactPhone', e.target.value)}
                   />
                 ) : (
-                  <DetailValue>{selectedRegistration.contactPhone || '-'}</DetailValue>
+                  <DetailValue>{getContactPhone(selectedRegistration) || '-'}</DetailValue>
                 )}
               </DetailSection>
 
@@ -2242,7 +2350,7 @@ export default function RegistrationsPage() {
                           {selectedCustomerId.startsWith('temp_') ? (
                             <>
                               {selectedRegistration?.status !== 'approved' && <span>⚠️</span>}
-                              <span>{selectedRegistration?.ownerName || 'New Customer'}</span>
+                              <span>{getContactName(selectedRegistration) || 'New Customer'}</span>
                               {selectedRegistration?.status !== 'approved' && (
                                 <span style={{ 
                                   fontSize: '0.75rem', 
@@ -2265,7 +2373,7 @@ export default function RegistrationsPage() {
                           color: selectedCustomerId.startsWith('temp_') && selectedRegistration?.status !== 'approved' ? '#b45309' : '#059669'
                         }}>
                           {selectedCustomerId.startsWith('temp_') 
-                            ? selectedRegistration?.contactEmail || ''
+                            ? (selectedRegistration ? getContactEmail(selectedRegistration) : '')
                             : customers.find((c: any) => c._id === selectedCustomerId)?.email || ''
                           }
                         </div>
@@ -2438,11 +2546,11 @@ export default function RegistrationsPage() {
                 <DetailLabel>{lang === "zh" ? "公司交易名称" : "Business Trading Name"}</DetailLabel>
                 {isEditMode ? (
                   <EditInput 
-                    value={editedRegistration.businessName || ''}
+                    value={editedRegistration.businessName || editedRegistration.business_name || ''}
                     onChange={(e) => handleEditChange('businessName', e.target.value)}
                   />
                 ) : (
-                  <DetailValue>{selectedRegistration.businessName || '-'}</DetailValue>
+                  <DetailValue>{getBusinessName(selectedRegistration) || '-'}</DetailValue>
                 )}
               </DetailSection>
 
@@ -2753,7 +2861,7 @@ export default function RegistrationsPage() {
                     {selectedRegistration.status}
                   </StatusBadge>
                   <div style={{ fontSize: '0.875rem', color: '#5c6b7a', marginTop: '0.75rem' }}>
-                    {selectedRegistration.status === 'pending' && (
+                    {selectedRegistration.status === 'pending' && selectedRegistration.generatedAt && (
                       <>
                         {lang === "zh" ? "生成时间：" : "Generated at: "}
                         {new Date(selectedRegistration.generatedAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}

@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     // Try to forward request to backend
     try {
       const response = await axios.post(
-        'https://prod.vend88.com/admin/profile',
+        'https://dev.vend88.com/admin/profile',
         { token },
         {
           headers: {

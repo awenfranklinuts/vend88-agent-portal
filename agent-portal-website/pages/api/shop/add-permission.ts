@@ -20,7 +20,7 @@ export default async function handler(
     console.log('[API Proxy] Adding business permission...');
     
     const response = await axios.post(
-      'https://prod.vend88.com/shop/add_business_permission',
+      'https://dev.vend88.com/shop/add_business_permission',
       req.body,
       {
         headers: {

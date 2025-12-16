@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     // Try each endpoint until one works
     for (const endpoint of loginEndpoints) {
       try {
-        const fullUrl = `https://prod.vend88.com${endpoint}`;
+        const fullUrl = `https://dev.vend88.com${endpoint}`;
         console.log(`[API Proxy] Trying login endpoint: ${fullUrl}`);
         
         // Forward the request to the actual backend with SSL verification disabled
