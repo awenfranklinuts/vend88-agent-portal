@@ -698,6 +698,47 @@ const LoadingText = styled.div`
   padding: 4rem;
 `;
 
+const SkeletonBox = styled.div<{ width?: string; height?: string; margin?: string }>`
+  height: ${p => p.height || '16px'};
+  width: ${p => p.width || '100%'};
+  margin: ${p => p.margin || '0'};
+  background: linear-gradient(90deg, #e0e7ef 25%, #f0f4f8 50%, #e0e7ef 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+`;
+
+const SkeletonRow = styled.tr`
+  border-bottom: 1px solid #e0e7ef;
+  animation: pulse 1.5s ease-in-out infinite;
+  
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+`;
+
+const SkeletonCell = styled.td`
+  padding: 1rem;
+  
+  @media (max-width: 968px) {
+    padding: 0.75rem 0.5rem;
+  }
+`;
+
 const DetailSection = styled.div`
   margin-bottom: 1.5rem;
 `;
@@ -1910,9 +1951,83 @@ export default function RegistrationsPage() {
   // If auth is loading show a full-page loader to avoid flashing before redirect.
   if (isLoading) {
     return (
-      <Container>
-        <LoadingText>Loading...</LoadingText>
-      </Container>
+      <MainLayout currentPage={lang === "zh" ? "注册管理" : "Registration Management"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
+        <Container>
+          <AdminSidebar mobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+          <MainContent>
+            {/* Skeleton Header */}
+            <ContentHeader>
+              <HeaderLeft>
+                <SkeletonBox width="250px" height="32px" margin="0 0 0.5rem 0" />
+                <SkeletonBox width="400px" height="16px" />
+              </HeaderLeft>
+              <SkeletonBox width="180px" height="44px" />
+            </ContentHeader>
+
+            {/* Skeleton Search/Filter */}
+            <SearchFilterContainer>
+              <SkeletonBox height="42px" />
+              <SkeletonBox width="150px" height="42px" />
+            </SearchFilterContainer>
+
+            {/* Skeleton Tabs */}
+            <TabContainer>
+              <TabButtons>
+                <SkeletonBox width="33%" height="48px" margin="0" style={{ borderRadius: 0 }} />
+                <SkeletonBox width="33%" height="48px" margin="0" style={{ borderRadius: 0 }} />
+                <SkeletonBox width="33%" height="48px" margin="0" style={{ borderRadius: 0 }} />
+              </TabButtons>
+              
+              {/* Skeleton Table */}
+              <TabContent>
+                <Table>
+                  <Thead>
+                    <tr>
+                      <Th style={{ width: '50px' }}></Th>
+                      <Th>{lang === "zh" ? "表单 ID" : "Form ID"}</Th>
+                      <Th>{lang === "zh" ? "联系邮箱" : "Contact Email"}</Th>
+                      <Th>{lang === "zh" ? "业务名称" : "Business Name"}</Th>
+                      <Th>{lang === "zh" ? "州" : "State"}</Th>
+                      <Th>{lang === "zh" ? "提交时间" : "Submitted At"}</Th>
+                      <Th>{lang === "zh" ? "操作" : "Actions"}</Th>
+                    </tr>
+                  </Thead>
+                  <Tbody>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                      <SkeletonRow key={i}>
+                        <SkeletonCell>
+                          <SkeletonBox width="18px" height="18px" />
+                        </SkeletonCell>
+                        <SkeletonCell>
+                          <SkeletonBox width="120px" height="14px" />
+                        </SkeletonCell>
+                        <SkeletonCell>
+                          <SkeletonBox width="180px" height="14px" />
+                        </SkeletonCell>
+                        <SkeletonCell>
+                          <SkeletonBox width="140px" height="14px" />
+                        </SkeletonCell>
+                        <SkeletonCell>
+                          <SkeletonBox width="50px" height="14px" />
+                        </SkeletonCell>
+                        <SkeletonCell>
+                          <SkeletonBox width="150px" height="14px" />
+                        </SkeletonCell>
+                        <SkeletonCell>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <SkeletonBox width="60px" height="32px" />
+                            <SkeletonBox width="60px" height="32px" />
+                          </div>
+                        </SkeletonCell>
+                      </SkeletonRow>
+                    ))}
+                  </Tbody>
+                </Table>
+              </TabContent>
+            </TabContainer>
+          </MainContent>
+        </Container>
+      </MainLayout>
     );
   }
 
