@@ -10,6 +10,7 @@ import { dict } from "@/i18n/translations";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../components/layout/AdminSidebar";
 import axios from "axios";
+import { API_CONFIG } from "@/config/api";
 
 const Container = styled.div`
   min-height: 100vh;
@@ -36,6 +37,15 @@ const ContentHeader = styled.div`
   border-radius: 16px;
   box-shadow: 0 4px 16px rgba(30, 64, 175, 0.08);
   margin-bottom: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+  
+  @media (max-width: 968px) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 `;
 
 const PageTitle = styled.h1`
@@ -602,6 +612,26 @@ const DetailValue = styled.div`
   font-weight: 500;
 `;
 
+const Input = styled.input`
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #e0e7ef;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #0a3655;
+  transition: all 0.2s ease;
+  
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+  
+  &::placeholder {
+    color: #94a3b8;
+  }
+`;
+
 const Section = styled.div`
   margin-bottom: 2rem;
 `;
@@ -879,6 +909,7 @@ const SortIcon = () => (
 );
 
 interface Customer {
+  status: any;
   _id: string;
   name: string;
   email: string;
@@ -923,6 +954,15 @@ export default function CustomerManagementPage() {
   const [advancedSearchVisible, setAdvancedSearchVisible] = useState(false);
   const [searchByABN, setSearchByABN] = useState('');
   const [searchByAddress, setSearchByAddress] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    messagingAppType: '',
+    messagingAppId: '',
+    source_info: ''
+  });
 
   const t = (key: keyof typeof dict) => dict[key][lang];
 
@@ -1007,17 +1047,24 @@ export default function CustomerManagementPage() {
   const fetchCustomers = async () => {
     setIsLoadingData(true);
     try {
-      // Fetch customers
-      const customersResponse = await axios.post(
-        '/api/customer/list',
-        {},
+      // Fetch customers using new API
+      const customersResponse = await fetch(
+        `${API_CONFIG.BASE_URL}/customers/list`,
         {
+          method: 'POST',
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
+          body: JSON.stringify({
+            token: token,
+            page: 1,
+            limit: 1000 // Get a large number to fetch all
+          })
         }
       );
+
+      const customersData = await customersResponse.json();
 
       // Fetch all businesses
       const businessesResponse = await axios.post(
@@ -1031,8 +1078,8 @@ export default function CustomerManagementPage() {
         }
       );
 
-      if (customersResponse.data.status_code === 200 && businessesResponse.data.status_code === 200) {
-        const customersList = customersResponse.data.customers || [];
+      if (customersData.status_code === 200 && businessesResponse.data.status_code === 200) {
+        const customersList = customersData.customers || [];
         const businessesList = businessesResponse.data.business || [];
 
         // Map businesses to their owners
@@ -1082,27 +1129,122 @@ export default function CustomerManagementPage() {
     }
   };
   
+  const handleCreateCustomer = async () => {
+    try {
+      // Validate required fields
+      if (!newCustomer.name || !newCustomer.email) {
+        showToast(
+          lang === 'zh' ? '请填写必填字段' : 'Please fill in required fields',
+          'error'
+        );
+        return;
+      }
+
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/customers/create`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            token: token,
+            name: newCustomer.name,
+            email: newCustomer.email,
+            phone: newCustomer.phone || undefined,
+            messagingAppType: newCustomer.messagingAppType || undefined,
+            messagingAppId: newCustomer.messagingAppId || undefined,
+            source_info: newCustomer.source_info || undefined
+          })
+        }
+      );
+
+      const result = await response.json();
+      
+      if (result.status_code === 201 || result.status_code === 200) {
+        showToast(
+          lang === 'zh' ? '客户创建成功' : 'Customer created successfully',
+          'success'
+        );
+        
+        // Reset form and close modal
+        setNewCustomer({
+          name: '',
+          email: '',
+          phone: '',
+          messagingAppType: '',
+          messagingAppId: '',
+          source_info: ''
+        });
+        setShowCreateModal(false);
+        
+        // Refresh customer list
+        await fetchCustomers();
+      } else if (result.status_code === 409) {
+        showToast(
+          lang === 'zh' ? '邮箱已存在' : 'Email already exists',
+          'error'
+        );
+      } else {
+        throw new Error(result.message || 'Create failed');
+      }
+    } catch (error) {
+      console.error('Failed to create customer:', error);
+      showToast(
+        lang === 'zh' ? '创建失败' : 'Failed to create customer',
+        'error'
+      );
+    }
+  };
+
   const handleSaveEdit = async () => {
     if (!editedCustomer) return;
     
     try {
-      // TODO: Replace with real API call
-      // const response = await axios.put(
-      //   `/api/customer/${editedCustomer._id}`,
-      //   editedCustomer,
-      //   { headers: { Authorization: `Bearer ${token}` } }
-      // );
-      
-      // For now, just update local state
-      setCustomers(customers.map(c => 
-        c._id === editedCustomer._id ? editedCustomer : c
-      ));
-      setSelectedCustomer(editedCustomer);
-      setIsEditMode(false);
-      showToast(
-        lang === 'zh' ? '客户信息已更新' : 'Customer updated successfully',
-        'success'
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/customers/update/${editedCustomer._id}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            token: token,
+            name: editedCustomer.name,
+            email: editedCustomer.email,
+            phone: editedCustomer.phone,
+            messagingAppType: editedCustomer.messagingAppType,
+            messagingAppId: editedCustomer.messagingAppId,
+            status: editedCustomer.status
+          })
+        }
       );
+
+      if (!response.ok) {
+        throw new Error('Failed to update customer');
+      }
+
+      const result = await response.json();
+      
+      if (result.status_code === 200) {
+        // Update local state
+        setCustomers(customers.map(c => 
+          c._id === editedCustomer._id ? editedCustomer : c
+        ));
+        setSelectedCustomer(editedCustomer);
+        setIsEditMode(false);
+        showToast(
+          lang === 'zh' ? '客户信息已更新' : 'Customer updated successfully',
+          'success'
+        );
+        
+        // Refresh data
+        await fetchCustomers();
+      } else {
+        throw new Error(result.message || 'Update failed');
+      }
     } catch (error) {
       console.error('Failed to update customer:', error);
       showToast(
@@ -1199,12 +1341,21 @@ export default function CustomerManagementPage() {
         <AdminSidebar mobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
         <MainContent>
           <ContentHeader>
-            <PageTitle>{t("customerManagement")}</PageTitle>
-            <PageDescription>
-              {lang === "zh"
-                ? "管理所有POS客户。查看、添加、编辑和监控客户信息。"
-                : "Manage all POS customers. View, add, edit, and monitor customer information."}
-            </PageDescription>
+            <div>
+              <PageTitle>{t("customerManagement")}</PageTitle>
+              <PageDescription>
+                {lang === "zh"
+                  ? "管理所有POS客户。查看、添加、编辑和监控客户信息。"
+                  : "Manage all POS customers. View, add, edit, and monitor customer information."}
+              </PageDescription>
+            </div>
+            <ExportButton onClick={() => setShowCreateModal(true)}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              {lang === 'zh' ? '新建客户' : 'Create Customer'}
+            </ExportButton>
           </ContentHeader>
 
           <StatsGrid>
@@ -1598,6 +1749,85 @@ export default function CustomerManagementPage() {
                 </ActionButton>
               </>
             )}
+          </ModalActions>
+        </ModalContent>
+      </Modal>
+
+      {/* Create Customer Modal */}
+      <Modal $show={showCreateModal} onClick={() => setShowCreateModal(false)}>
+        <ModalContent onClick={(e) => e.stopPropagation()}>
+          <ModalHeader>
+            <ModalTitle>{lang === 'zh' ? '创建新客户' : 'Create New Customer'}</ModalTitle>
+            <CloseButton onClick={() => setShowCreateModal(false)}>×</CloseButton>
+          </ModalHeader>
+          
+          <Section>
+            <DetailLabel>{lang === "zh" ? "姓名" : "Name"} *</DetailLabel>
+            <Input
+              type="text"
+              value={newCustomer.name}
+              onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+              placeholder={lang === "zh" ? "输入客户姓名" : "Enter customer name"}
+            />
+          </Section>
+
+          <Section>
+            <DetailLabel>{lang === "zh" ? "电子邮件" : "Email"} *</DetailLabel>
+            <Input
+              type="email"
+              value={newCustomer.email}
+              onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
+              placeholder={lang === "zh" ? "输入电子邮件地址" : "Enter email address"}
+            />
+          </Section>
+
+          <Section>
+            <DetailLabel>{lang === "zh" ? "电话" : "Phone"}</DetailLabel>
+            <Input
+              type="tel"
+              value={newCustomer.phone}
+              onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+              placeholder={lang === "zh" ? "输入电话号码" : "Enter phone number"}
+            />
+          </Section>
+
+          <Section>
+            <DetailLabel>{lang === "zh" ? "消息应用类型" : "Messaging App Type"}</DetailLabel>
+            <Input
+              type="text"
+              value={newCustomer.messagingAppType}
+              onChange={(e) => setNewCustomer({ ...newCustomer, messagingAppType: e.target.value })}
+              placeholder={lang === "zh" ? "例如：微信、WhatsApp" : "e.g., WeChat, WhatsApp"}
+            />
+          </Section>
+
+          <Section>
+            <DetailLabel>{lang === "zh" ? "消息应用 ID" : "Messaging App ID"}</DetailLabel>
+            <Input
+              type="text"
+              value={newCustomer.messagingAppId}
+              onChange={(e) => setNewCustomer({ ...newCustomer, messagingAppId: e.target.value })}
+              placeholder={lang === "zh" ? "输入应用 ID" : "Enter app ID"}
+            />
+          </Section>
+
+          <Section>
+            <DetailLabel>{lang === "zh" ? "来源信息" : "Source Information"}</DetailLabel>
+            <Input
+              type="text"
+              value={newCustomer.source_info}
+              onChange={(e) => setNewCustomer({ ...newCustomer, source_info: e.target.value })}
+              placeholder={lang === "zh" ? "客户是如何找到我们的" : "How did the customer find us"}
+            />
+          </Section>
+
+          <ModalActions>
+            <ActionButton onClick={() => setShowCreateModal(false)}>
+              {lang === 'zh' ? '取消' : 'Cancel'}
+            </ActionButton>
+            <ActionButton $variant="primary" onClick={handleCreateCustomer}>
+              <SaveIcon /> {lang === 'zh' ? '创建客户' : 'Create Customer'}
+            </ActionButton>
           </ModalActions>
         </ModalContent>
       </Modal>

@@ -1,6 +1,6 @@
 export const API_CONFIG = {
-  BASE_URL: 'https://dev.vend88.com',
-  REGISTRATION_BASE_URL: 'https://dev.vend88.com', // Direct backend server for registration endpoints
+  BASE_URL: 'http://52.63.11.1:5000',
+  REGISTRATION_BASE_URL: 'http://52.63.11.1:5000', // Direct backend server for registration endpoints
   ENDPOINTS: {
     LOGIN: "/admin/login",
     ADMIN_PROFILE: "/admin/profile",
@@ -28,6 +28,13 @@ export const API_CONFIG = {
     REGISTRATION_REVOKE: "/registration/revoke/:id",
     REGISTRATION_SUBMIT: "/registration/submit",
     REGISTRATION_VALIDATE_TOKEN: "/registration/validate-token/:token",
+    
+    // Customer Management
+    CUSTOMERS_LIST: "/customers/list",
+    CUSTOMERS_CREATE: "/customers/create",
+    CUSTOMERS_GET: "/customers/:id",
+    CUSTOMERS_UPDATE: "/customers/update/:id",
+    CUSTOMERS_DELETE: "/customers/delete/:id",
   }
 } as const;
 
