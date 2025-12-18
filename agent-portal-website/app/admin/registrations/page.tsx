@@ -1685,24 +1685,59 @@ export default function RegistrationsPage() {
   const handleConfirmReject = async () => {
     if (!registrationToReject) return;
     
+    const id = registrationToReject;
     try {
-      // TODO: Replace with real API call when ready
-      // const response = await axios.post(getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_REJECT.replace(':id', registrationToReject)), { reason: rejectionReason });
-      const response = await MockAPI.rejectRegistration(registrationToReject, rejectionReason || undefined, 'admin@vend88.com');
+      const registrationToRejectData = allRegistrations.find(r => r.id === id);
       
-      if (response.success) {
-        // Refresh the list
-        fetchRegistrationData();
-        showToast(lang === 'zh' ? '已拒绝' : 'Rejected successfully', 'success');
-        // Close modals
-        setShowRejectModal(false);
-        if (selectedRegistration?.id === registrationToReject) {
-          setShowDetailsModal(false);
-        }
-        setRegistrationToReject(null);
-        setRejectionReason('');
-      } else {
-        showToast(response.error || 'Failed to reject', 'error');
+      console.log('[Reject] Registration ID:', id);
+      console.log('[Reject] Registration Token:', registrationToRejectData?.token);
+      console.log('[Reject] Rejection Reason:', rejectionReason);
+      console.log('[Reject] Full Registration Data:', registrationToRejectData);
+      
+      const requestBody = {
+        token: registrationToRejectData?.token || '',
+        reason: rejectionReason || 'Rejected by admin'
+      };
+      
+      console.log('[Reject] Request body:', requestBody);
+      console.log('[Reject] API URL:', `${API_CONFIG.REGISTRATION_BASE_URL}/registration/reject/${id}`);
+      
+      const response = await fetch(`${API_CONFIG.REGISTRATION_BASE_URL}/registration/reject/${id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      console.log('[Reject] Response status:', response.status);
+      console.log('[Reject] Response ok:', response.ok);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Reject] Error response:', errorText);
+        throw new Error(`Failed to reject registration: ${errorText}`);
+      }
+
+      const responseData = await response.json();
+      console.log('[Reject] Success response:', responseData);
+
+      // Close modals first
+      setShowRejectModal(false);
+      setRegistrationToReject(null);
+      setRejectionReason('');
+      
+      // Refresh the list and wait for it to complete
+      console.log('[Reject] Fetching updated registration list...');
+      await fetchRegistrationData();
+      console.log('[Reject] Registration list refreshed');
+      
+      showToast(lang === 'zh' ? '已拒绝' : 'Rejected successfully', 'success');
+      
+      // Close details modal if open
+      if (selectedRegistration?.id === id) {
+        setShowDetailsModal(false);
       }
     } catch (error) {
       console.error('Failed to reject registration:', error);
