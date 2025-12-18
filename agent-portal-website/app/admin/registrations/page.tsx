@@ -1260,6 +1260,7 @@ export default function RegistrationsPage() {
   const [filterState, setFilterState] = useState<string>('all'); // all, NSW, VIC, QLD, etc.
   const [customers, setCustomers] = useState<any[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
+  const [disableAutoLink, setDisableAutoLink] = useState<boolean>(false);
   const [customerSearchQuery, setCustomerSearchQuery] = useState<string>('');
   const [isLinkCopied, setIsLinkCopied] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -1310,6 +1311,43 @@ export default function RegistrationsPage() {
       setApproveError('');
     }
   }, [selectedCustomerId]);
+
+  // Refetch customers when modal opens to ensure fresh data
+  useEffect(() => {
+    if (showDetailsModal && token) {
+      fetchCustomers();
+    }
+  }, [showDetailsModal, token]);
+
+  // Auto-link customer after customers are loaded (skip if auto-link disabled)
+  useEffect(() => {
+    if (showDetailsModal && selectedRegistration && customers.length > 0 && !selectedCustomerId && !disableAutoLink) {
+      const contactEmail = getContactEmail(selectedRegistration);
+      if (contactEmail) {
+        const matchingCustomer = customers.find((c: any) => 
+          c.email?.toLowerCase() === contactEmail.toLowerCase()
+        );
+        
+        if (matchingCustomer) {
+          console.log('Auto-linking to existing customer:', matchingCustomer.name);
+          setSelectedCustomerId(matchingCustomer._id);
+          if (editedRegistration) {
+            setEditedRegistration({
+              ...editedRegistration,
+              linkedCustomerId: matchingCustomer._id
+            });
+          }
+        }
+      }
+    }
+  }, [showDetailsModal, selectedRegistration, customers, selectedCustomerId, disableAutoLink]);
+
+  // Reset disableAutoLink when modal closes so future opens can auto-link again
+  useEffect(() => {
+    if (!showDetailsModal) {
+      setDisableAutoLink(false);
+    }
+  }, [showDetailsModal]);
 
   // Check if returning from customer creation
   useEffect(() => {
@@ -1389,13 +1427,36 @@ export default function RegistrationsPage() {
 
   const fetchCustomers = async () => {
     try {
-      if (fetchCustomersFromAuth) {
-        await fetchCustomersFromAuth();
+      console.log('Fetching customers for registration page...');
+      const customersResponse = await fetch(
+        `${API_CONFIG.BASE_URL}/customers/list`,
+        {
+          method: 'POST',
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            token: token,
+            page: 1,
+            limit: 1000
+          })
+        }
+      );
+
+      const customersData = await customersResponse.json();
+      console.log('Customers response:', customersData);
+      
+      if (customersData.status_code === 200) {
+        const customersList = customersData.customers || [];
+        console.log('Customers loaded:', customersList.length, 'customers');
+        setCustomers(customersList);
+      } else {
+        console.log('Failed to load customers, status:', customersData.status_code);
+        setCustomers([]);
       }
-      setCustomers(authCustomers || []);
     } catch (error) {
       console.error('Failed to fetch customers:', error);
-      // Don't throw error, just use empty array
       setCustomers([]);
     }
   };
@@ -1444,9 +1505,44 @@ export default function RegistrationsPage() {
     setSelectedRegistration(registration);
     setEditedRegistration(registration);
     setIsEditMode(false);
-    setSelectedCustomerId(registration.linkedCustomerId || '');
     setCustomerSearchQuery('');
     setApproveError(''); // Clear any previous error when opening a form
+    // Ensure auto-linking is enabled on open (unless user explicitly disables by Change)
+    setDisableAutoLink(false);
+
+    // Auto-link customer based on contact email
+    if (registration.linkedCustomerId) {
+      // Already linked, use existing
+      setSelectedCustomerId(registration.linkedCustomerId);
+    } else {
+      // Try to find customer by contact email
+      const contactEmail = getContactEmail(registration);
+      if (contactEmail) {
+        const matchingCustomer = customers.find((c: any) => 
+          c.email?.toLowerCase() === contactEmail.toLowerCase()
+        );
+        if (matchingCustomer) {
+          // Found matching customer, auto-select
+          setSelectedCustomerId(matchingCustomer._id);
+          handleEditChange('linkedCustomerId', matchingCustomer._id);
+        } else {
+          // No matching customer, set up for pending customer creation (but do not create yet)
+          const tempCustomerId = `temp_${Date.now()}`;
+          setSelectedCustomerId(tempCustomerId);
+          handleEditChange('linkedCustomerId', tempCustomerId);
+          // Store pending customer data for creation on approval
+          sessionStorage.setItem('pendingCustomer', JSON.stringify({
+            tempId: tempCustomerId,
+            registrationId: registration.id,
+            name: getContactName(registration),
+            email: contactEmail,
+            phone: getContactPhone(registration)
+          }));
+        }
+      } else {
+        setSelectedCustomerId('');
+      }
+    }
     setShowDetailsModal(true);
   };
 
@@ -2512,11 +2608,15 @@ export default function RegistrationsPage() {
                         )}
                       </div>
                       <ActionButton onClick={() => {
+                        // Disable auto-link so the search bar remains visible
+                        setDisableAutoLink(true);
                         setSelectedCustomerId('');
                         setCustomerSearchQuery('');
-                        if (selectedCustomerId.startsWith('temp_')) {
+                        if (selectedCustomerId && selectedCustomerId.startsWith('temp_')) {
                           sessionStorage.removeItem('pendingCustomer');
                         }
+                        // Also clear the linkedCustomerId field so search bar is shown
+                        handleEditChange('linkedCustomerId', '');
                       }} style={{ margin: 0 }}>
                         {lang === "zh" ? "更改" : "Change"}
                       </ActionButton>
@@ -2569,12 +2669,19 @@ export default function RegistrationsPage() {
                               boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                               zIndex: 10
                             }}>
-                              {customers
-                                .filter((customer: any) => {
+                              {(() => {
+                                console.log('Searching customers with query:', customerSearchQuery);
+                                console.log('Total customers available:', customers.length);
+                                const filtered = customers.filter((customer: any) => {
                                   const searchLower = customerSearchQuery.toLowerCase();
-                                  return customer.name?.toLowerCase().includes(searchLower) ||
-                                         customer.email?.toLowerCase().includes(searchLower);
-                                })
+                                  const nameMatch = customer.name?.toLowerCase().includes(searchLower);
+                                  const emailMatch = customer.email?.toLowerCase().includes(searchLower);
+                                  return nameMatch || emailMatch;
+                                });
+                                console.log('Filtered results:', filtered.length);
+                                return filtered;
+                              })()
+                                
                                 .slice(0, 10)
                                 .map((customer: any) => (
                                   <div
