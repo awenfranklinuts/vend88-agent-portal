@@ -10,7 +10,7 @@ import { dict } from "@/i18n/translations";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../components/layout/AdminSidebar";
 import axios from "axios";
-import { API_CONFIG } from "@/config/api";
+import { API_CONFIG, getApiUrl } from "@/config/api";
 
 const Container = styled.div`
   min-height: 100vh;
@@ -1141,7 +1141,7 @@ export default function CustomerManagementPage() {
       }
 
       const response = await fetch(
-        `${API_CONFIG.BASE_URL}/customers/create`,
+        getApiUrl(API_CONFIG.ENDPOINTS.CUSTOMERS_CREATE),
         {
           method: 'POST',
           headers: {
@@ -1202,8 +1202,9 @@ export default function CustomerManagementPage() {
     if (!editedCustomer) return;
     
     try {
+      const updateUrl = getApiUrl(API_CONFIG.ENDPOINTS.CUSTOMERS_UPDATE.replace(':id', editedCustomer._id));
       const response = await fetch(
-        `${API_CONFIG.BASE_URL}/customers/update/${editedCustomer._id}`,
+        updateUrl,
         {
           method: 'POST',
           headers: {
