@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
 import https from 'https';
+import { API_CONFIG } from '../../../config/api';
 
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false,
@@ -98,8 +99,9 @@ export default async function handler(
     
     // Try to fetch from real API first
     try {
+      const externalUrl = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CUSTOMERS_LIST}`;
       const response = await axios.post(
-        'https://dev.vend88.com/customer/list',
+        externalUrl,
         req.body,
         {
           headers: {
@@ -111,7 +113,7 @@ export default async function handler(
         }
       );
 
-      console.log('[API Proxy] Customer list response status:', response.status);
+      console.log('[API Proxy] Customer list response status:', response.status, 'url:', externalUrl);
       return res.status(response.status).json(response.data);
     } catch (apiError: any) {
       console.log('[API Proxy] Real API failed, using mock data');
