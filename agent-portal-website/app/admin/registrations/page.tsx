@@ -1864,6 +1864,7 @@ export default function RegistrationsPage() {
         const axiosResp = await axios.post(apiUrl, payload, {
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           },
         });
         result = axiosResp.data;
@@ -1907,7 +1908,10 @@ export default function RegistrationsPage() {
 
         try {
           const axiosResp = await axios.post(apiUrl, payload, {
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
           });
           result = axiosResp.data;
         } catch (err) {

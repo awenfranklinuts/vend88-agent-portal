@@ -1578,9 +1578,12 @@ export default function CustomerManagementPage() {
                   .map((page, index, array) => {
                     // Add ellipsis
                     const showEllipsisBefore = index > 0 && page - array[index - 1] > 1;
-                    return (
-                      <>
-                        {showEllipsisBefore && <span style={{ padding: '0 0.5rem' }}>...</span>}
+                    // return an array of elements with explicit keys to avoid fragment key warnings
+                    return [
+                      showEllipsisBefore ? (
+                        <span key={`ellipsis-${page}`} style={{ padding: '0 0.5rem' }}>...</span>
+                      ) : null,
+                      (
                         <PageButton
                           key={page}
                           $active={currentPage === page}
@@ -1588,8 +1591,8 @@ export default function CustomerManagementPage() {
                         >
                           {page}
                         </PageButton>
-                      </>
-                    );
+                      )
+                    ];
                   })}
                 <PageButton 
                   onClick={() => handlePageChange(currentPage + 1)} 
