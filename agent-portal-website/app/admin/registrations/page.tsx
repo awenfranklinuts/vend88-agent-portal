@@ -1429,7 +1429,7 @@ export default function RegistrationsPage() {
     try {
       console.log('Fetching customers for registration page...');
       const customersResponse = await fetch(
-        `${API_CONFIG.BASE_URL}/customers/list`,
+        '/api/customer/list',
         {
           method: 'POST',
           headers: {

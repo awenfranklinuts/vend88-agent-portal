@@ -1047,9 +1047,9 @@ export default function CustomerManagementPage() {
   const fetchCustomers = async () => {
     setIsLoadingData(true);
     try {
-      // Fetch customers using new API
+      // Fetch customers through local API proxy to avoid direct external path mismatches
       const customersResponse = await fetch(
-        `${API_CONFIG.BASE_URL}/customers/list`,
+        '/api/customer/list',
         {
           method: 'POST',
           headers: {
