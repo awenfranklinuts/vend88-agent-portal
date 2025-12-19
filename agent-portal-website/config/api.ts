@@ -1,6 +1,17 @@
+// Use environment variables when available. In production (HTTPS) prefer an HTTPS host.
+const defaultHttp = 'http://52.63.11.1:5000';
+const defaultHttps = 'https://dev.vend88.com';
+
+const envBase = typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_API_BASE_URL : undefined;
+const envRegBase = typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_REGISTRATION_BASE_URL : undefined;
+
+const inferredBase = envBase
+  || (typeof window !== 'undefined' && window.location.protocol === 'https:' ? defaultHttps : defaultHttp);
+const inferredRegBase = envRegBase || inferredBase;
+
 export const API_CONFIG = {
-  BASE_URL: 'http://52.63.11.1:5000',
-  REGISTRATION_BASE_URL: 'http://52.63.11.1:5000', // Direct backend server for registration endpoints
+  BASE_URL: inferredBase,
+  REGISTRATION_BASE_URL: inferredRegBase,
   ENDPOINTS: {
     LOGIN: "/admin/login",
     ADMIN_PROFILE: "/admin/profile",
