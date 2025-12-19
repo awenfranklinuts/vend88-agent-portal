@@ -2,8 +2,23 @@
 const defaultHttp = 'http://52.63.11.1:5000';
 const defaultHttps = 'https://dev.vend88.com';
 
-const envBase = typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_API_BASE_URL : undefined;
-const envRegBase = typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_REGISTRATION_BASE_URL : undefined;
+// Read environment overrides (may be set on host). If a hosting env mistakenly
+// points to the production host (prod.vend88.com) but we need dev, map it.
+const rawEnvBase = typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_API_BASE_URL : undefined;
+const rawEnvRegBase = typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_REGISTRATION_BASE_URL : undefined;
+
+// Protect against accidental prod host in the env by mapping prod -> dev.
+const sanitizeBase = (url?: string) => {
+  if (!url) return undefined;
+  try {
+    return url.replace('prod.vend88.com', 'dev.vend88.com');
+  } catch (e) {
+    return url;
+  }
+};
+
+const envBase = sanitizeBase(rawEnvBase);
+const envRegBase = sanitizeBase(rawEnvRegBase);
 
 const inferredBase = envBase
   || (typeof window !== 'undefined' && window.location.protocol === 'https:' ? defaultHttps : defaultHttp);
