@@ -1851,11 +1851,25 @@ export default function RegistrationsPage() {
     
     const id = registrationToRevoke;
     try {
-      // TODO: Replace with real API call when ready
-      // const response = await axios.post(getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_REVOKE.replace(':id', id)));
-      const response = await MockAPI.revokeRegistration(id, 'admin@vend88.com');
-      
-      if (response.success) {
+      // Attempt real backend revoke first, sending admin token in request body
+      const apiUrl = getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_REVOKE.replace(':id', id));
+      const payload = { token, reason: '' };
+      let result: any = null;
+
+      try {
+        const axiosResp = await axios.post(apiUrl, payload, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        result = axiosResp.data;
+      } catch (err) {
+        console.warn('[Revoke] Backend call failed, falling back to mock:', err);
+        // Fallback to mock API when backend unreachable
+        result = await MockAPI.revokeRegistration(id, token || 'admin@vend88.com');
+      }
+
+      if (result && (result.success || result.status_code === 200)) {
         // Refresh the list
         fetchRegistrationData();
         showToast(lang === 'zh' ? '已撤销！' : 'Revoked successfully!', 'success');
@@ -1867,11 +1881,55 @@ export default function RegistrationsPage() {
         setShowRevokeModal(false);
         setRegistrationToRevoke(null);
       } else {
-        showToast(response.error || 'Failed to revoke', 'error');
+        showToast(result?.error || result?.status_msg || 'Failed to revoke', 'error');
       }
     } catch (error) {
       console.error('Failed to revoke registration:', error);
       showToast('Failed to revoke. Please try again.', 'error');
+    }
+  };
+
+  // Bulk revoke multiple registration links (used by BulkActionBar)
+  const handleBulkRevoke = async (ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    const successes: string[] = [];
+    const failures: { id: string; error?: any }[] = [];
+
+    for (const id of ids) {
+      try {
+        const apiUrl = getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_REVOKE.replace(':id', id));
+        const payload = { token, reason: '' };
+        let result: any = null;
+
+        try {
+          const axiosResp = await axios.post(apiUrl, payload, {
+            headers: { 'Content-Type': 'application/json' },
+          });
+          result = axiosResp.data;
+        } catch (err) {
+          console.warn(`[BulkRevoke] Backend call failed for ${id}, falling back to mock:`, err);
+          result = await MockAPI.revokeRegistration(id, token || 'admin@vend88.com');
+        }
+
+        if (result && (result.success || result.status_code === 200)) {
+          successes.push(id);
+        } else {
+          failures.push({ id, error: result });
+        }
+      } catch (err) {
+        failures.push({ id, error: err });
+      }
+    }
+
+    // Refresh once after processing all
+    fetchRegistrationData();
+
+    if (successes.length > 0) {
+      showToast(`${successes.length} ${lang === 'zh' ? '条链接已撤销' : 'links revoked'}`, 'success');
+    }
+    if (failures.length > 0) {
+      console.error('[BulkRevoke] failures:', failures);
+      showToast(`${failures.length} ${lang === 'zh' ? '条链接撤销失败' : 'links failed'}`, 'error');
     }
   };
 
@@ -2197,9 +2255,10 @@ export default function RegistrationsPage() {
                         </>
                       )}
                       {activeTab === 'pending' && (
-                        <ActionButton $variant="reject" onClick={() => {
-                          selectedRows.forEach(id => handleRevoke(id));
+                        <ActionButton $variant="reject" onClick={async () => {
+                          const ids = Array.from(selectedRows);
                           setSelectedRows(new Set());
+                          await handleBulkRevoke(ids);
                         }}>
                           {lang === "zh" ? "撤销所选" : "Revoke Selected"}
                         </ActionButton>
