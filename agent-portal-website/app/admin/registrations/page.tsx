@@ -9,7 +9,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../components/layout/AdminSidebar";
-import { getApiUrl, API_CONFIG } from "@/config/api";
+import { getApiUrl, getRegistrationApiUrl, API_CONFIG } from "@/config/api";
 import * as MockAPI from "@/lib/mockRegistrationApi";
 
 const Container = styled.div`
@@ -1501,48 +1501,96 @@ export default function RegistrationsPage() {
     handleEditChange('linkedCustomerId', tempCustomerId);
   };
 
-  const handleViewDetails = (registration: Registration) => {
-    setSelectedRegistration(registration);
-    setEditedRegistration(registration);
+  const handleViewDetails = async (registration: Registration) => {
     setIsEditMode(false);
     setCustomerSearchQuery('');
-    setApproveError(''); // Clear any previous error when opening a form
-    // Ensure auto-linking is enabled on open (unless user explicitly disables by Change)
+    setApproveError('');
     setDisableAutoLink(false);
 
-    // Auto-link customer based on contact email
-    if (registration.linkedCustomerId) {
-      // Already linked, use existing
-      setSelectedCustomerId(registration.linkedCustomerId);
-    } else {
-      // Try to find customer by contact email
-      const contactEmail = getContactEmail(registration);
-      if (contactEmail) {
-        const matchingCustomer = customers.find((c: any) => 
-          c.email?.toLowerCase() === contactEmail.toLowerCase()
-        );
-        if (matchingCustomer) {
-          // Found matching customer, auto-select
-          setSelectedCustomerId(matchingCustomer._id);
-          handleEditChange('linkedCustomerId', matchingCustomer._id);
-        } else {
-          // No matching customer, set up for pending customer creation (but do not create yet)
-          const tempCustomerId = `temp_${Date.now()}`;
-          setSelectedCustomerId(tempCustomerId);
-          handleEditChange('linkedCustomerId', tempCustomerId);
-          // Store pending customer data for creation on approval
-          sessionStorage.setItem('pendingCustomer', JSON.stringify({
-            tempId: tempCustomerId,
-            registrationId: registration.id,
-            name: getContactName(registration),
-            email: contactEmail,
-            phone: getContactPhone(registration)
-          }));
-        }
+    try {
+      const apiPath = `/api/registration/${registration.id}`;
+      const resp = await axios.get(apiPath, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const payload = resp.data?.data || resp.data || registration;
+
+      const normalize = (r: any) => ({
+        ...r,
+        rejectedAt: r.rejected_at || r.rejectedAt || null,
+        rejectedBy: r.rejected_by || r.rejectedBy || null,
+        rejectionReason: r.rejection_reason || r.rejectionReason || null,
+        approvedAt: r.approved_at || r.approvedAt || null,
+        approvedBy: r.approved_by || r.approvedBy || null,
+        submittedAt: r.submitted_at || r.submittedAt || null,
+        generatedAt: r.generated_at || r.generatedAt || null,
+        linkedCustomerId: r.linked_customer_id || r.linkedCustomerId || null,
+        contactEmail: r.contact_email || r.contactEmail || null,
+        contactName: r.contact_name || r.contactName || null,
+        ownerName: r.owner_name || r.ownerName || null,
+        menuFiles: r.menu_files || r.menuFiles || null,
+      });
+
+      const normalized = normalize(payload);
+      setSelectedRegistration(normalized as Registration);
+      setEditedRegistration(normalized as Registration);
+
+      if (normalized.linkedCustomerId) {
+        setSelectedCustomerId(normalized.linkedCustomerId as string);
       } else {
-        setSelectedCustomerId('');
+        const contactEmail = getContactEmail(normalized as Registration);
+        if (contactEmail) {
+          const matchingCustomer = customers.find((c: any) => c.email?.toLowerCase() === contactEmail.toLowerCase());
+          if (matchingCustomer) {
+            setSelectedCustomerId(matchingCustomer._id);
+            handleEditChange('linkedCustomerId', matchingCustomer._id);
+          } else {
+            const tempCustomerId = `temp_${Date.now()}`;
+            setSelectedCustomerId(tempCustomerId);
+            handleEditChange('linkedCustomerId', tempCustomerId);
+            sessionStorage.setItem('pendingCustomer', JSON.stringify({
+              tempId: tempCustomerId,
+              registrationId: normalized.id,
+              name: getContactName(normalized as Registration),
+              email: getContactEmail(normalized as Registration),
+              phone: getContactPhone(normalized as Registration),
+            }));
+          }
+        } else {
+          setSelectedCustomerId('');
+        }
+      }
+    } catch (e) {
+      // fallback to provided registration
+      setSelectedRegistration(registration);
+      setEditedRegistration(registration);
+      if (registration.linkedCustomerId) {
+        setSelectedCustomerId(registration.linkedCustomerId as string);
+      } else {
+        const contactEmail = getContactEmail(registration);
+        if (contactEmail) {
+          const matchingCustomer = customers.find((c: any) => c.email?.toLowerCase() === contactEmail.toLowerCase());
+          if (matchingCustomer) {
+            setSelectedCustomerId(matchingCustomer._id);
+            handleEditChange('linkedCustomerId', matchingCustomer._id);
+          } else {
+            const tempCustomerId = `temp_${Date.now()}`;
+            setSelectedCustomerId(tempCustomerId);
+            handleEditChange('linkedCustomerId', tempCustomerId);
+            sessionStorage.setItem('pendingCustomer', JSON.stringify({
+              tempId: tempCustomerId,
+              registrationId: registration.id,
+              name: getContactName(registration),
+              email: getContactEmail(registration),
+              phone: getContactPhone(registration)
+            }));
+          }
+        } else {
+          setSelectedCustomerId('');
+        }
       }
     }
+
     setShowDetailsModal(true);
   };
 
@@ -3214,7 +3262,6 @@ export default function RegistrationsPage() {
               ⚠️ {approveError}
             </div>
           )}
-
           <ModalActions>
             {isEditMode ? (
               <>
