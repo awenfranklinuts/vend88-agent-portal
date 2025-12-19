@@ -1786,16 +1786,20 @@ export default function RegistrationsPage() {
       const registrationToRejectData = allRegistrations.find(r => r.id === id);
       
       console.log('[Reject] Registration ID:', id);
-      console.log('[Reject] Registration Token:', registrationToRejectData?.token);
+      console.log('[Reject] Registration Token (ignored):', registrationToRejectData?.token);
       console.log('[Reject] Rejection Reason:', rejectionReason);
       console.log('[Reject] Full Registration Data:', registrationToRejectData);
-      
+      console.log('[Reject] Using admin token from auth context for reject request.');
+
       const requestBody = {
-        token: registrationToRejectData?.token || '',
+        token: token || '',
         reason: rejectionReason || 'Rejected by admin'
       };
-      
-      console.log('[Reject] Request body:', requestBody);
+
+      console.log('[Reject] Request body (token masked):', {
+        ...requestBody,
+        token: requestBody.token ? '***' : ''
+      });
       console.log('[Reject] API URL:', `${API_CONFIG.REGISTRATION_BASE_URL}/registration/reject/${id}`);
       
       const response = await fetch(`${API_CONFIG.REGISTRATION_BASE_URL}/registration/reject/${id}`, {
