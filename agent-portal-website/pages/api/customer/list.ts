@@ -116,13 +116,23 @@ export default async function handler(
       console.log('[API Proxy] Customer list response status:', response.status, 'url:', externalUrl);
       return res.status(response.status).json(response.data);
     } catch (apiError: any) {
-      console.log('[API Proxy] Real API failed, using mock data');
-      
-      // Return mock data if real API fails
+      console.log('[API Proxy] Real API failed, using mock data', apiError?.message);
+
+      // If the external API returned a response, forward details for debugging
+      const extStatus = apiError?.response?.status;
+      const extData = apiError?.response?.data;
+
+      // Return mock data but include debug info so we can see why the call failed on host
       return res.status(200).json({
         status_code: 200,
-        status_msg: 'success',
-        customers: mockCustomers
+        status_msg: 'success (mock)',
+        customers: mockCustomers,
+        _debug: {
+          external_url: `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CUSTOMERS_LIST}`,
+          error_message: apiError?.message,
+          external_status: extStatus,
+          external_response: extData
+        }
       });
     }
   } catch (error: any) {
