@@ -1585,16 +1585,16 @@ export default function BusinessManagementPage() {
                   .map((page, index, array) => {
                     const showEllipsisBefore = index > 0 && page - array[index - 1] > 1;
                     return (
-                      <>
-                        {showEllipsisBefore && <span style={{ padding: '0 0.5rem' }}>...</span>}
+                      <span key={`page-${page}`} style={{ display: 'contents' }}>
+                        {showEllipsisBefore && <span key={`ellipsis-${page}`} style={{ padding: '0 0.5rem' }}>...</span>}
                         <PageButton
-                          key={page}
+                          key={`btn-${page}`}
                           $active={currentPage === page}
                           onClick={() => handlePageChange(page)}
                         >
                           {page}
                         </PageButton>
-                      </>
+                      </span>
                     );
                   })}
                 <PageButton 
