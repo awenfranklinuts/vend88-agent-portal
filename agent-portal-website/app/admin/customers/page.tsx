@@ -939,8 +939,6 @@ export default function CustomerManagementPage() {
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoadingData, setIsLoadingData] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
   
   // Enhanced features state
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
@@ -949,8 +947,6 @@ export default function CustomerManagementPage() {
   const [filterOption, setFilterOption] = useState<'all' | 'withBusiness' | 'withoutBusiness'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editedCustomer, setEditedCustomer] = useState<Customer | null>(null);
   const [advancedSearchVisible, setAdvancedSearchVisible] = useState(false);
   const [searchByABN, setSearchByABN] = useState('');
   const [searchByAddress, setSearchByAddress] = useState('');
@@ -1103,30 +1099,19 @@ export default function CustomerManagementPage() {
   };
 
   const handleCustomerClick = (customer: Customer) => {
-    setSelectedCustomer(customer);
-    setEditedCustomer(customer);
-    setIsEditMode(false);
-    setShowDetailsModal(true);
+    router.push(`/admin/customers/${customer._id}`);
   };
 
   const handleCloseModal = () => {
-    setShowDetailsModal(false);
-    setSelectedCustomer(null);
-    setEditedCustomer(null);
-    setIsEditMode(false);
-  };
-  
-  const handleEditToggle = () => {
-    setIsEditMode(!isEditMode);
-    if (!isEditMode) {
-      setEditedCustomer(selectedCustomer);
-    }
-  };
-  
-  const handleEditChange = (field: keyof Customer, value: any) => {
-    if (editedCustomer) {
-      setEditedCustomer({ ...editedCustomer, [field]: value });
-    }
+    setShowCreateModal(false);
+    setNewCustomer({
+      name: '',
+      email: '',
+      phone: '',
+      messagingAppType: '',
+      messagingAppId: '',
+      source_info: ''
+    });
   };
   
   const handleCreateCustomer = async () => {
@@ -1193,63 +1178,6 @@ export default function CustomerManagementPage() {
       console.error('Failed to create customer:', error);
       showToast(
         lang === 'zh' ? '创建失败' : 'Failed to create customer',
-        'error'
-      );
-    }
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editedCustomer) return;
-    
-    try {
-      const updateUrl = getApiUrl(API_CONFIG.ENDPOINTS.CUSTOMERS_UPDATE.replace(':id', editedCustomer._id));
-      const response = await fetch(
-        updateUrl,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            token: token,
-            name: editedCustomer.name,
-            email: editedCustomer.email,
-            phone: editedCustomer.phone,
-            messagingAppType: editedCustomer.messagingAppType,
-            messagingAppId: editedCustomer.messagingAppId,
-            status: editedCustomer.status
-          })
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to update customer');
-      }
-
-      const result = await response.json();
-      
-      if (result.status_code === 200) {
-        // Update local state
-        setCustomers(customers.map(c => 
-          c._id === editedCustomer._id ? editedCustomer : c
-        ));
-        setSelectedCustomer(editedCustomer);
-        setIsEditMode(false);
-        showToast(
-          lang === 'zh' ? '客户信息已更新' : 'Customer updated successfully',
-          'success'
-        );
-        
-        // Refresh data
-        await fetchCustomers();
-      } else {
-        throw new Error(result.message || 'Update failed');
-      }
-    } catch (error) {
-      console.error('Failed to update customer:', error);
-      showToast(
-        lang === 'zh' ? '更新失败' : 'Failed to update customer',
         'error'
       );
     }
@@ -1607,155 +1535,6 @@ export default function CustomerManagementPage() {
           )}
         </MainContent>
       </Container>
-
-      {/* Customer Details Modal */}
-      <Modal $show={showDetailsModal} onClick={handleCloseModal}>
-        <ModalContent onClick={(e) => e.stopPropagation()}>
-          <ModalHeader>
-            <ModalTitle>
-              {isEditMode 
-                ? (lang === 'zh' ? '编辑客户' : 'Edit Customer')
-                : selectedCustomer?.name}
-            </ModalTitle>
-            <CloseButton onClick={handleCloseModal}>×</CloseButton>
-          </ModalHeader>
-
-          <Section>
-            <SectionTitle>{lang === "zh" ? "客户信息" : "Customer Information"}</SectionTitle>
-            <DetailGrid>
-              <DetailItem>
-                <DetailLabel>{lang === "zh" ? "客户 ID" : "Customer ID"}</DetailLabel>
-                <DetailValue>{selectedCustomer?._id}</DetailValue>
-              </DetailItem>
-              <DetailItem>
-                <DetailLabel>{lang === "zh" ? "姓名" : "Name"}</DetailLabel>
-                {isEditMode ? (
-                  <EditInput
-                    value={editedCustomer?.name || ''}
-                    onChange={(e) => handleEditChange('name', e.target.value)}
-                  />
-                ) : (
-                  <DetailValue>{selectedCustomer?.name}</DetailValue>
-                )}
-              </DetailItem>
-              <DetailItem>
-                <DetailLabel>{lang === "zh" ? "邮箱" : "Email"}</DetailLabel>
-                {isEditMode ? (
-                  <EditInput
-                    type="email"
-                    value={editedCustomer?.email || ''}
-                    onChange={(e) => handleEditChange('email', e.target.value)}
-                  />
-                ) : (
-                  <DetailValue>{selectedCustomer?.email}</DetailValue>
-                )}
-              </DetailItem>
-              <DetailItem>
-                <DetailLabel>{lang === "zh" ? "电话" : "Phone"}</DetailLabel>
-                {isEditMode ? (
-                  <EditInput
-                    value={editedCustomer?.phone || ''}
-                    onChange={(e) => handleEditChange('phone', e.target.value)}
-                  />
-                ) : (
-                  <DetailValue>{selectedCustomer?.phone || 'N/A'}</DetailValue>
-                )}
-              </DetailItem>
-              {(selectedCustomer?.messagingAppType || isEditMode) && (
-                <DetailItem>
-                  <DetailLabel>{lang === "zh" ? "消息应用" : "Messaging App"}</DetailLabel>
-                  {isEditMode ? (
-                    <EditInput
-                      value={editedCustomer?.messagingAppId || ''}
-                      onChange={(e) => handleEditChange('messagingAppId', e.target.value)}
-                      placeholder={lang === 'zh' ? '消息应用 ID' : 'Messaging App ID'}
-                    />
-                  ) : selectedCustomer?.messagingAppType && selectedCustomer?.messagingAppId ? (
-                    <DetailValue>
-                      {selectedCustomer.messagingAppType === 'wechat' ? 'WeChat' : 'WhatsApp'}: {selectedCustomer.messagingAppId}
-                    </DetailValue>
-                  ) : (
-                    <DetailValue>N/A</DetailValue>
-                  )}
-                </DetailItem>
-              )}
-              <DetailItem>
-                <DetailLabel>{lang === "zh" ? "创建日期" : "Created Date"}</DetailLabel>
-                <DetailValue>
-                  {selectedCustomer?.created_at 
-                    ? new Date(selectedCustomer.created_at).toLocaleDateString()
-                    : 'N/A'}
-                </DetailValue>
-              </DetailItem>
-            </DetailGrid>
-          </Section>
-
-          <Section>
-            <SectionTitle>
-              {lang === "zh" ? "业务" : "Businesses"} ({selectedCustomer?.businesses.length || 0})
-            </SectionTitle>
-            {selectedCustomer?.businesses && selectedCustomer.businesses.length > 0 ? (
-              selectedCustomer.businesses.map((business) => (
-                <BusinessDetailCard key={business._id}>
-                  <BusinessHeader>
-                    <BusinessDetailName>{business.name}</BusinessDetailName>
-                    <BusinessStatus $status={business.status || 'N/A'}>
-                      {business.status || 'N/A'}
-                    </BusinessStatus>
-                  </BusinessHeader>
-                  <BusinessInfo>
-                    <BusinessInfoItem>
-                      <InfoLabel>{lang === "zh" ? "业务 ID" : "Business ID"}</InfoLabel>
-                      <InfoValue>{business._id}</InfoValue>
-                    </BusinessInfoItem>
-                    {business.abn && (
-                      <BusinessInfoItem>
-                        <InfoLabel>{lang === "zh" ? "ABN" : "ABN"}</InfoLabel>
-                        <InfoValue>{business.abn}</InfoValue>
-                      </BusinessInfoItem>
-                    )}
-                    {business.address && (
-                      <BusinessInfoItem>
-                        <InfoLabel>{lang === "zh" ? "地址" : "Address"}</InfoLabel>
-                        <InfoValue>{business.address}</InfoValue>
-                      </BusinessInfoItem>
-                    )}
-                  </BusinessInfo>
-                </BusinessDetailCard>
-              ))
-            ) : (
-              <DetailValue style={{ fontStyle: 'italic', opacity: 0.7 }}>
-                {lang === "zh" ? "此客户没有业务" : "This customer has no businesses"}
-              </DetailValue>
-            )}
-          </Section>
-          
-          <ModalActions>
-            {isEditMode ? (
-              <>
-                <ActionButton onClick={handleEditToggle}>
-                  {lang === 'zh' ? '取消' : 'Cancel'}
-                </ActionButton>
-                <ActionButton $variant="primary" onClick={handleSaveEdit}>
-                  <SaveIcon /> {lang === 'zh' ? '保存更改' : 'Save Changes'}
-                </ActionButton>
-              </>
-            ) : (
-              <>
-                <ActionButton onClick={handleCloseModal}>
-                  {lang === 'zh' ? '关闭' : 'Close'}
-                </ActionButton>
-                <ActionButton onClick={() => handleEmailCustomer(selectedCustomer?.email || '')}>
-                  <MailIcon /> {lang === 'zh' ? '发送邮件' : 'Send Email'}
-                </ActionButton>
-                <ActionButton $variant="primary" onClick={handleEditToggle}>
-                  <EditIcon /> {lang === 'zh' ? '编辑客户' : 'Edit Customer'}
-                </ActionButton>
-              </>
-            )}
-          </ModalActions>
-        </ModalContent>
-      </Modal>
 
       {/* Create Customer Modal */}
       <Modal $show={showCreateModal} onClick={() => setShowCreateModal(false)}>

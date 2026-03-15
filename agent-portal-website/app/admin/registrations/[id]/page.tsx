@@ -63,11 +63,19 @@ interface Customer {
   email?: string;
 }
 
+const spinning = `
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+`;
+
 const Container = styled.div`
   min-height: 100vh;
   background: linear-gradient(135deg, #e0e7ef 0%, #f7faff 100%);
   display: flex;
   padding-top: 65px;
+  ${spinning}
 `;
 
 const MainContent = styled.main`
@@ -371,15 +379,17 @@ const Modal = styled.div<{ $show: boolean }>`
 
 const ModalContent = styled.div`
   background: white;
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 2rem;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
   max-width: 500px;
   width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
 `;
 
 const ModalTitle = styled.h2`
-  margin: 0 0 1rem;
+  margin: 0;
   font-size: 1.5rem;
   font-weight: 700;
   color: #0a3655;
@@ -420,38 +430,64 @@ const ModalActions = styled.div`
   display: flex;
   gap: 0.75rem;
   justify-content: flex-end;
+
+  @media (max-width: 968px) {
+    flex-direction: column;
+  }
 `;
 
 const ModalButton = styled.button<{ $primary?: boolean }>`
-  padding: 0.7rem 1.5rem;
+  padding: 0.7rem 1.25rem;
   border: none;
   border-radius: 8px;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 200ms ease;
-  
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 120px;
+
   ${p => p.$primary ? `
-    background: #2563eb;
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
     color: white;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
     
-    &:hover {
-      background: #1d4ed8;
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    &:hover:not(:disabled) {
+      background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+      box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+      transform: translateY(-2px);
+    }
+    
+    &:active:not(:disabled) {
+      transform: translateY(0);
     }
   ` : `
-    background: #f0f4f9;
+    background: #eef3f9;
     color: #0a3655;
     border: 1px solid #d8e3ef;
     
-    &:hover {
+    &:hover:not(:disabled) {
       background: #e5edf5;
+      border-color: #2b7be3;
+      transform: translateY(-2px);
+    }
+    
+    &:active:not(:disabled) {
+      transform: translateY(0);
     }
   `}
   
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  @media (max-width: 968px) {
+    width: 100%;
+    min-width: unset;
   }
 `;
 
@@ -765,16 +801,16 @@ export default function RegistrationDetailsPage() {
   const [registration, setRegistration] = useState<Registration | null>(null);
   const [loading, setLoading] = useState(true);
   const [isActing, setIsActing] = useState(false);
-  const [isLinking, setIsLinking] = useState(false);
   const [error, setError] = useState("");
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedData, setEditedData] = useState<Partial<Registration>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [customerBusinesses, setCustomerBusinesses] = useState<any[]>([]);
 
   const registrationId = useMemo(() => params?.id || "", [params]);
 
@@ -849,6 +885,25 @@ export default function RegistrationDetailsPage() {
       if (!token) return;
 
       try {
+        // Mock data for testing
+        const mockCustomers = [
+          {
+            _id: "mock-cust-01",
+            name: "John Smith",
+            email: "johnsmith@gmail.com",
+          },
+          {
+            _id: "mock-cust-02",
+            name: "Jane Doe",
+            email: "jane@example.com",
+          },
+        ];
+
+        setCustomers(mockCustomers);
+        return;
+
+        // Uncomment below when API is ready
+        /*
         const response = await fetch("/api/customer/list", {
           method: "POST",
           headers: {
@@ -866,6 +921,7 @@ export default function RegistrationDetailsPage() {
         if (data.status_code === 200 && Array.isArray(data.customers)) {
           setCustomers(data.customers);
         }
+        */
       } catch (err) {
         console.error("Failed to fetch customers", err);
       }
@@ -896,112 +952,102 @@ export default function RegistrationDetailsPage() {
     }
   }, [registration, customers]);
 
-  const filteredCustomers = useMemo(() => {
-    const q = customerSearchQuery.trim().toLowerCase();
-    if (!q) return [];
-
-    return customers
-      .filter(c => c.name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q))
-      .slice(0, 8);
-  }, [customers, customerSearchQuery]);
-
   const selectedCustomer = useMemo(
     () => customers.find(c => c._id === selectedCustomerId),
     [customers, selectedCustomerId]
   );
 
-  const handleLinkCustomer = async () => {
-    if (!registration || !token || !selectedCustomerId) {
-      showToast(lang === "zh" ? "请先选择客户" : "Please select a customer first", "error");
-      return;
-    }
+  const fetchCustomerBusinesses = async (customerId: string) => {
+    if (!token) return;
 
-    setIsLinking(true);
     try {
-      const endpoint = getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_LINK.replace(":id", registration.id));
-      
-      console.log("[DEBUG] Link Customer Started");
-      console.log("[DEBUG] Registration ID:", registration.id);
-      console.log("[DEBUG] Selected Customer ID:", selectedCustomerId);
-      console.log("[DEBUG] Endpoint:", endpoint);
+      // Mock data for testing - John Smith's businesses
+      const mockBusinessesMap: Record<string, Array<{ _id: string; name: string; suburb: string; state: string; postcode: string }>> = {
+        "mock-cust-01": [
+          { _id: "mock-biz-01", name: "John's Coffee Shop", suburb: "Sydney", state: "NSW", postcode: "2000" },
+          { _id: "mock-biz-02", name: "Smith Restaurant & Bar", suburb: "Parramatta", state: "NSW", postcode: "2150" },
+          { _id: "mock-biz-03", name: "John's Catering Service", suburb: "Manly", state: "NSW", postcode: "2095" },
+        ],
+        "mock-cust-02": [
+          { _id: "mock-biz-04", name: "Jane's Boutique", suburb: "Melbourne", state: "VIC", postcode: "3000" },
+        ],
+      };
 
-      const response = await fetch(
-        endpoint,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ 
-            token: token,
-            customer_id: selectedCustomerId 
-          }),
-        }
-      );
+      setCustomerBusinesses(mockBusinessesMap[customerId] || []);
+      return;
 
-      console.log("[DEBUG] Link Response Status:", response.status);
-      
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error("[DEBUG] Link Error:", errorData);
-        throw new Error("Failed to link customer");
+      // Uncomment below when API is ready
+      /*
+      const endpoint = getApiUrl(`/api/search/business?customer_id=${customerId}`);
+      const response = await fetch(endpoint, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCustomerBusinesses(data.businesses || []);
       }
-
-      const responseData = await response.json();
-      console.log("[DEBUG] Link Response Body:", responseData);
-
-      showToast(lang === "zh" ? "客户关联成功" : "Customer linked successfully", "success");
-      await fetchDetails();
-    } catch (err: any) {
-      console.error("[DEBUG] Link Customer Error:", err);
-      showToast(lang === "zh" ? "客户关联失败" : "Failed to link customer", "error");
-    } finally {
-      setIsLinking(false);
+      */
+    } catch (err) {
+      console.error("Failed to fetch customer businesses", err);
+      setCustomerBusinesses([]);
     }
   };
 
-  const handleApprove = async () => {
+  const handleApproveClick = async () => {
     if (!registration || !token) return;
 
-    if (!selectedCustomerId) {
-      showToast(lang === "zh" ? "请先关联客户后再批准" : "Please link a customer before approving", "error");
-      return;
+    // Fetch customer businesses if customer exists
+    if (selectedCustomerId) {
+      await fetchCustomerBusinesses(selectedCustomerId);
     }
+    setShowApprovalModal(true);
+  };
+
+  const actuallyApprove = async () => {
+    if (!registration || !token) return;
 
     setIsActing(true);
     try {
-      // First link the customer
-      const linkEndpoint = getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_LINK.replace(":id", registration.id));
-      
-      console.log("[DEBUG] Approve Started");
-      console.log("[DEBUG] Link Endpoint:", linkEndpoint);
-      
-      const linkResponse = await fetch(
-        linkEndpoint,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ 
-            token: token,
-            customer_id: selectedCustomerId 
-          }),
+      // First link the customer if one is selected
+      if (selectedCustomerId) {
+        const linkEndpoint = getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_LINK.replace(":id", registration.id));
+        
+        console.log("[DEBUG] Approve Started - Linking Customer");
+        console.log("[DEBUG] Link Endpoint:", linkEndpoint);
+        
+        const linkResponse = await fetch(
+          linkEndpoint,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ 
+              token: token,
+              customer_id: selectedCustomerId 
+            }),
+          }
+        );
+
+        console.log("[DEBUG] Link Response Status:", linkResponse.status);
+
+        if (!linkResponse.ok) {
+          const errorData = await linkResponse.text();
+          console.error("[DEBUG] Link Error:", errorData);
+          throw new Error("Failed to link customer");
         }
-      );
 
-      console.log("[DEBUG] Link Response Status:", linkResponse.status);
-
-      if (!linkResponse.ok) {
-        const errorData = await linkResponse.text();
-        console.error("[DEBUG] Link Error:", errorData);
-        throw new Error("Failed to link customer");
+        const linkResponseData = await linkResponse.json();
+        console.log("[DEBUG] Link Response Body:", linkResponseData);
+      } else {
+        console.log("[DEBUG] Approve Started - No Customer to Link, Creating New");
       }
-
-      const linkResponseData = await linkResponse.json();
-      console.log("[DEBUG] Link Response Body:", linkResponseData);
 
       // Then approve
       const approveEndpoint = getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_APPROVE.replace(":id", registration.id));
@@ -1035,6 +1081,7 @@ export default function RegistrationDetailsPage() {
       console.log("[DEBUG] Approve Response Body:", approveResponseData);
 
       showToast(lang === "zh" ? "批准成功" : "Approved successfully", "success");
+      setShowApprovalModal(false);
       await fetchDetails();
     } catch (err: any) {
       console.error("[DEBUG] Approve Error:", err);
@@ -1374,7 +1421,7 @@ export default function RegistrationDetailsPage() {
   };
 
   return (
-    <MainLayout>
+    <MainLayout currentPage={`Registrations › ${loading ? 'Loading...' : registration?.form_id || 'Details'}`}>
       <Container>
         <AdminSidebar
           mobileOpen={false}
@@ -1489,174 +1536,6 @@ export default function RegistrationDetailsPage() {
                     </Field>
                   )}
                 </Grid>
-
-                <Divider />
-
-                <DetailLabel>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <span>*</span>
-                    {lang === "zh" ? "关联客户（必填）" : "Link to Customer (Required)"}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "0.75rem",
-                      color: "#6b7280",
-                      fontWeight: 500,
-                      textTransform: "none",
-                      letterSpacing: "0",
-                      marginTop: "0.25rem",
-                      fontStyle: "italic",
-                    }}
-                  >
-                    {lang === "zh" ? "仅供内部使用 - 不会显示给客户" : "Internal Use Only - Not visible to customer"}
-                  </div>
-                </DetailLabel>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "0.5rem" }}>
-                  {selectedCustomer ? (
-                    <div
-                      style={{
-                        padding: "0.75rem",
-                        border: "1.5px solid #d1fae5",
-                        borderRadius: "8px",
-                        background: "#f0fdf4",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                      }}
-                    >
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, color: "#065f46" }}>{selectedCustomer.name}</div>
-                        <div style={{ fontSize: "0.875rem", color: "#059669", marginTop: "0.2rem" }}>
-                          {selectedCustomer.email || "-"}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: "0.75rem",
-                            color: "#065f46",
-                            marginTop: "0.25rem",
-                            fontStyle: "italic",
-                          }}
-                        >
-                          {lang === "zh" ? "✓ 已关联到现有客户" : "✓ Linked to existing customer"}
-                        </div>
-                      </div>
-                      <ActionButton
-                        $variant="neutral"
-                        disabled={isLinking || isActing}
-                        onClick={() => {
-                          setSelectedCustomerId("");
-                          setCustomerSearchQuery("");
-                        }}
-                        style={{ margin: 0 }}
-                      >
-                        {lang === "zh" ? "更改" : "Change"}
-                      </ActionButton>
-                    </div>
-                  ) : (
-                    <>
-                      <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
-                        <div style={{ position: "relative", flex: 1 }}>
-                          <EditInput
-                            type="text"
-                            placeholder={lang === "zh" ? "搜索客户名称或邮箱..." : "Search customer name or email..."}
-                            value={customerSearchQuery}
-                            onChange={(e) => setCustomerSearchQuery(e.target.value)}
-                            style={{
-                              paddingRight: "2.5rem",
-                            }}
-                          />
-                          <svg
-                            style={{
-                              position: "absolute",
-                              right: "0.75rem",
-                              top: "0.75rem",
-                              pointerEvents: "none",
-                              opacity: 0.5,
-                            }}
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <circle cx="11" cy="11" r="8" />
-                            <path d="m21 21-4.35-4.35" />
-                          </svg>
-                          {customerSearchQuery && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: "calc(100% + 0.25rem)",
-                                left: 0,
-                                right: 0,
-                                background: "white",
-                                border: "1.5px solid #e0e7ef",
-                                borderRadius: "8px",
-                                maxHeight: "200px",
-                                overflowY: "auto",
-                                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                                zIndex: 10,
-                              }}
-                            >
-                              {filteredCustomers
-                                .slice(0, 10)
-                                .map((customer) => (
-                                  <div
-                                    key={customer._id}
-                                    onClick={() => {
-                                      setSelectedCustomerId(customer._id);
-                                      setCustomerSearchQuery("");
-                                    }}
-                                    style={{
-                                      padding: "0.75rem",
-                                      cursor: "pointer",
-                                      borderBottom: "1px solid #f0f0f0",
-                                      transition: "background 0.2s ease",
-                                    }}
-                                    onMouseEnter={(e) => (e.currentTarget.style.background = "#f7faff")}
-                                    onMouseLeave={(e) => (e.currentTarget.style.background = "white")}
-                                  >
-                                    <div style={{ fontWeight: 600, color: "#0a3655" }}>{customer.name}</div>
-                                    <div style={{ fontSize: "0.875rem", color: "#5c6b7a" }}>
-                                      {customer.email}
-                                    </div>
-                                  </div>
-                                ))}
-                              {filteredCustomers.length === 0 && (
-                                <div style={{ padding: "1rem", textAlign: "center", color: "#9ca3af" }}>
-                                  {lang === "zh" ? "未找到客户" : "No customers found"}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        <ActionButton
-                          onClick={handleLinkCustomer}
-                          $variant="primary"
-                          disabled={!selectedCustomerId || isLinking || isActing}
-                          style={{
-                            margin: 0,
-                            whiteSpace: "nowrap",
-                            flexShrink: 0,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.5rem",
-                            padding: "0.75rem 1rem",
-                          }}
-                        >
-                          <PlusIcon />
-                          {lang === "zh" ? "创建新客户" : "Create New"}
-                        </ActionButton>
-                      </div>
-                      {!selectedCustomerId && (
-                        <div style={{ fontSize: "0.8125rem", color: "#991b1b", marginTop: "-0.5rem" }}>
-                          {lang === "zh" ? "* 批准前必须关联客户" : "* Must link customer before approval"}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
 
                 <Divider />
 
@@ -1968,7 +1847,7 @@ export default function RegistrationDetailsPage() {
                             </svg>
                             {lang === "zh" ? "拒绝" : "Reject"}
                           </ActionButton>
-                          <ActionButton $variant="primary" disabled={isActing} onClick={handleApprove}>
+                          <ActionButton $variant="primary" disabled={isActing} onClick={handleApproveClick}>
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <polyline points="20 6 9 17 4 12"/>
                             </svg>
@@ -1978,7 +1857,7 @@ export default function RegistrationDetailsPage() {
                       )}
 
                       {registration.status === "rejected" && (
-                        <ActionButton $variant="primary" disabled={isActing} onClick={handleApprove}>
+                        <ActionButton $variant="primary" disabled={isActing} onClick={handleApproveClick}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <polyline points="20 6 9 17 4 12"/>
                           </svg>
@@ -2034,6 +1913,151 @@ export default function RegistrationDetailsPage() {
                 style={{ background: '#dc2626' }}
               >
                 {lang === 'zh' ? '确认拒绝' : 'Confirm Reject'}
+              </ModalButton>
+            </ModalActions>
+          </ModalContent>
+        </Modal>
+      )}
+
+      {showApprovalModal && (
+        <Modal $show={showApprovalModal} onClick={() => setShowApprovalModal(false)}>
+          <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '800px', padding: '2rem' }}>
+            <ModalTitle style={{ marginBottom: '1.5rem' }}>
+              {lang === 'zh' ? '审批注册' : 'Approve Registration'}
+            </ModalTitle>
+            
+            {/* Customer Information Section */}
+            <div style={{ marginBottom: '2.5rem' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0a3655', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                {lang === 'zh' ? '客户信息' : 'Customer Information'}
+              </div>
+              
+              {selectedCustomer ? (
+                <div style={{
+                  padding: '1.25rem',
+                  background: '#f8fafc',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '10px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, color: '#0a3655', marginBottom: '0.35rem', fontSize: '1rem' }}>
+                        {selectedCustomer.name}
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                        {selectedCustomer.email}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#059669', background: '#d1fae5', padding: '0.5rem 0.85rem', borderRadius: '6px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                      {lang === 'zh' ? '现有客户' : 'Existing'}
+                    </div>
+                  </div>
+
+                  {/* Linked Businesses */}
+                  {customerBusinesses.length > 0 && (
+                    <div style={{ paddingTop: '1rem', borderTop: '1px solid #cbd5e1' }}>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '0.75rem' }}>
+                        {lang === 'zh' ? '关联商户' : 'Linked Businesses'}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+                        {customerBusinesses.map((business, idx) => (
+                          <div key={idx} style={{ fontSize: '0.85rem', color: '#1e293b', paddingLeft: '0rem', lineHeight: '1.4' }}>
+                            <span style={{ color: '#10b981', marginRight: '0.5rem', fontWeight: 600 }}>•</span>
+                            {business.name}
+                            <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.15rem', marginLeft: '1rem' }}>
+                              {business.suburb}, {business.state} {business.postcode}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{
+                  padding: '1.25rem',
+                  background: '#f8fafc',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '10px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, color: '#0a3655', marginBottom: '0.35rem', fontSize: '1rem' }}>
+                        {registration ? getContactName(registration) : '-'}
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                        {registration ? getContactEmail(registration) : '-'}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#d97706', background: '#fef3c7', padding: '0.5rem 0.85rem', borderRadius: '6px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                      {lang === 'zh' ? '新建客户' : 'New'}
+                    </div>
+                  </div>
+                  <div style={{ paddingTop: '1rem', borderTop: '1px solid #cbd5e1', fontSize: '0.85rem', color: '#b45309' }}>
+                    {lang === 'zh' ? '新客户将在批准时创建' : 'New customer will be created upon approval'}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Business Information Section */}
+            <div style={{ marginBottom: '2.5rem' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0a3655', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                {lang === 'zh' ? '商户信息' : 'Business Information'}
+              </div>
+              
+              <div style={{
+                padding: '1.25rem',
+                background: '#f8fafc',
+                border: '1px solid #cbd5e1',
+                borderRadius: '10px',
+              }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '2.5rem', marginBottom: '1.5rem' }}>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '0.6rem' }}>
+                      {lang === 'zh' ? '商户名称' : 'Business Name'}
+                    </div>
+                    <div style={{ fontSize: '0.95rem', color: '#0a3655', fontWeight: 600 }}>
+                      {registration ? getBusinessName(registration) : '-'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '0.6rem' }}>
+                      {lang === 'zh' ? '注册地址' : 'Registered Address'}
+                    </div>
+                    <div style={{ fontSize: '0.9rem', color: '#0a3655', lineHeight: '1.6' }}>
+                      {registration ? `${registration.registeredAddress || '-'}` : '-'}<br/>
+                      {registration ? `${registration.registeredSuburb || '-'} ${registration.registeredState || ''} ${registration.registeredPostcode || '-'}` : '-'}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ paddingTop: '1.25rem', borderTop: '1px solid #cbd5e1', fontSize: '0.85rem', color: '#0369a1', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.95rem' }}>✓</span>
+                  <span>
+                    {selectedCustomer 
+                      ? (lang === 'zh' ? `此商户将关联到 "${selectedCustomer.name}"` : `This business will be linked to "${selectedCustomer.name}"`)
+                      : (lang === 'zh' ? '将在批准时创建并关联到新客户' : 'Will be created and linked to new customer upon approval')
+                    }
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <ModalActions>
+              <ModalButton 
+                onClick={() => setShowApprovalModal(false)}
+              >
+                {lang === 'zh' ? '取消' : 'Cancel'}
+              </ModalButton>
+              <ModalButton 
+                $primary 
+                onClick={actuallyApprove} 
+                disabled={isActing}
+              >
+                {isActing ? (lang === 'zh' ? '处理中...' : 'Processing...') : (lang === 'zh' ? '确认批准' : 'Confirm Approval')}
               </ModalButton>
             </ModalActions>
           </ModalContent>

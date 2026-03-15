@@ -1305,6 +1305,12 @@ export default function RegistrationsPage() {
     }
   }, [authCustomers]);
 
+  // Reset to first page when switching tabs
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedRows(new Set());
+  }, [activeTab]);
+
   // Clear error when a customer is selected
   useEffect(() => {
     if (selectedCustomerId) {
@@ -1402,7 +1408,18 @@ export default function RegistrationsPage() {
             ...reg,
             id: normalizedId,
             // Ensure status has a value
-            status: reg.status || 'pending'
+            status: reg.status || 'pending',
+            // Normalize field names from snake_case to camelCase for filtering
+            registeredState: reg.registeredState || reg.registered_state,
+            registeredSuburb: reg.registeredSuburb || reg.registered_suburb,
+            registeredPostcode: reg.registeredPostcode || reg.registered_postcode,
+            registeredAddress: reg.registeredAddress || reg.registered_address,
+            businessName: reg.businessName || reg.business_name,
+            contactEmail: reg.contactEmail || reg.contact_email,
+            contactPhone: reg.contactPhone || reg.contact_phone,
+            ownerName: reg.ownerName || reg.owner_name || reg.contact_name,
+            submittedAt: reg.submittedAt || reg.submitted_at,
+            linkedCustomerId: reg.linkedCustomerId || reg.linked_customer_id,
           };
         });
         
@@ -2542,233 +2559,7 @@ export default function RegistrationsPage() {
                 </DetailSection>
               )}
 
-              <DetailSection>
-                <DetailLabel style={{ color: '#991b1b', display: 'flex', gap: '0.5rem', flexDirection: 'column', alignItems: 'flex-start' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span>*</span>
-                    {lang === "zh" ? "关联客户（必填）" : "Link to Customer (Required)"}
-                  </div>
-                  <div style={{ 
-                    fontSize: '0.75rem', 
-                    color: '#6b7280', 
-                    fontWeight: 500,
-                    textTransform: 'none',
-                    letterSpacing: '0',
-                    marginTop: '0.25rem',
-                    fontStyle: 'italic'
-                  }}>
-                    {lang === "zh" ? "仅供内部使用 - 不会显示给客户" : "Internal Use Only - Not visible to customer"}
-                  </div>
-                </DetailLabel>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
-                  {selectedCustomerId ? (
-                    // Show selected customer with option to change
-                    <div style={{ 
-                      padding: '0.75rem',
-                      border: selectedCustomerId.startsWith('temp_') && selectedRegistration?.status !== 'approved' ? '1.5px solid #fbbf24' : '1.5px solid #d1fae5',
-                      borderRadius: '8px',
-                      background: selectedCustomerId.startsWith('temp_') && selectedRegistration?.status !== 'approved' ? '#fffbeb' : '#f0fdf4',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ 
-                          fontWeight: 600, 
-                          color: selectedCustomerId.startsWith('temp_') && selectedRegistration?.status !== 'approved' ? '#92400e' : '#065f46',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem'
-                        }}>
-                          {selectedCustomerId.startsWith('temp_') ? (
-                            <>
-                              {selectedRegistration?.status !== 'approved' && <span>⚠️</span>}
-                              <span>{getContactName(selectedRegistration) || 'New Customer'}</span>
-                              {selectedRegistration?.status !== 'approved' && (
-                                <span style={{ 
-                                  fontSize: '0.75rem', 
-                                  fontWeight: 500,
-                                  background: '#f59e0b',
-                                  color: 'white',
-                                  padding: '0.125rem 0.5rem',
-                                  borderRadius: '4px'
-                                }}>
-                                  {lang === "zh" ? "待创建" : "Pending"}
-                                </span>
-                              )}
-                            </>
-                          ) : (
-                            customers.find((c: any) => c._id === selectedCustomerId)?.name || 'Selected Customer'
-                          )}
-                        </div>
-                        <div style={{ 
-                          fontSize: '0.875rem', 
-                          color: selectedCustomerId.startsWith('temp_') && selectedRegistration?.status !== 'approved' ? '#b45309' : '#059669'
-                        }}>
-                          {selectedCustomerId.startsWith('temp_') 
-                            ? (selectedRegistration ? getContactEmail(selectedRegistration) : '')
-                            : customers.find((c: any) => c._id === selectedCustomerId)?.email || ''
-                          }
-                        </div>
-                        {selectedCustomerId.startsWith('temp_') ? (
-                          <div style={{ 
-                            fontSize: '0.75rem', 
-                            color: selectedRegistration?.status === 'approved' ? '#065f46' : '#92400e',
-                            marginTop: '0.25rem',
-                            fontStyle: 'italic'
-                          }}>
-                            {selectedRegistration?.status === 'approved' 
-                              ? (lang === "zh" ? "✓ 新客户账号已创建" : "✓ New customer account created")
-                              : (lang === "zh" ? "批准后将自动创建此客户账号" : "Customer account will be created upon approval")
-                            }
-                          </div>
-                        ) : selectedRegistration?.status === 'approved' && (
-                          <div style={{ 
-                            fontSize: '0.75rem', 
-                            color: '#065f46',
-                            marginTop: '0.25rem',
-                            fontStyle: 'italic'
-                          }}>
-                            {lang === "zh" ? "✓ 已关联到现有客户" : "✓ Linked to existing customer"}
-                          </div>
-                        )}
-                      </div>
-                      <ActionButton onClick={() => {
-                        // Disable auto-link so the search bar remains visible
-                        setDisableAutoLink(true);
-                        setSelectedCustomerId('');
-                        setCustomerSearchQuery('');
-                        if (selectedCustomerId && selectedCustomerId.startsWith('temp_')) {
-                          sessionStorage.removeItem('pendingCustomer');
-                        }
-                        // Also clear the linkedCustomerId field so search bar is shown
-                        handleEditChange('linkedCustomerId', '');
-                      }} style={{ margin: 0 }}>
-                        {lang === "zh" ? "更改" : "Change"}
-                      </ActionButton>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Search bar with button on the right */}
-                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-                        <div style={{ position: 'relative', flex: 1 }}>
-                          <EditInput
-                            type="text"
-                            placeholder={lang === "zh" ? "搜索客户名称或邮箱..." : "Search customer name or email..."}
-                            value={customerSearchQuery}
-                            onChange={(e) => setCustomerSearchQuery(e.target.value)}
-                            style={{ 
-                              borderColor: !selectedCustomerId ? '#fca5a5' : undefined,
-                              paddingRight: '2.5rem',
-                              width: '100%'
-                            }}
-                          />
-                          <svg 
-                            style={{ 
-                              position: 'absolute', 
-                              right: '0.75rem', 
-                              top: '0.75rem',
-                              pointerEvents: 'none',
-                              opacity: 0.5
-                            }} 
-                            width="20" 
-                            height="20" 
-                            viewBox="0 0 24 24" 
-                            fill="none" 
-                            stroke="currentColor" 
-                            strokeWidth="2"
-                          >
-                            <circle cx="11" cy="11" r="8"/>
-                            <path d="m21 21-4.35-4.35"/>
-                          </svg>
-                          {customerSearchQuery && (
-                            <div style={{
-                              position: 'absolute',
-                              top: 'calc(100% + 0.25rem)',
-                              left: 0,
-                              right: 0,
-                              background: 'white',
-                              border: '1.5px solid #e0e7ef',
-                              borderRadius: '8px',
-                              maxHeight: '200px',
-                              overflowY: 'auto',
-                              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                              zIndex: 10
-                            }}>
-                              {(() => {
-                                console.log('Searching customers with query:', customerSearchQuery);
-                                console.log('Total customers available:', customers.length);
-                                const filtered = customers.filter((customer: any) => {
-                                  const searchLower = customerSearchQuery.toLowerCase();
-                                  const nameMatch = customer.name?.toLowerCase().includes(searchLower);
-                                  const emailMatch = customer.email?.toLowerCase().includes(searchLower);
-                                  return nameMatch || emailMatch;
-                                });
-                                console.log('Filtered results:', filtered.length);
-                                return filtered;
-                              })()
-                                
-                                .slice(0, 10)
-                                .map((customer: any) => (
-                                  <div
-                                    key={customer._id}
-                                    onClick={() => {
-                                      const customerId = customer._id;
-                                      setSelectedCustomerId(customerId);
-                                      setCustomerSearchQuery('');
-                                      setApproveError(''); // Clear error when customer is selected
-                                      handleLinkCustomer(customerId);
-                                    }}
-                                    style={{
-                                      padding: '0.75rem',
-                                      cursor: 'pointer',
-                                      borderBottom: '1px solid #f0f0f0',
-                                      transition: 'background 0.2s ease'
-                                    }}
-                                    onMouseEnter={(e) => e.currentTarget.style.background = '#f7faff'}
-                                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
-                                  >
-                                    <div style={{ fontWeight: 600, color: '#0a3655' }}>{customer.name}</div>
-                                    <div style={{ fontSize: '0.875rem', color: '#5c6b7a' }}>{customer.email}</div>
-                                  </div>
-                                ))}
-                              {customers.filter((customer: any) => {
-                                const searchLower = customerSearchQuery.toLowerCase();
-                                return customer.name?.toLowerCase().includes(searchLower) ||
-                                       customer.email?.toLowerCase().includes(searchLower);
-                              }).length === 0 && (
-                                <div style={{ padding: '1rem', textAlign: 'center', color: '#9ca3af' }}>
-                                  {lang === "zh" ? "未找到客户" : "No customers found"}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        <ActionButton 
-                          onClick={handleCreateAndLinkCustomer} 
-                          style={{ 
-                            margin: 0,
-                            whiteSpace: 'nowrap',
-                            flexShrink: 0,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            padding: '0.75rem 1rem'
-                          }}
-                        >
-                          <PlusIcon />
-                          {lang === "zh" ? "创建新客户" : "Create New"}
-                        </ActionButton>
-                      </div>
-                      {!selectedCustomerId && (
-                        <div style={{ fontSize: '0.8125rem', color: '#991b1b', marginTop: '-0.5rem' }}>
-                          {lang === "zh" ? "* 批准前必须关联客户" : "* Must link customer before approval"}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </DetailSection>
+
 
               <Divider />
 
