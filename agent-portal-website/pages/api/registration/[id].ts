@@ -8,7 +8,7 @@ const httpsAgent = new https.Agent({
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'GET') {
+  if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
@@ -24,23 +24,49 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Call the real registration API
     try {
       const url = `${API_CONFIG.REGISTRATION_BASE_URL}/registration/${registrationId}`;
-      const response = await axios.get(url, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': authHeader,
-        },
-        timeout: 5000,
-        httpsAgent,
-      });
+      
+      if (req.method === 'GET') {
+        const response = await axios.get(url, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authHeader,
+          },
+          timeout: 5000,
+          httpsAgent,
+        });
 
-      return res.status(response.status).json(response.data);
+        return res.status(response.status).json(response.data);
+      } else if (req.method === 'POST') {
+        // Handle POST for updates
+        const response = await axios.post(url, req.body, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authHeader,
+          },
+          timeout: 5000,
+          httpsAgent,
+        });
+
+        return res.status(response.status).json(response.data);
+      }
     } catch (apiErr: any) {
-      console.error('[API Proxy] Registration detail failed:', apiErr?.message || apiErr);
-      // Return 404-like payload matching backend shape when not found
-      return res.status(200).json({ status_code: 404, status_msg: 'not found', data: null });
+      console.error('[API Proxy] Registration operation failed:', apiErr?.message || apiErr);
+      console.error('[API Proxy] Error response status:', apiErr?.response?.status);
+      console.error('[API Proxy] Error response data:', apiErr?.response?.data);
+      
+      // If backend returned an error response, forward it
+      if (apiErr?.response?.status) {
+        return res.status(apiErr.response.status).json(apiErr.response.data || { 
+          status_code: apiErr.response.status, 
+          status_msg: 'Backend error' 
+        });
+      }
+      
+      // Return generic error
+      return res.status(500).json({ status_code: 500, status_msg: 'Registration operation failed', error: apiErr?.message });
     }
   } catch (err: any) {
-    console.error('[API Proxy] Registration detail error:', err?.message || err);
+    console.error('[API Proxy] Registration error:', err?.message || err);
     return res.status(500).json({ status_code: 500, status_msg: 'error' });
   }
 }

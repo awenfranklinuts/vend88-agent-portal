@@ -22,7 +22,9 @@ const envRegBase = sanitizeBase(rawEnvRegBase);
 
 const inferredBase = envBase
   || (typeof window !== 'undefined' && window.location.protocol === 'https:' ? defaultHttps : defaultHttp);
-const inferredRegBase = envRegBase || inferredBase;
+// Use the same base URL for registration (don't mix dev.vend88.com and 52.63.11.1)
+// Always use HTTPS dev server for consistency with login token
+const inferredRegBase = envRegBase || defaultHttps;
 
 export const API_CONFIG = {
   BASE_URL: inferredBase,
