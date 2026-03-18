@@ -171,12 +171,13 @@ GET    /registration/{registration_id}       Get Registration Details
 
 #### A. POST /registration/generate
 
-**Current:** Generates a token without field configuration  
-**New:** Also saves the selected field configuration
+**Current Implementation:** Already generates token with admin_email, returns form_id, token, link, timestamps  
+**Update Needed:** Add `selected_fields` parameter to save field configuration
 
-**Request Body:**
+**Updated Request Body:**
 ```json
 {
+  "admin_email": "admin@example.com",
   "selected_fields": [
     {
       "id": "contact_email",
@@ -198,35 +199,49 @@ GET    /registration/{registration_id}       Get Registration Details
       "group": null,
       "options": []
     },
-    // ... all selected fields from FormFieldSelector
+    {
+      "id": "quote_number",
+      "label": "Quote Number",
+      "type": "text",
+      "required": true,
+      "order": 5,
+      "description": "Quote or invoice number from sales",
+      "group": null,
+      "options": []
+    },
+    // ... all other selected fields from FormFieldSelector
   ],
   "expires_in_days": 30
 }
 ```
 
-**Response:**
+**Current Response (Keep As-Is):**
 ```json
 {
+  "status_code": 200,
   "success": true,
   "data": {
+    "id": "ObjectId",
     "form_id": "V88-REG-001",
     "token": "5Bn-TdH6nIqdlUvqws5rgN9SYHXtAJoo",
-    "form_config_id": "ObjectId",
+    "link": "https://form.vend88.com/register?token=5Bn-TdH6nIqdlUvqws5rgN9SYHXtAJoo",
+    "generated_by": "admin@example.com",
     "generated_at": "2026-02-16T01:29:40Z",
-    "expires_at": "2026-03-16T01:29:40Z"
+    "expires_at": "2026-03-16T01:29:40Z",
+    "status": "pending"
   }
 }
 ```
 
-**Backend Logic:**
-1. Extract `selected_fields` array from request
+**Backend Logic - UPDATE:**
+1. Extract `selected_fields` array from request (NEW)
 2. Create entry in `registration_configs` collection with:
-   - `selected_fields`: Store the full field config array
-   - `selected_field_ids`: Extract just the IDs for quick reference
-   - `token`: Generated token
-   - `form_id`: Generated form ID
-   - Other metadata (generated_by, etc.)
-3. Return form_id and token to frontend
+   - `selected_fields`: Store the full field config array (NEW)
+   - `selected_field_ids`: Extract just the IDs for quick reference (NEW)
+   - `token`: Generated token (existing)
+   - `form_id`: Generated form ID (existing)
+   - `generated_by`, `generated_at`, `expires_at`, `status` (existing, already implemented)
+3. Return existing response structure (form_id, token, link, timestamps) - NO CHANGE to response
 
 ---
 
