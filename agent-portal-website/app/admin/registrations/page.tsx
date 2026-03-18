@@ -11,6 +11,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../components/layout/AdminSidebar";
 import { getApiUrl, getRegistrationApiUrl, API_CONFIG } from "@/config/api";
 import * as MockAPI from "@/lib/mockRegistrationApi";
+import { FormFieldSelector, type FormField } from "@/components/FormFieldSelector";
 
 const Container = styled.div`
   min-height: 100vh;
@@ -1275,6 +1276,11 @@ export default function RegistrationsPage() {
   // Store admin names for display
   const [adminNames, setAdminNames] = useState<{ [email: string]: string }>({});
   
+  // Form field selector state
+  const [showFormFieldSelector, setShowFormFieldSelector] = useState(false);
+  const [selectedFormFields, setSelectedFormFields] = useState<FormField[]>([]);
+  const [isGeneratingWithFields, setIsGeneratingWithFields] = useState(false);
+  
   // Table enhancements state
   const [sortField, setSortField] = useState<string>('submittedAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -1560,24 +1566,36 @@ export default function RegistrationsPage() {
     setIsEditMode(false);
   };
 
-  const handleGenerateForm = async () => {
-    setIsGenerating(true);
+  const handleGenerateForm = () => {
+    // Open the form field selector modal instead of directly generating
+    setShowFormFieldSelector(true);
+  };
+
+  const handleFormFieldsConfirm = async (selectedFields: FormField[]) => {
+    setIsGeneratingWithFields(true);
     try {
       // Real API integration
       const adminEmail = adminProfile?.email || userEmail || 'admin@vend88.com';
       // Use API proxy to avoid CORS issues
       const apiUrl = '/api/registration/generate';
       
-      console.log('=== Generate Form Request ===');
+      console.log('=== Generate Form Request with Fields ===');
       console.log('API URL:', apiUrl);
       console.log('Admin Email:', adminEmail);
+      console.log('Selected Fields:', selectedFields);
       console.log('Token exists:', !!token);
       console.log('Token preview:', token?.substring(0, 20) + '...');
 
       const response = await axios.post(
         apiUrl,
         { 
-          admin_email: adminEmail
+          admin_email: adminEmail,
+          form_fields: selectedFields.map(f => ({
+            id: f.id,
+            label: f.label,
+            required: f.required,
+            type: f.type
+          }))
         },
         {
           headers: {
@@ -1595,6 +1613,7 @@ export default function RegistrationsPage() {
         // Remove /register path to use root URL which doesn't have redirect issues
         const link = response.data.data.link.replace('/register?', '?');
         setGeneratedLink(link);
+        setShowFormFieldSelector(false);
         setShowGenerateModal(true);
         console.log('✅ Registration form generated successfully');
         
@@ -1606,7 +1625,7 @@ export default function RegistrationsPage() {
       } else {
         console.error('❌ Response indicates failure:', response.data);
         const errorMessage = response.data.error || response.data.message || 'Failed to generate form';
-        alert(errorMessage);
+        showToast(errorMessage, 'error');
       }
     } catch (error: any) {
       console.error('=== Generate Form Error ===');
@@ -1621,9 +1640,9 @@ export default function RegistrationsPage() {
         || error.message
         || 'Failed to generate form. Please try again.';
       
-      alert(`Failed to generate form: ${errorMessage}\n\nCheck browser console (F12) for details.`);
+      showToast(`Failed to generate form: ${errorMessage}`, 'error');
     } finally {
-      setIsGenerating(false);
+      setIsGeneratingWithFields(false);
     }
   };
 
@@ -3096,6 +3115,14 @@ export default function RegistrationsPage() {
           </ModalContent>
         </Modal>
       )}
+
+      {/* Form Field Selector Modal */}
+      <FormFieldSelector
+        isOpen={showFormFieldSelector}
+        onClose={() => setShowFormFieldSelector(false)}
+        onConfirm={handleFormFieldsConfirm}
+        isLoading={isGeneratingWithFields}
+      />
     </MainLayout>
   );
 }
