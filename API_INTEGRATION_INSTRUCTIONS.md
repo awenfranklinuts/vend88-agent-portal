@@ -49,12 +49,13 @@ GET    /registration/{registration_id}       Get Registration Details
     {
       id: "contact_email",
       label: "Email Address",
-      type: "email",                // text, email, phone, number, date, textarea, select, address
+      type: "email",                // text, email, phone, number, date, textarea, select, multiple_choice, address
       required: true,
       order: 1,
       description: "Contact's email address for communication",
       group: null,                  // null, "Address", "How You Heard About Us", "Menu Files"
-      options: []                   // For select/dropdown types (e.g., ["yes", "no"])
+      options: [],                  // For select/multiple_choice types (e.g., ["yes", "no"])
+      choice_mode: null             // null, "single", "multiple" (used only when type = "multiple_choice")
     },
     {
       id: "contact_name",
@@ -64,7 +65,8 @@ GET    /registration/{registration_id}       Get Registration Details
       order: 2,
       description: "Primary contact person's full name",
       group: null,
-      options: []
+      options: [],
+      choice_mode: null
     },
     // ... more fields
     {
@@ -75,7 +77,8 @@ GET    /registration/{registration_id}       Get Registration Details
       order: 8,
       description: "Street address of registration",
       group: "Address",
-      options: []
+      options: [],
+      choice_mode: null
     }
   ],
   
@@ -187,7 +190,8 @@ GET    /registration/{registration_id}       Get Registration Details
       "order": 1,
       "description": "Contact's email address for communication",
       "group": null,
-      "options": []
+      "options": [],
+      "choice_mode": null
     },
     {
       "id": "contact_name",
@@ -197,7 +201,8 @@ GET    /registration/{registration_id}       Get Registration Details
       "order": 2,
       "description": "Primary contact person's full name",
       "group": null,
-      "options": []
+      "options": [],
+      "choice_mode": null
     },
     {
       "id": "quote_number",
@@ -207,7 +212,19 @@ GET    /registration/{registration_id}       Get Registration Details
       "order": 5,
       "description": "Quote or invoice number from sales",
       "group": null,
-      "options": []
+      "options": [],
+      "choice_mode": null
+    },
+    {
+      "id": "service_preferences",
+      "label": "Service Preferences",
+      "type": "multiple_choice",
+      "required": false,
+      "order": 21,
+      "description": "Select one or more preferred services",
+      "group": null,
+      "options": ["POS Setup", "Training", "Menu Digitization"],
+      "choice_mode": "multiple"
     },
     // ... all other selected fields from FormFieldSelector
   ],
@@ -270,7 +287,8 @@ GET /registration/config/5Bn-TdH6nIqdlUvqws5rgN9SYHXtAJoo
         "order": 1,
         "description": "Contact's email address for communication",
         "group": null,
-        "options": []
+        "options": [],
+        "choice_mode": null
       },
       {
         "id": "contact_name",
@@ -280,7 +298,8 @@ GET /registration/config/5Bn-TdH6nIqdlUvqws5rgN9SYHXtAJoo
         "order": 2,
         "description": "Primary contact person's full name",
         "group": null,
-        "options": []
+        "options": [],
+        "choice_mode": null
       },
       // ... rest of selected fields
     ]
@@ -408,6 +427,28 @@ GET /registration/config/5Bn-TdH6nIqdlUvqws5rgN9SYHXtAJoo
            }
          }
          break;
+
+       case "multiple_choice":
+         if (!fieldConfig.options || fieldConfig.options.length === 0) {
+           errors.push(`${fieldId} has no configured options`);
+           break;
+         }
+
+         if (fieldConfig.choice_mode === "single") {
+           if (Array.isArray(value)) {
+             errors.push(`${fieldId} must be a single selected option`);
+           } else if (!fieldConfig.options.includes(value)) {
+             errors.push(`${fieldId} has invalid option: ${value}`);
+           }
+         } else {
+           // Default mode for multiple_choice is "multiple"
+           const values = Array.isArray(value) ? value : [value];
+           const invalid = values.filter((v) => !fieldConfig.options.includes(v));
+           if (invalid.length > 0) {
+             errors.push(`${fieldId} has invalid option(s): ${invalid.join(", ")}`);
+           }
+         }
+         break;
        
        // text, textarea, address don't need special validation
      }
@@ -417,6 +458,16 @@ GET /registration/config/5Bn-TdH6nIqdlUvqws5rgN9SYHXtAJoo
      return res.status(400).json({ 
        success: false, 
        errors 
+     });
+   }
+
+   // Menu upload rule: must either upload files or choose send later (not both empty)
+   const hasMenuFiles = Array.isArray(submittedData.menu_files) && submittedData.menu_files.length > 0;
+   const sendLater = submittedData.menu_send_later === true;
+   if (!hasMenuFiles && !sendLater) {
+     return res.status(400).json({
+       success: false,
+       errors: ["menu_files or menu_send_later is required"]
      });
    }
    ```
@@ -520,7 +571,7 @@ function validatePostcode(postcode) {
   return /^\d{4}$/.test(postcode);
 }
 
-function validateFieldByType(fieldId, value, fieldType, options = []) {
+function validateFieldByType(fieldId, value, fieldType, options = [], choiceMode = null) {
   if (fieldType === "email") {
     return validateEmail(value) ? null : `${fieldId} must be a valid email`;
   }
@@ -540,6 +591,19 @@ function validateFieldByType(fieldId, value, fieldType, options = []) {
   if (fieldType === "select" && options.length > 0) {
     return options.includes(value) ? null : `${fieldId} has invalid option`;
   }
+
+  if (fieldType === "multiple_choice" && options.length > 0) {
+    if (choiceMode === "single") {
+      if (Array.isArray(value)) {
+        return `${fieldId} must be a single selected option`;
+      }
+      return options.includes(value) ? null : `${fieldId} has invalid option`;
+    }
+
+    const values = Array.isArray(value) ? value : [value];
+    const invalid = values.filter((v) => !options.includes(v));
+    return invalid.length === 0 ? null : `${fieldId} has invalid option(s)`;
+  }
   
   // text, textarea, address pass validation
   return null;
@@ -549,7 +613,7 @@ function validateFieldDataAgainstConfig(fieldData, selectedFields) {
   const errors = {};
   
   for (const fieldConfig of selectedFields) {
-    const { id, required, type, options } = fieldConfig;
+    const { id, required, type, options, choice_mode } = fieldConfig;
     const value = fieldData[id];
     
     if (required && (!value || value === "")) {
@@ -561,10 +625,16 @@ function validateFieldDataAgainstConfig(fieldData, selectedFields) {
       continue;
     }
     
-    const error = validateFieldByType(id, value, type, options);
+    const error = validateFieldByType(id, value, type, options, choice_mode);
     if (error) {
       errors[id] = error;
     }
+  }
+
+  const hasMenuFiles = Array.isArray(fieldData.menu_files) && fieldData.menu_files.length > 0;
+  const sendLater = fieldData.menu_send_later === true;
+  if (!hasMenuFiles && !sendLater) {
+    errors.menuUpload = "menu_files or menu_send_later is required";
   }
   
   return Object.keys(errors).length > 0 ? errors : null;
@@ -599,12 +669,17 @@ Address is stored as separate fields in `field_data`:
 
 When all address fields are grouped, they appear under "Address" group in the form, but are still stored as individual fields in the database.
 
-#### Select/Dropdown Fields
+#### Select/Dropdown/Multiple Choice Fields
 
 For fields like `heard_about`, `eftpos_integration`, `alipay_option`:
 - Store the selected value directly
 - If value is "other", there may be companion field `heard_other` with text explanation
 - Validate that selected value matches options in field config
+
+For `multiple_choice` fields:
+- Use `choice_mode: "single"` for single-choice behavior (stored as a string)
+- Use `choice_mode: "multiple"` for multiple-choice behavior (stored as an array of strings)
+- Validate all selected options against the configured `options` list
 
 #### Menu Files
 
@@ -621,6 +696,10 @@ For fields like `heard_about`, `eftpos_integration`, `alipay_option`:
   menu_send_later: true
 }
 ```
+
+Validation rule for menu section:
+- Submission is valid if `menu_files.length > 0` OR `menu_send_later === true`
+- Reject submission if both are empty/false
 
 ---
 

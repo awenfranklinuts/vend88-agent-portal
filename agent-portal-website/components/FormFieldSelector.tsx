@@ -9,12 +9,13 @@ import { dict } from "@/i18n/translations";
 export interface FormField {
   id: string;
   label: string;
-  type: "text" | "email" | "phone" | "select" | "textarea" | "number" | "date" | "address";
+  type: "text" | "email" | "phone" | "select" | "multiple_choice" | "textarea" | "number" | "date" | "address";
   required: boolean;
   placeholder?: string;
   order: number;
   custom?: boolean;
-  options?: string[]; // For select type fields
+  options?: string[]; // For select and multiple choice fields
+  choiceMode?: "single" | "multiple"; // For multiple choice fields
   group?: string; // For grouping related fields
   description?: string; // Description of what this field contains
 }
@@ -242,6 +243,21 @@ const Content = styled.div`
 
 const Header = styled.div`
   margin-bottom: 1.5rem;
+`;
+
+const HeaderTop = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+
+  @media (max-width: 768px) {
+    align-items: center;
+  }
+`;
+
+const HeaderText = styled.div`
+  flex: 1;
 `;
 
 const Title = styled.h2`
@@ -595,6 +611,353 @@ const Actions = styled.div`
   }
 `;
 
+const PreviewSwitchWrap = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.15rem;
+`;
+
+const PreviewModeButton = styled.button<{ $active: boolean }>`
+  border: none;
+  background: transparent;
+  padding: 0.25rem 0.15rem 0.45rem;
+  font-size: 0.82rem;
+  font-weight: ${(p) => (p.$active ? 700 : 500)};
+  color: ${(p) => (p.$active ? "#111827" : "#9ca3af")};
+  letter-spacing: 0.1px;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: #4b5563;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px rgba(17, 24, 39, 0.12);
+    border-radius: 4px;
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: #111827;
+    transform: scaleX(${(p) => (p.$active ? 1 : 0)});
+    transform-origin: center;
+    transition: transform 0.2s ease;
+  }
+`;
+
+const PreviewPanel = styled.div`
+  background:
+    radial-gradient(circle at 14% 10%, rgba(59, 130, 246, 0.08), transparent 22%),
+    radial-gradient(circle at 90% 85%, rgba(147, 197, 253, 0.08), transparent 20%),
+    linear-gradient(180deg, #f8fbff, #eef6ff);
+  border: 1px solid #cfe2ff;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+`;
+
+const PreviewCanvas = styled.div`
+  max-width: 920px;
+  margin: 0 auto;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.95));
+  border: 1px solid rgba(147, 197, 253, 0.3);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(30, 64, 175, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+`;
+
+const PreviewHero = styled.div`
+  text-align: center;
+  padding: 2rem 1.25rem 1.4rem;
+  background: linear-gradient(135deg, rgba(43, 123, 227, 0.08), rgba(94, 200, 255, 0.05));
+  border-bottom: 1px solid rgba(147, 197, 253, 0.3);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #2b7be3, #5ec8ff, #2b7be3);
+    background-size: 200% 100%;
+  }
+`;
+
+const PreviewLogosContainer = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  margin-bottom: 1.1rem;
+
+  @media (max-width: 640px) {
+    gap: 0.85rem;
+  }
+`;
+
+const PreviewLogo = styled.img`
+  height: 44px;
+  width: auto;
+  object-fit: contain;
+
+  @media (max-width: 640px) {
+    height: 36px;
+  }
+`;
+
+const PreviewLogoDivider = styled.div`
+  width: 1px;
+  height: 28px;
+  background: rgba(43, 123, 227, 0.2);
+`;
+
+const PreviewHeroTitle = styled.h4`
+  margin: 0 0 0.6rem;
+  color: #0b2b4a;
+  font-size: 1.75rem;
+  letter-spacing: 0.4px;
+  font-weight: 900;
+  line-height: 1.2;
+  background: linear-gradient(135deg, #0b2b4a 0%, #2b7be3 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+
+  @media (max-width: 640px) {
+    font-size: 1.45rem;
+  }
+`;
+
+const PreviewHeroSubtitle = styled.p`
+  margin: 0;
+  color: #567;
+  font-size: 0.98rem;
+  line-height: 1.5;
+  max-width: 560px;
+  margin-left: auto;
+  margin-right: auto;
+
+  @media (max-width: 640px) {
+    font-size: 0.92rem;
+  }
+`;
+
+const PreviewBody = styled.div`
+  padding: 1rem;
+`;
+
+const PreviewFields = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+`;
+
+const PreviewGroup = styled.div`
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(245, 249, 255, 0.92));
+  border: 1px dashed #bfdbfe;
+  border-radius: 10px;
+  padding: 0.85rem;
+`;
+
+const PreviewGroupTitle = styled.div`
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e40af;
+  margin-bottom: 0.5rem;
+`;
+
+const PreviewField = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+
+  & + & {
+    margin-top: 0.7rem;
+  }
+`;
+
+const PreviewLabel = styled.label`
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #3c5a78;
+`;
+
+const RequiredMark = styled.span`
+  color: #b91c1c;
+  margin-left: 0.25rem;
+`;
+
+const PreviewInput = styled.input`
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(60, 90, 120, 0.12);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #fff, #fbfdff);
+  color: #3c5a78;
+
+  &:disabled {
+    opacity: 1;
+    color: #3c5a78;
+    -webkit-text-fill-color: #3c5a78;
+    cursor: not-allowed;
+  }
+`;
+
+const PreviewSelect = styled.select`
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(60, 90, 120, 0.12);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #fff, #fbfdff);
+  color: #3c5a78;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%233c5a78' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2rem;
+
+  &:disabled {
+    opacity: 1;
+    color: #3c5a78;
+    -webkit-text-fill-color: #3c5a78;
+    cursor: not-allowed;
+  }
+`;
+
+const PreviewTextarea = styled.textarea`
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(60, 90, 120, 0.12);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #fff, #fbfdff);
+  min-height: 92px;
+  resize: vertical;
+
+  &:disabled {
+    opacity: 1;
+    color: #3c5a78;
+    -webkit-text-fill-color: #3c5a78;
+    cursor: not-allowed;
+  }
+`;
+
+const PreviewMenuSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(245, 249, 255, 0.92));
+  border: 1px dashed #bfdbfe;
+  border-radius: 10px;
+  padding: 0.95rem;
+`;
+
+const PreviewMenuLabel = styled.label`
+  font-weight: 600;
+  color: #3c5a78;
+  font-size: 0.9rem;
+`;
+
+const PreviewMenuDesc = styled.p`
+  margin: 0 0 0.2rem;
+  color: #5c6b7a;
+  font-size: 12px;
+  line-height: 1.4;
+`;
+
+const PreviewUploadButton = styled.button<{ $disabled: boolean }>`
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #2b7be3, #5ec8ff);
+  color: white;
+  font-weight: 600;
+  transition: all 200ms ease;
+  border: none;
+  font-size: 1rem;
+  cursor: ${(p) => (p.$disabled ? "not-allowed" : "pointer")};
+  opacity: ${(p) => (p.$disabled ? 0.55 : 1)};
+
+  &:hover {
+    transform: ${(p) => (p.$disabled ? "none" : "translateY(-2px)")};
+    box-shadow: ${(p) => (p.$disabled ? "none" : "0 8px 20px rgba(43,123,227,0.25)")};
+  }
+`;
+
+const PreviewMenuHelper = styled.div`
+  font-size: 11px;
+  color: #789;
+  font-style: italic;
+`;
+
+const PreviewMenuFileList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+`;
+
+const PreviewMenuFileItem = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  background: rgba(43,123,227,0.05);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #3c5a78;
+`;
+
+const PreviewMenuRemoveButton = styled.button`
+  background: none;
+  border: none;
+  color: #e74c3c;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: color 150ms ease;
+
+  &:hover {
+    color: #c0392b;
+  }
+`;
+
+const PreviewMenuCheckboxRow = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #111827;
+  font-size: 1rem;
+
+  input {
+    width: 16px;
+    height: 16px;
+  }
+`;
+
+const PreviewMenuFooter = styled.p`
+  margin: 0.15rem 0 0;
+  color: #5c6b7a;
+  font-size: 11px;
+  line-height: 1.45;
+`;
+
 const Button = styled.button<{ $primary?: boolean; $disabled?: boolean }>`
   padding: 0.75rem 1.5rem;
   border: none;
@@ -868,6 +1231,20 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
     };
   };
 
+  const getGroupTranslation = (groupName: string) => {
+    const groupTranslationMap: { [key: string]: { label: keyof typeof dict; desc: keyof typeof dict } } = {
+      "Address": { label: "address", desc: "addressDesc" },
+      "How You Heard About Us": { label: "heardAbout", desc: "heardAboutDesc" },
+      "Menu Files": { label: "menuFiles", desc: "menuFilesDesc" },
+    };
+
+    const mapping = groupTranslationMap[groupName];
+    return {
+      label: mapping ? t(mapping.label) : groupName,
+      description: mapping ? t(mapping.desc) : "",
+    };
+  };
+
   const [selectedFields, setSelectedFields] = useState<Set<string>>(
     new Set(AVAILABLE_FIELDS.map((f) => f.id))
   );
@@ -886,6 +1263,9 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
   const [newFieldRequired, setNewFieldRequired] = useState(true);
   const [expandedSelectField, setExpandedSelectField] = useState<string | null>(null);
   const [newOptionText, setNewOptionText] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewSendMenuLater, setPreviewSendMenuLater] = useState(false);
+  const [previewMenuFiles, setPreviewMenuFiles] = useState<string[]>([]);
   const [allFieldsOrder, setAllFieldsOrder] = useState<string[]>(
     AVAILABLE_FIELDS.map((f) => f.id)
   );
@@ -957,7 +1337,8 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
       required: newFieldRequired,
       order: AVAILABLE_FIELDS.length + customFields.length + 1,
       custom: true,
-      options: newFieldType === "select" ? [] : undefined,
+      options: (newFieldType === "select" || newFieldType === "multiple_choice") ? [] : undefined,
+      choiceMode: newFieldType === "multiple_choice" ? "multiple" : undefined,
     };
 
     setCustomFields([...customFields, customField]);
@@ -1092,18 +1473,102 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
   const allSelected = selectedFields.size === AVAILABLE_FIELDS.length;
   const selectedCount = selectedFields.size;
 
+  const getPreviewFields = () => {
+    return getAllOrderedFields()
+      .filter((field) => field.custom || selectedFields.has(field.id))
+      .map((field) => {
+        if (field.custom) {
+          return field;
+        }
+
+        return {
+          ...field,
+          required: fieldRequirements[field.id] ?? field.required,
+        };
+      });
+  };
+
+  const renderPreviewControl = (field: FormField) => {
+    const translatedLabel = field.custom ? field.label : getFieldTranslation(field.id).label;
+
+    switch (field.type) {
+      case "textarea":
+        return <PreviewTextarea disabled placeholder={translatedLabel} />;
+      case "select":
+        return (
+          <PreviewSelect disabled>
+            <option>{translatedLabel}</option>
+            {(field.options || []).map((option) => (
+              <option key={option}>{option}</option>
+            ))}
+          </PreviewSelect>
+        );
+      case "multiple_choice":
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
+            {(field.options && field.options.length > 0 ? field.options : [translatedLabel]).map((option) => (
+              <label key={option} style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#3c5a78", fontSize: "0.9rem" }}>
+                <input
+                  type={field.choiceMode === "single" ? "radio" : "checkbox"}
+                  disabled
+                  name={field.choiceMode === "single" ? `preview_${field.id}` : undefined}
+                />
+                <span>{option}</span>
+              </label>
+            ))}
+          </div>
+        );
+      case "date":
+        return <PreviewInput disabled type="date" />;
+      case "number":
+        return <PreviewInput disabled type="number" placeholder={translatedLabel} />;
+      case "email":
+        return <PreviewInput disabled type="email" placeholder={translatedLabel} />;
+      case "phone":
+        return <PreviewInput disabled type="tel" placeholder={translatedLabel} />;
+      default:
+        return <PreviewInput disabled type="text" placeholder={translatedLabel} />;
+    }
+  };
+
   return (
     <Container $show={isOpen} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <Content style={{ position: "relative" }}>
         {isLoading && <LoadingOverlay />}
 
         <Header>
-          <Title>{t("createCustomRegistrationForm")}</Title>
-          <Description>
-            {t("selectFieldsDescription")}
-          </Description>
+          <HeaderTop>
+            <HeaderText>
+              <Title>{t("createCustomRegistrationForm")}</Title>
+              <Description>
+                {t("selectFieldsDescription")}
+              </Description>
+            </HeaderText>
+            <PreviewSwitchWrap>
+              <PreviewModeButton
+                type="button"
+                $active={!showPreview}
+                aria-label={lang === "zh" ? "切换到编辑模式" : "Switch to edit mode"}
+                aria-pressed={!showPreview}
+                onClick={() => setShowPreview(false)}
+              >
+                {lang === "zh" ? "编辑" : "Edit"}
+              </PreviewModeButton>
+              <PreviewModeButton
+                type="button"
+                $active={showPreview}
+                aria-label={lang === "zh" ? "切换到预览模式" : "Switch to preview mode"}
+                aria-pressed={showPreview}
+                onClick={() => setShowPreview(true)}
+              >
+                {lang === "zh" ? "预览" : "Preview"}
+              </PreviewModeButton>
+            </PreviewSwitchWrap>
+          </HeaderTop>
         </Header>
 
+        {!showPreview && (
+        <>
         <FieldsContainer>
           <FieldsTitle>
             {t("allFields")}
@@ -1164,21 +1629,6 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
                         .sort((a, b) => a - b);
                       const minGroupIndex = groupIndices.length > 0 ? groupIndices[0] : -1;
                       const maxGroupIndex = groupIndices.length > 0 ? groupIndices[groupIndices.length - 1] : -1;
-                      
-                      // Helper function to get group display name and description
-                      const getGroupTranslation = (groupName: string) => {
-                        const groupTranslationMap: { [key: string]: { label: keyof typeof dict; desc: keyof typeof dict } } = {
-                          "Address": { label: "address", desc: "addressDesc" },
-                          "How You Heard About Us": { label: "heardAbout", desc: "heardAboutDesc" },
-                          "Menu Files": { label: "menuFiles", desc: "menuFilesDesc" },
-                        };
-                        
-                        const mapping = groupTranslationMap[groupName];
-                        return {
-                          label: mapping ? t(mapping.label) : groupName,
-                          description: mapping ? t(mapping.desc) : "",
-                        };
-                      };
                       
                       return (
                         <FieldItem key={groupName}>
@@ -1248,7 +1698,8 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
                                 const newType = e.target.value as FormField["type"];
                                 handleUpdateCustomField(field.id, { 
                                   type: newType,
-                                  options: newType === "select" ? (field.options || []) : undefined
+                                  options: (newType === "select" || newType === "multiple_choice") ? (field.options || []) : undefined,
+                                  choiceMode: newType === "multiple_choice" ? (field.choiceMode || "multiple") : undefined,
                                 });
                               }}
                             >
@@ -1259,6 +1710,7 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
                               <option value="date">{t("fieldTypeDate")}</option>
                               <option value="textarea">{t("fieldTypeLongText")}</option>
                               <option value="select">{t("fieldTypeDropdown")}</option>
+                              <option value="multiple_choice">{t("fieldTypeMultipleChoice")}</option>
                               <option value="address">{t("fieldTypeAddress")}</option>
                             </Select>
                             <RequiredSelect
@@ -1297,11 +1749,27 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
                           )}
                           
                           {/* Select options section */}
-                          {field.type === "select" && (
+                          {(field.type === "select" || field.type === "multiple_choice") && (
                             <SelectOptionsSection>
                               <div style={{ fontSize: "0.8rem", fontWeight: "600", color: "#0a3655", marginBottom: "0.75rem" }}>
-                                {t("dropdownOptions")}
+                                {field.type === "multiple_choice" ? t("multipleChoiceOptions") : t("dropdownOptions")}
                               </div>
+
+                              {field.type === "multiple_choice" && (
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                                  <div style={{ fontSize: "0.8rem", color: "#5c6b7a", minWidth: "110px" }}>
+                                    {t("choiceSelectionMode")}
+                                  </div>
+                                  <Select
+                                    value={field.choiceMode || "multiple"}
+                                    onChange={(e) => handleUpdateCustomField(field.id, { choiceMode: e.target.value as "single" | "multiple" })}
+                                    style={{ maxWidth: "180px", height: "34px", fontSize: "0.8rem" }}
+                                  >
+                                    <option value="single">{t("choiceModeSingle")}</option>
+                                    <option value="multiple">{t("choiceModeMultiple")}</option>
+                                  </Select>
+                                </div>
+                              )}
                               
                               {(field.options && field.options.length > 0) && (
                                 <SelectOptionsList>
@@ -1416,6 +1884,7 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
               <option value="date">{t("fieldTypeDate")}</option>
               <option value="textarea">{t("fieldTypeLongText")}</option>
               <option value="select">{t("fieldTypeDropdown")}</option>
+              <option value="multiple_choice">{t("fieldTypeMultipleChoice")}</option>
               <option value="address">{t("fieldTypeAddress")}</option>
             </Select>
             <RequiredSelect
@@ -1447,6 +1916,151 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
         <FieldsCount>
           {selectedCount + customFields.length} {t("totalFieldsSelected")}
         </FieldsCount>
+        </>
+        )}
+
+        {showPreview && (
+          <PreviewPanel>
+            <PreviewCanvas>
+              <PreviewHero>
+                <PreviewLogosContainer>
+                  <PreviewLogo src="/images/brand.png" alt="Vend88" />
+                  <PreviewLogoDivider />
+                  <PreviewLogo src="/images/pospal.png" alt="PosPal" />
+                </PreviewLogosContainer>
+                <PreviewHeroTitle>{lang === "zh" ? "注册表单" : "Registration Form"}</PreviewHeroTitle>
+                <PreviewHeroSubtitle>
+                  {lang === "zh"
+                    ? "请填写此注册表以开始您的入驻流程"
+                    : "Please fill out this registration form to begin your onboarding process"}
+                </PreviewHeroSubtitle>
+              </PreviewHero>
+
+              <PreviewBody>
+                <PreviewFields>
+                  {(() => {
+                    const previewFields = getPreviewFields();
+                    const renderedGroups = new Set<string>();
+
+                    return previewFields.map((field) => {
+                      if (field.group) {
+                        if (renderedGroups.has(field.group)) {
+                          return null;
+                        }
+
+                        renderedGroups.add(field.group);
+                        const groupFields = previewFields.filter((item) => item.group === field.group);
+
+                        if (field.group === "Menu Files") {
+                          const menuRequired = groupFields.some((f) => f.required);
+
+                          return (
+                            <PreviewMenuSection key={field.group}>
+                              <PreviewMenuLabel>
+                                {lang === "zh" ? "菜单或产品清单上传" : "Menu or Product List Upload"}
+                                {menuRequired && <RequiredMark>*</RequiredMark>}
+                              </PreviewMenuLabel>
+                              <PreviewMenuDesc>
+                                {lang === "zh"
+                                  ? "如果您的菜单或产品清单已准备好，请上传 PDF、Word 或 Excel 文件。"
+                                  : "If your menu or product list is ready, please upload it in PDF, Word, or Excel format."}
+                              </PreviewMenuDesc>
+
+                              <PreviewUploadButton
+                                type="button"
+                                $disabled={previewSendMenuLater}
+                                onClick={() => {
+                                  if (previewSendMenuLater) return;
+                                  setPreviewMenuFiles((prev) => [...prev, `menu-${prev.length + 1}.pdf`]);
+                                }}
+                              >
+                                <span>⇪</span>
+                                {lang === "zh" ? "选择文件" : "Choose Files"}
+                              </PreviewUploadButton>
+
+                              <PreviewMenuHelper>
+                                {lang === "zh" ? "注意：您可以上传多个文件" : "Note: You can upload multiple files"}
+                              </PreviewMenuHelper>
+
+                              {previewMenuFiles.length > 0 && (
+                                <PreviewMenuFileList>
+                                  {previewMenuFiles.map((fileName, idx) => (
+                                    <PreviewMenuFileItem key={`${fileName}-${idx}`}>
+                                      <span>{fileName}</span>
+                                      <PreviewMenuRemoveButton
+                                        type="button"
+                                        onClick={() => setPreviewMenuFiles((prev) => prev.filter((_, i) => i !== idx))}
+                                      >
+                                        ✕
+                                      </PreviewMenuRemoveButton>
+                                    </PreviewMenuFileItem>
+                                  ))}
+                                </PreviewMenuFileList>
+                              )}
+
+                              <PreviewMenuCheckboxRow>
+                                <input
+                                  type="checkbox"
+                                  checked={previewSendMenuLater}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setPreviewSendMenuLater(checked);
+                                    if (checked) {
+                                      setPreviewMenuFiles([]);
+                                    }
+                                  }}
+                                />
+                                <span>{lang === "zh" ? "我稍后发送" : "I will send it later"}</span>
+                              </PreviewMenuCheckboxRow>
+
+                              <PreviewMenuFooter>
+                                {lang === "zh"
+                                  ? "如果您尚未准备好也没关系。准备好后，请至少在 POS 终端部署前 1-2 周提供。"
+                                  : "No worries if you're not ready yet. When available, please provide it at least 1-2 weeks before POS terminal deployment."}
+                              </PreviewMenuFooter>
+                            </PreviewMenuSection>
+                          );
+                        }
+
+                        return (
+                          <PreviewGroup key={field.group}>
+                            <PreviewGroupTitle>{getGroupTranslation(field.group).label}</PreviewGroupTitle>
+                            {groupFields.map((groupField) => {
+                              const translatedLabel = groupField.custom
+                                ? groupField.label
+                                : getFieldTranslation(groupField.id).label;
+
+                              return (
+                                <PreviewField key={groupField.id}>
+                                  <PreviewLabel>
+                                    {translatedLabel}
+                                    {groupField.required && <RequiredMark>*</RequiredMark>}
+                                  </PreviewLabel>
+                                  {renderPreviewControl(groupField)}
+                                </PreviewField>
+                              );
+                            })}
+                          </PreviewGroup>
+                        );
+                      }
+
+                      const translatedLabel = field.custom ? field.label : getFieldTranslation(field.id).label;
+                      return (
+                        <PreviewField key={field.id}>
+                          <PreviewLabel>
+                            {translatedLabel}
+                            {field.required && <RequiredMark>*</RequiredMark>}
+                          </PreviewLabel>
+                          {renderPreviewControl(field)}
+                        </PreviewField>
+                      );
+                    });
+                  })()}
+                </PreviewFields>
+              </PreviewBody>
+            </PreviewCanvas>
+          </PreviewPanel>
+        )}
 
         <Actions>
           <Button onClick={onClose} disabled={isLoading}>

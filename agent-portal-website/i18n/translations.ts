@@ -103,6 +103,13 @@ export const dict = {
   totalFieldsSelected: { zh: "已选择总字段数", en: "total fields selected" },
   generatingLink: { zh: "生成中...", en: "Generating..." },
   generateLink: { zh: "生成链接", en: "Generate Link" },
+  showPreview: { zh: "显示预览", en: "Show Preview" },
+  hidePreview: { zh: "隐藏预览", en: "Hide Preview" },
+  editFields: { zh: "编辑字段", en: "Edit Fields" },
+  previewForm: { zh: "表单预览", en: "Form Preview" },
+  previewFormDescription: { zh: "根据当前字段选择显示客户将看到的注册表单布局。", en: "Shows how the onboarding form will look based on your current field selection." },
+  previewReadOnly: { zh: "此预览为只读模式，用于确认布局、顺序与必填状态。", en: "This preview is read-only and lets you verify layout, order, and required states." },
+  previewBadge: { zh: "预览模式", en: "Preview Mode" },
   addCustomFieldForm: { zh: "添加自定义字段", en: "Add Custom Field" },
   fieldName: { zh: "字段名称 (例如：公司网址)", en: "Field name (e.g., Company Website)" },
   
@@ -114,8 +121,13 @@ export const dict = {
   fieldTypeDate: { zh: "日期", en: "Date" },
   fieldTypeLongText: { zh: "长文本", en: "Long Text" },
   fieldTypeDropdown: { zh: "下拉框", en: "Dropdown" },
+  fieldTypeMultipleChoice: { zh: "多选", en: "Multiple Choice" },
   fieldTypeAddress: { zh: "地址", en: "Address" },
   dropdownOptions: { zh: "下拉框选项", en: "Dropdown Options" },
+  multipleChoiceOptions: { zh: "多选选项", en: "Multiple Choice Options" },
+  choiceSelectionMode: { zh: "选择模式", en: "Selection Mode" },
+  choiceModeSingle: { zh: "单选", en: "Single Choice" },
+  choiceModeMultiple: { zh: "多选", en: "Multiple Choices" },
   optionText: { zh: "选项文本", en: "Option text" },
   
   // Available Fields
