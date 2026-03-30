@@ -102,6 +102,9 @@ GET    /registration/{registration_id}       Get Registration Details
   expires_at: ISODate("2026-03-16T01:29:40Z"),
   status: "active",                 // active, used, expired, revoked
   
+  // Track one-time use
+  used_at: null,                    // Set when token is used for submission
+  
   created_at: ISODate("2026-02-16T01:29:40Z"),
   updated_at: ISODate("2026-02-16T01:29:40Z")
 }
@@ -118,7 +121,7 @@ GET    /registration/{registration_id}       Get Registration Details
   // Store submitted data in flexible structure
   field_data: {
     contact_email: "john@example.com",
-    contact_name: "John Doe",
+    owner_name: "John Doe",
     contact_phone: "+61 404 088 927",
     quote_number: "INV-00123",
     business_name: "Pospal Australia Pty Ltd",
@@ -131,9 +134,11 @@ GET    /registration/{registration_id}       Get Registration Details
     messaging_app_type: "wechat",
     messaging_app_id: "JohnathanWu",
     eftpos_integration: "yes",
-    alipay_option: "not-interested",
+    alipay_option: "open",
+    alipay_other: null,             // Only present if alipay_option === "other"
     ready_by: "Next Month - March 2026",
     heard_about: "friend",
+    heard_other: null,              // Only present if heard_about === "other"
     menu_files: [],
     menu_send_later: true,
     notes: "testing internal notes"
@@ -324,32 +329,32 @@ GET /registration/config/5Bn-TdH6nIqdlUvqws5rgN9SYHXtAJoo
 ```json
 {
   "token": "5Bn-TdH6nIqdlUvqws5rgN9SYHXtAJoo",
-  "field_data": {
-    "contact_email": "john@example.com",
-    "contact_name": "John Doe",
-    "contact_phone": "+61 404 088 927",
-    "quote_number": "INV-00123",
-    "business_name": "Pospal Australia Pty Ltd",
-    "abn": "56 635 489 664",
-    "registered_address": "Unit 10, 191 Parramatta Road",
-    "registered_suburb": "Auburn",
-    "registered_state": "NSW",
-    "registered_postcode": "2144",
-    "registered_country": "Australia",
-    "messaging_app_type": "wechat",
-    "messaging_app_id": "JohnathanWu",
-    "eftpos_integration": "yes",
-    "alipay_option": "not-interested",
-    "alipay_other": null,
-    "ready_by": "Next Month - March 2026",
-    "heard_about": "friend",
-    "heard_other": null,
-    "menu_files": [],
-    "menu_send_later": true,
-    "notes": "testing internal notes"
-  }
+  "contact_email": "john@example.com",
+  "owner_name": "John Doe",
+  "contact_phone": "+61 404 088 927",
+  "quote_number": "INV-00123",
+  "business_name": "Pospal Australia Pty Ltd",
+  "abn": "56 635 489 664",
+  "registered_address": "Unit 10, 191 Parramatta Road",
+  "registered_suburb": "Auburn",
+  "registered_state": "NSW",
+  "registered_postcode": "2144",
+  "registered_country": "Australia",
+  "messaging_app_type": "wechat",
+  "messaging_app_id": "JohnathanWu",
+  "eftpos_integration": "yes",
+  "alipay_option": "open",
+  "alipay_other": null,
+  "ready_by": "Next Month - March 2026",
+  "heard_about": "friend",
+  "heard_other": null,
+  "menu_files": [],
+  "menu_send_later": true,
+  "notes": "testing internal notes"
 }
 ```
+
+**NOTE:** The request body structure matches the flattened field format (NOT nested under `field_data`). The backend should map this to `field_data` internally when storing.
 
 **Response:**
 ```json
@@ -370,14 +375,57 @@ GET /registration/config/5Bn-TdH6nIqdlUvqws5rgN9SYHXtAJoo
 1. **Validate token:**
    - Look up configuration in `registration_configs` by token
    - Check if token status is `active` (not expired, revoked, used)
-   - Check if token not yet used
+   - Verify token has not been used (`used_at` is null)
 
-2. **Validate submitted field_data:**
+2. **Transform and validate submitted data:**
    ```javascript
    const config = await registrationConfigs.findOne({ token });
-   const submittedData = req.body.field_data;
+   // Extract field_data from request (flattened format from frontend)
+   const submittedData = {
+     contact_email: req.body.contact_email,
+     owner_name: req.body.owner_name,
+     contact_phone: req.body.contact_phone,
+     quote_number: req.body.quote_number,
+     business_name: req.body.business_name,
+     abn: req.body.abn,
+     registered_address: req.body.registered_address,
+     registered_suburb: req.body.registered_suburb,
+     registered_state: req.body.registered_state,
+     registered_postcode: req.body.registered_postcode,
+     registered_country: req.body.registered_country,
+     messaging_app_type: req.body.messaging_app_type || null,
+     messaging_app_id: req.body.messaging_app_id || null,
+     eftpos_integration: req.body.eftpos_integration,
+     alipay_option: req.body.alipay_option,
+     alipay_other: req.body.alipay_other || null,
+     ready_by: req.body.ready_by,
+     heard_about: req.body.heard_about,
+     heard_other: req.body.heard_other || null,
+     menu_files: req.body.menu_files || [],
+     menu_send_later: req.body.menu_send_later,
+     notes: req.body.notes || ""
+   };
+   
    const errors = [];
    
+   // Validate specific field types (must match admin config)
+   if (!isValidEmail(submittedData.contact_email)) {
+     errors.push('contact_email must be a valid email');
+   }
+   
+   if (!isValidABN(submittedData.abn)) {
+     errors.push('abn must be exactly 11 digits');
+   }
+   
+   if (!isValidAustralianPhone(submittedData.contact_phone)) {
+     errors.push('contact_phone must be valid Australian mobile (04XX XXX XXX)');
+   }
+   
+   if (!/^\d{4}$/.test(submittedData.registered_postcode)) {
+     errors.push('registered_postcode must be exactly 4 digits');
+   }
+   
+   // Validate required fields based on config
    for (const fieldConfig of config.selected_fields) {
      const fieldId = fieldConfig.id;
      const value = submittedData[fieldId];
@@ -392,66 +440,6 @@ GET /registration/config/5Bn-TdH6nIqdlUvqws5rgN9SYHXtAJoo
      if (!fieldConfig.required && (!value || value === "")) {
        continue;
      }
-     
-     // Type-specific validation
-     switch (fieldConfig.type) {
-       case "email":
-         if (!isValidEmail(value)) {
-           errors.push(`${fieldId} must be a valid email`);
-         }
-         break;
-       
-       case "phone":
-         // Australian phone validation
-         if (!isValidAustralianPhone(value)) {
-           errors.push(`${fieldId} must be valid Australian mobile`);
-         }
-         break;
-       
-       case "number":
-         if (isNaN(Number(value))) {
-           errors.push(`${fieldId} must be a number`);
-         }
-         break;
-       
-       case "date":
-         if (!isValidDate(value)) {
-           errors.push(`${fieldId} must be a valid date`);
-         }
-         break;
-       
-       case "select":
-         if (fieldConfig.options && fieldConfig.options.length > 0) {
-           if (!fieldConfig.options.includes(value)) {
-             errors.push(`${fieldId} has invalid option: ${value}`);
-           }
-         }
-         break;
-
-       case "multiple_choice":
-         if (!fieldConfig.options || fieldConfig.options.length === 0) {
-           errors.push(`${fieldId} has no configured options`);
-           break;
-         }
-
-         if (fieldConfig.choice_mode === "single") {
-           if (Array.isArray(value)) {
-             errors.push(`${fieldId} must be a single selected option`);
-           } else if (!fieldConfig.options.includes(value)) {
-             errors.push(`${fieldId} has invalid option: ${value}`);
-           }
-         } else {
-           // Default mode for multiple_choice is "multiple"
-           const values = Array.isArray(value) ? value : [value];
-           const invalid = values.filter((v) => !fieldConfig.options.includes(v));
-           if (invalid.length > 0) {
-             errors.push(`${fieldId} has invalid option(s): ${invalid.join(", ")}`);
-           }
-         }
-         break;
-       
-       // text, textarea, address don't need special validation
-     }
    }
    
    if (errors.length > 0) {
@@ -462,27 +450,73 @@ GET /registration/config/5Bn-TdH6nIqdlUvqws5rgN9SYHXtAJoo
    }
 
    // Menu upload rule: must either upload files or choose send later (not both empty)
+   // Menu validation: must either have files OR send_later flag
    const hasMenuFiles = Array.isArray(submittedData.menu_files) && submittedData.menu_files.length > 0;
    const sendLater = submittedData.menu_send_later === true;
    if (!hasMenuFiles && !sendLater) {
-     return res.status(400).json({
-       success: false,
-       errors: ["menu_files or menu_send_later is required"]
-     });
+     errors.push("menu_files or menu_send_later is required");
+   }
+   
+   // Alipay conditional: if selected "other", alipay_other must be provided
+   if (submittedData.alipay_option === "other" && !submittedData.alipay_other) {
+     errors.push("alipay_other is required when alipay_option is 'other'");
+   }
+   
+   // Heard about conditional: if selected "other", heard_other must be provided
+   if (submittedData.heard_about === "other" && !submittedData.heard_other) {
+     errors.push("heard_other is required when heard_about is 'other'");
    }
    ```
 
 3. **Store submission:**
-   - Create document in `registrations` collection
-   - Store entire `field_data` object as-is
-   - Store reference to `form_config_id`
-   - Store `selected_field_ids` for indexing
-   - Set status to `submitted`
-   - Mark token as `used` in `registration_configs`
+   ```javascript
+   // Create registration document
+   const registration = await registrations.insertOne({
+     form_id: config.form_id,
+     token: token,
+     field_data: submittedData,
+     form_config_id: config._id,
+     selected_field_ids: config.selected_field_ids,
+     status: "submitted",
+     generated_at: config.generated_at,
+     submitted_at: new Date(),
+     approved_at: null,
+     approved_by: null,
+     rejected_at: null,
+     rejected_by: null,
+     rejection_reason: null,
+     linked_customer_id: null,
+     created_at: new Date(),
+     updated_at: new Date()
+   });
+   
+   // Mark token as used (one-time use enforcement)
+   await registrationConfigs.updateOne(
+     { token },
+     { 
+       $set: { 
+         status: "used",
+         used_at: new Date() 
+       } 
+     }
+   );
+   ```
 
-3. **Return success response:**
+4. **Return success response:**
    - Return new registration ID
    - Return form_id and submission timestamp
+   ```javascript
+   return res.status(200).json({
+     success: true,
+     data: {
+       id: registration.insertedId,
+       form_id: config.form_id,
+       token: token,
+       status: "submitted",
+       submitted_at: new Date().toISOString()
+     }
+   });
+   ```
 
 ---
 

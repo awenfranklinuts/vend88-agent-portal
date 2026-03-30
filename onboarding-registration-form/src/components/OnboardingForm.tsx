@@ -946,13 +946,7 @@ export default function OnboardingForm() {
   const [showThankYou, setShowThankYou] = useState(false);
   const [isSliding, setIsSliding] = useState(false);
   const [showLangMenu, setShowLangMenu] = useState(false);
-  const [expandedSections, setExpandedSections] = useState({
-    contact: true,
-    business: true,
-    address: true,
-    payment: true,
-    additional: true,
-  });
+
   
   // Token validation states
   const [tokenValidating, setTokenValidating] = useState(true);
@@ -1330,12 +1324,7 @@ export default function OnboardingForm() {
     }
   }, [showLangMenu]);
 
-  const toggleSection = (section: keyof typeof expandedSections) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
+
 
   if (showThankYou) {
     return (
@@ -1494,14 +1483,7 @@ export default function OnboardingForm() {
 
             <Grid>
               <Form onSubmit={onSubmit}>
-                {/* Contact Information Section */}
-                <AccordionSection $expanded={expandedSections.contact}>
-                  <AccordionHeader onClick={() => toggleSection('contact')}>
-                    <span>{lang === "en" ? "📧 Contact Information" : "📧 联系信息"}</span>
-                    <ChevronIcon open={expandedSections.contact} />
-                  </AccordionHeader>
-                  <AccordionContent $expanded={expandedSections.contact}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                       <Field>
                         <Label>{dict.onboarding.email} *</Label>
                         <Input 
@@ -1589,18 +1571,7 @@ export default function OnboardingForm() {
                             : "提供其他联系方式以便我们与您联系"}
                         </div>
                       </Field>
-                    </div>
-                  </AccordionContent>
-                </AccordionSection>
 
-                {/* Business Information Section */}
-                <AccordionSection $expanded={expandedSections.business}>
-                  <AccordionHeader onClick={() => toggleSection('business')}>
-                    <span>{lang === "en" ? "🏢 Business Information" : "🏢 商业信息"}</span>
-                    <ChevronIcon open={expandedSections.business} />
-                  </AccordionHeader>
-                  <AccordionContent $expanded={expandedSections.business}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                       <Field>
                         <Label>{dict.onboarding.quoteNumber} *</Label>
                         <Input 
@@ -1657,18 +1628,7 @@ export default function OnboardingForm() {
                           {lang === "en" ? "11-digit number" : "11 位数字"}
                         </div>
                       </Field>
-                    </div>
-                  </AccordionContent>
-                </AccordionSection>
 
-                {/* Address Section */}
-                <AccordionSection $expanded={expandedSections.address}>
-                  <AccordionHeader onClick={() => toggleSection('address')}>
-                    <span>{lang === "en" ? "📍 Registered Business Address" : "📍 注册商业地址"}</span>
-                    <ChevronIcon open={expandedSections.address} />
-                  </AccordionHeader>
-                  <AccordionContent $expanded={expandedSections.address}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                       <div style={{ fontSize: "12px", color: "#567", marginBottom: "8px" }}>
                         {dict.onboarding.storeAddressHint}
                       </div>
@@ -1770,18 +1730,7 @@ export default function OnboardingForm() {
                           </ErrorText>
                         )}
                       </Field>
-                    </div>
-                  </AccordionContent>
-                </AccordionSection>
 
-                {/* Payment & Integration Section */}
-                <AccordionSection $expanded={expandedSections.payment}>
-                  <AccordionHeader onClick={() => toggleSection('payment')}>
-                    <span>{lang === "en" ? "💳 Payment & Integration" : "💳 支付与集成"}</span>
-                    <ChevronIcon open={expandedSections.payment} />
-                  </AccordionHeader>
-                  <AccordionContent $expanded={expandedSections.payment}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                       <Field>
                         {/* Reference Images */}
                         <ReferenceImagesContainer>
@@ -1953,18 +1902,7 @@ export default function OnboardingForm() {
                           </>
                         )}
                       </Field>
-                    </div>
-                  </AccordionContent>
-                </AccordionSection>
 
-                {/* Additional Information Section */}
-                <AccordionSection $expanded={expandedSections.additional}>
-                  <AccordionHeader onClick={() => toggleSection('additional')}>
-                    <span>{lang === "en" ? "📋 Additional Information" : "📋 附加信息"}</span>
-                    <ChevronIcon open={expandedSections.additional} />
-                  </AccordionHeader>
-                  <AccordionContent $expanded={expandedSections.additional}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                       <Field>
                         <Label>{dict.onboarding.readyBy} *</Label>
                         <Textarea 
@@ -2122,9 +2060,7 @@ export default function OnboardingForm() {
                         <Label>{dict.onboarding.notes}</Label>
                         <Textarea name="notes" value={form.notes} onChange={handleChange} placeholder={dict.onboarding.notesPlaceholder} />
                       </Field>
-                    </div>
-                  </AccordionContent>
-                </AccordionSection>
+                </div>
 
                 {/* Terms and Submit - Outside accordion */}
                 <Field>
