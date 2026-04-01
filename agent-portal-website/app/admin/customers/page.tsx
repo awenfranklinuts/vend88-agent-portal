@@ -210,23 +210,33 @@ const ViewButton = styled.button<{ $active: boolean }>`
 `;
 
 const ExportButton = styled.button`
-  padding: 0.5rem 1rem;
-  background: #10b981;
+  padding: 0.75rem 1.5rem;
+  background: #3b82f6;
   color: white;
   border: none;
   border-radius: 8px;
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
+  transition: all 0.3s ease;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+  
   &:hover {
-    background: #059669;
+    background: #2563eb;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3);
+  }
+
+  &:active {
+    transform: translateY(0);
   }
 `;
 
@@ -604,6 +614,7 @@ const DetailLabel = styled.div`
   color: #5c6b7a;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  margin-bottom: 0.75rem;
 `;
 
 const DetailValue = styled.div`
@@ -633,7 +644,7 @@ const Input = styled.input`
 `;
 
 const Section = styled.div`
-  margin-bottom: 2rem;
+  margin-bottom: 1.25rem;
 `;
 
 const SectionTitle = styled.h3`
@@ -1576,33 +1587,28 @@ export default function CustomerManagementPage() {
 
           <Section>
             <DetailLabel>{lang === "zh" ? "消息应用类型" : "Messaging App Type"}</DetailLabel>
-            <Input
-              type="text"
-              value={newCustomer.messagingAppType}
+            <Select
+              value={newCustomer.messagingAppType || ''}
               onChange={(e) => setNewCustomer({ ...newCustomer, messagingAppType: e.target.value })}
-              placeholder={lang === "zh" ? "例如：微信、WhatsApp" : "e.g., WeChat, WhatsApp"}
-            />
+            >
+              <option value="">{lang === "zh" ? "选择消息应用类型" : "Select messaging app type"}</option>
+              <option value="WeChat">WeChat</option>
+              <option value="WhatsApp">WhatsApp</option>
+              <option value="Other">{lang === "zh" ? "其他" : "Other"}</option>
+            </Select>
           </Section>
 
-          <Section>
-            <DetailLabel>{lang === "zh" ? "消息应用 ID" : "Messaging App ID"}</DetailLabel>
-            <Input
-              type="text"
-              value={newCustomer.messagingAppId}
-              onChange={(e) => setNewCustomer({ ...newCustomer, messagingAppId: e.target.value })}
-              placeholder={lang === "zh" ? "输入应用 ID" : "Enter app ID"}
-            />
-          </Section>
-
-          <Section>
-            <DetailLabel>{lang === "zh" ? "来源信息" : "Source Information"}</DetailLabel>
-            <Input
-              type="text"
-              value={newCustomer.source_info}
-              onChange={(e) => setNewCustomer({ ...newCustomer, source_info: e.target.value })}
-              placeholder={lang === "zh" ? "客户是如何找到我们的" : "How did the customer find us"}
-            />
-          </Section>
+          {newCustomer.messagingAppType && (
+            <Section>
+              <DetailLabel>{lang === "zh" ? "消息应用 ID" : "Messaging App ID"}</DetailLabel>
+              <Input
+                type="text"
+                value={newCustomer.messagingAppId}
+                onChange={(e) => setNewCustomer({ ...newCustomer, messagingAppId: e.target.value })}
+                placeholder={lang === "zh" ? "输入应用 ID" : "Enter app ID"}
+              />
+            </Section>
+          )}
 
           <ModalActions>
             <ActionButton onClick={() => setShowCreateModal(false)}>

@@ -16,6 +16,7 @@ const mockCustomers = [
     phone: '+61412345678',
     messagingAppType: 'whatsapp',
     messagingAppId: '+61412345678',
+    registration_id: 'form_001',
     created_at: '2024-01-15T10:30:00Z'
   },
   {
@@ -25,6 +26,7 @@ const mockCustomers = [
     phone: '+61498765432',
     messagingAppType: 'wechat',
     messagingAppId: 'janedoe_wechat',
+    registration_id: 'form_002',
     created_at: '2024-02-20T14:15:00Z'
   },
   {
@@ -41,6 +43,7 @@ const mockCustomers = [
     phone: '+61433987654',
     messagingAppType: 'whatsapp',
     messagingAppId: '+61433987654',
+    registration_id: 'form_003',
     created_at: '2024-04-05T11:20:00Z'
   },
   {
@@ -66,6 +69,7 @@ const mockCustomers = [
     phone: '+61477234567',
     messagingAppType: 'whatsapp',
     messagingAppId: '+61477234567',
+    registration_id: 'form_004',
     created_at: '2024-07-22T13:10:00Z'
   },
   {

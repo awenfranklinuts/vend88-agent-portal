@@ -72,7 +72,7 @@ const PageDescription = styled.p`
 
 const AddButton = styled.button`
   padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #1a237e 0%, #00eaff 100%);
+  background: #3b82f6;
   color: white;
   border: none;
   border-radius: 8px;
@@ -86,8 +86,9 @@ const AddButton = styled.button`
   gap: 0.5rem;
   
   &:hover {
+    background: #2563eb;
     transform: translateY(-2px);
-    box-shadow: 0 8px 16px rgba(26, 35, 126, 0.3);
+    box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3);
   }
   
   &:disabled {
@@ -590,7 +591,7 @@ export default function AdminManagementPage() {
                   : "Manage system administrator accounts and permissions"}
               </PageDescription>
             </HeaderLeft>
-            <AddButton disabled>
+            <AddButton>
               <PlusIcon />
               {lang === "zh" ? "添加管理员" : "Add Admin"}
             </AddButton>

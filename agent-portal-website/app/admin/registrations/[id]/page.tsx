@@ -91,20 +91,49 @@ const MainContent = styled.main`
 `;
 
 const BackButton = styled.button`
-  margin: 1rem 0 1.5rem;
-  padding: 0.65rem 1rem;
+  margin: 0rem 0 1.5rem;
+  padding: 0.6rem 1.2rem;
   border-radius: 8px;
-  border: 1.5px solid #d8e3ef;
-  background: #ffffff;
-  color: #0a3655;
+  border: none;
+  background: linear-gradient(135deg, #f7faff 0%, #ffffff 100%);
+  color: #000000;
   font-size: 0.9375rem;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+
+  &::before {
+    content: "←";
+    margin-top: -0.15rem;
+    font-size: 1rem;
+    font-weight: 800;
+    color: #000000;
+    transition: transform 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    height: 1.5rem;
+  }
 
   &:hover {
-    border-color: #3b82f6;
-    color: #2563eb;
-    background: #f7faff;
+    background: linear-gradient(135deg, #e8e8e8 0%, #f0f0f0 100%);
+    color: #1a1a1a;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    
+    &::before {
+      transform: translateX(-2px);
+      color: #1a1a1a;
+    }
+  }
+
+  &:active {
+    transform: scale(0.98);
   }
 `;
 

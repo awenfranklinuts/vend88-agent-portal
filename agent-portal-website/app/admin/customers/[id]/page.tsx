@@ -32,23 +32,38 @@ const MainContent = styled.main`
 `;
 
 const BackButton = styled.button`
-  background: none;
+  margin: 0.5rem 0 1.5rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
   border: none;
-  color: #3b82f6;
-  font-size: 1rem;
+  background: linear-gradient(135deg, #f7faff 0%, #ffffff 100%);
+  color: #000000;
+  font-size: 0.9375rem;
+  font-weight: 500;
   cursor: pointer;
-  margin-bottom: 1.5rem;
-  display: flex;
+  position: relative;
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   transition: all 0.2s ease;
-  padding: 0.5rem;
-  border-radius: 8px;
-  
+
+  svg {
+    stroke: #000000;
+  }
+
   &:hover {
-    background: rgba(59, 130, 246, 0.1);
-    transform: translateX(-4px);
+    background: linear-gradient(135deg, #e8e8e8 0%, #f0f0f0 100%);
+    color: #1a1a1a;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    
+    svg {
+      stroke: #1a1a1a;
+    }
+  }
+
+  &:active {
+    transform: scale(0.98);
   }
 `;
 
@@ -134,6 +149,43 @@ const DetailValue = styled.div`
   font-size: 1rem;
   color: #0a3655;
   font-weight: 500;
+`;
+
+const FormIDContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+`;
+
+const FormIDValue = styled.span`
+  font-size: 1rem;
+  color: #0a3655;
+  font-weight: 500;
+  font-family: 'Courier New', monospace;
+  background: #f3f4f6;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+`;
+
+const FormIDButton = styled.button`
+  padding: 0.4rem 0.8rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: #2563eb;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  }
+  
+  &:active {
+    transform: scale(0.98);
+  }
 `;
 
 const EditInput = styled.input`
@@ -306,6 +358,7 @@ interface Customer {
   phone?: string;
   messagingAppType?: string;
   messagingAppId?: string;
+  registration_id?: string;
   created_at?: string;
   status?: string;
   businesses: Business[];
@@ -590,6 +643,19 @@ export default function CustomerDetailPage() {
                   )}
                 </DetailItem>
               )}
+              <DetailItem>
+                <DetailLabel>{lang === "zh" ? "来源表单" : "Source Form"}</DetailLabel>
+                {customer.registration_id ? (
+                  <FormIDContainer>
+                    <FormIDValue>{customer.registration_id}</FormIDValue>
+                    <FormIDButton onClick={() => router.push(`/admin/registrations/${customer.registration_id}`)}>
+                      {lang === "zh" ? "查看表单" : "View Form"}
+                    </FormIDButton>
+                  </FormIDContainer>
+                ) : (
+                  <DetailValue>N/A</DetailValue>
+                )}
+              </DetailItem>
               <DetailItem>
                 <DetailLabel>{lang === "zh" ? "创建日期" : "Created Date"}</DetailLabel>
                 <DetailValue>

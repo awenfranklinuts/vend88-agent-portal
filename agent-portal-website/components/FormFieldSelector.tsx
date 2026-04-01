@@ -193,6 +193,8 @@ export const AVAILABLE_FIELDS: FormField[] = [
   },
 ];
 
+const ALWAYS_REQUIRED_FIELD_IDS = new Set<string>(["contact_email"]);
+
 interface FormFieldSelectorProps {
   isOpen: boolean;
   onClose: () => void;
@@ -417,12 +419,14 @@ const FieldLabel = styled.label`
 
 const RequiredBadge = styled.span`
   display: inline-block;
-  padding: 0.125rem 0.5rem;
-  background: #fee2e2;
-  color: #991b1b;
+  padding: 0.25rem 0.625rem;
+  background: #fff5f5;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
   border-radius: 4px;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 600;
+  letter-spacing: 0.3px;
 `;
 
 const OptionalBadge = styled.span`
@@ -1301,6 +1305,10 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
   };
 
   const handleToggleField = (fieldId: string) => {
+    if (ALWAYS_REQUIRED_FIELD_IDS.has(fieldId)) {
+      return;
+    }
+
     const newSelected = new Set(selectedFields);
     if (newSelected.has(fieldId)) {
       newSelected.delete(fieldId);
@@ -1314,11 +1322,16 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
     if (checked) {
       setSelectedFields(new Set(AVAILABLE_FIELDS.map((f) => f.id)));
     } else {
-      setSelectedFields(new Set());
+      // Keep always-required fields selected even when toggling all off.
+      setSelectedFields(new Set([...ALWAYS_REQUIRED_FIELD_IDS]));
     }
   };
 
   const handleChangeRequirement = (fieldId: string, required: boolean) => {
+    if (ALWAYS_REQUIRED_FIELD_IDS.has(fieldId)) {
+      return;
+    }
+
     setFieldRequirements((prev) => ({
       ...prev,
       [fieldId]: required,
@@ -1455,7 +1468,9 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
     )
       .map((f, index) => ({
         ...f,
-        required: fieldRequirements[f.id] ?? f.required,
+        required: ALWAYS_REQUIRED_FIELD_IDS.has(f.id)
+          ? true
+          : (fieldRequirements[f.id] ?? f.required),
         order: index + 1, // Update order based on new sequence
       }));
 
@@ -1483,7 +1498,9 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
 
         return {
           ...field,
-          required: fieldRequirements[field.id] ?? field.required,
+          required: ALWAYS_REQUIRED_FIELD_IDS.has(field.id)
+            ? true
+            : (fieldRequirements[field.id] ?? field.required),
         };
       });
   };
@@ -1678,6 +1695,7 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
                     
                     // Render ungrouped fields
                     const fieldIndex = allFieldsOrder.indexOf(field.id);
+                    const isAlwaysRequiredField = ALWAYS_REQUIRED_FIELD_IDS.has(field.id);
                     
                     // Render custom fields as editable cards, available fields as checkboxes
                     if (field.custom) {
@@ -1817,6 +1835,7 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
                       <FieldItem key={field.id}>
                         <Checkbox
                           checked={selectedFields.has(field.id)}
+                          disabled={isAlwaysRequiredField}
                           onChange={() => handleToggleField(field.id)}
                         />
                         <FieldContent>
@@ -1829,13 +1848,17 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
                             )}
                           </FieldTextWrapper>
                         </FieldContent>
-                        <RequiredSelect
-                          value={fieldRequirements[field.id] ?? field.required ? "required" : "optional"}
-                          onChange={(e) => handleChangeRequirement(field.id, e.target.value === "required")}
-                        >
-                          <option value="required">{t("required")}</option>
-                          <option value="optional">{t("optional")}</option>
-                        </RequiredSelect>
+                        {isAlwaysRequiredField ? (
+                          <RequiredBadge>{t("required")}</RequiredBadge>
+                        ) : (
+                          <RequiredSelect
+                            value={fieldRequirements[field.id] ?? field.required ? "required" : "optional"}
+                            onChange={(e) => handleChangeRequirement(field.id, e.target.value === "required")}
+                          >
+                            <option value="required">{t("required")}</option>
+                            <option value="optional">{t("optional")}</option>
+                          </RequiredSelect>
+                        )}
                         <OrderButtons>
                           <OrderButton
                             onClick={() => handleMoveFieldUp(field.id)}
