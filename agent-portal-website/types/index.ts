@@ -7,6 +7,7 @@ export interface Customer {
   phone?: string;
   address?: string;
   business_id: string;
+  business_ids?: string[];
   created_at: string;
   status: "active" | "inactive";
 }
