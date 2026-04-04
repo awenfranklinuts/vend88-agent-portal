@@ -23,7 +23,7 @@ const Container = styled.div`
 const MainContent = styled.main`
   flex: 1;
   padding: 0rem 2rem 2rem 2rem;
-  margin-left: 280px;
+  margin-left: 320px;
   overflow-y: auto;
   
   @media (max-width: 968px) {
@@ -1280,6 +1280,12 @@ export default function RegistrationsPage() {
   const [showFormFieldSelector, setShowFormFieldSelector] = useState(false);
   const [selectedFormFields, setSelectedFormFields] = useState<FormField[]>([]);
   const [isGeneratingWithFields, setIsGeneratingWithFields] = useState(false);
+
+  // Template picker state
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [availableTemplates, setAvailableTemplates] = useState<any[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [templateInitialFields, setTemplateInitialFields] = useState<FormField[] | undefined>(undefined);
   
   // Table enhancements state
   const [sortField, setSortField] = useState<string>('submittedAt');
@@ -1566,8 +1572,30 @@ export default function RegistrationsPage() {
     setIsEditMode(false);
   };
 
-  const handleGenerateForm = () => {
-    // Open the form field selector modal instead of directly generating
+  const handleGenerateForm = async () => {
+    // Show template picker modal — fetch available templates first
+    setShowTemplatePicker(true);
+    setLoadingTemplates(true);
+    try {
+      const res = await axios.get('/api/form-templates/list', { params: { status: 'active' } });
+      setAvailableTemplates(res.data.data || []);
+    } catch {
+      setAvailableTemplates([]);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  const handlePickTemplate = (template: any) => {
+    // Use the template's fields as initial fields in the FormFieldSelector
+    setTemplateInitialFields(template.fields);
+    setShowTemplatePicker(false);
+    setShowFormFieldSelector(true);
+  };
+
+  const handleCreateFromScratch = () => {
+    setTemplateInitialFields(undefined);
+    setShowTemplatePicker(false);
     setShowFormFieldSelector(true);
   };
 
@@ -3116,12 +3144,132 @@ export default function RegistrationsPage() {
         </Modal>
       )}
 
+      {/* Template Picker Modal */}
+      {showTemplatePicker && (
+        <Modal $show={showTemplatePicker} onClick={() => setShowTemplatePicker(false)}>
+          <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '640px' }}>
+            <ModalTitle>{lang === 'zh' ? '选择表单模板' : 'Choose a Form Template'}</ModalTitle>
+            <ModalText style={{ marginBottom: '1.5rem' }}>
+              {lang === 'zh'
+                ? '选择已保存的模板快速生成表单，或从头创建新表单。'
+                : 'Pick a saved template to generate quickly, or create a form from scratch.'}
+            </ModalText>
+
+            {/* Create from Scratch option */}
+            <div
+              onClick={handleCreateFromScratch}
+              style={{
+                padding: '1rem 1.25rem',
+                border: '2px dashed #e0e7ef',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                marginBottom: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLDivElement).style.borderColor = '#1a237e';
+                (e.currentTarget as HTMLDivElement).style.background = 'rgba(26,35,126,0.03)';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLDivElement).style.borderColor = '#e0e7ef';
+                (e.currentTarget as HTMLDivElement).style.background = 'transparent';
+              }}
+            >
+              <span style={{
+                width: '36px', height: '36px', borderRadius: '10px',
+                background: '#1a237e', color: 'white',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '1.25rem', fontWeight: 700, flexShrink: 0,
+              }}>+</span>
+              <div>
+                <div style={{ fontWeight: 700, color: '#0a3655', fontSize: '0.9375rem' }}>
+                  {lang === 'zh' ? '从头创建' : 'Create from Scratch'}
+                </div>
+                <div style={{ fontSize: '0.8125rem', color: '#5c6b7a' }}>
+                  {lang === 'zh' ? '手动选择所有表单字段' : 'Manually select all form fields'}
+                </div>
+              </div>
+            </div>
+
+            {/* Template list */}
+            {loadingTemplates ? (
+              <div style={{ textAlign: 'center', padding: '2rem', color: '#5c6b7a' }}>
+                {lang === 'zh' ? '加载模板...' : 'Loading templates...'}
+              </div>
+            ) : availableTemplates.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {availableTemplates.map((tpl: any) => (
+                  <div
+                    key={tpl.id}
+                    onClick={() => handlePickTemplate(tpl)}
+                    style={{
+                      padding: '1rem 1.25rem',
+                      border: '2px solid #e0e7ef',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLDivElement).style.borderColor = '#1a237e';
+                      (e.currentTarget as HTMLDivElement).style.background = 'rgba(26,35,126,0.03)';
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLDivElement).style.borderColor = '#e0e7ef';
+                      (e.currentTarget as HTMLDivElement).style.background = 'transparent';
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                      <span style={{ fontWeight: 700, color: '#0a3655', fontSize: '0.9375rem' }}>
+                        {tpl.name}
+                      </span>
+                      <span style={{
+                        fontSize: '0.6875rem', fontWeight: 700, color: '#5c6b7a',
+                        background: '#f3f4f6', padding: '0.15rem 0.5rem', borderRadius: '6px',
+                      }}>
+                        v{tpl.version}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8125rem', color: '#5c6b7a', marginBottom: '0.5rem' }}>
+                      {tpl.description || (lang === 'zh' ? '无描述' : 'No description')}
+                    </div>
+                    <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: '#9ca3af' }}>
+                      <span>{tpl.fields?.length || 0} {lang === 'zh' ? '个字段' : 'fields'}</span>
+                      <span>
+                        {tpl.visibility === 'all'
+                          ? (lang === 'zh' ? '所有人可见' : 'Visible to all')
+                          : tpl.visibility === 'admin_only'
+                          ? (lang === 'zh' ? '仅管理员' : 'Admin only')
+                          : (lang === 'zh' ? '指定角色' : 'Specific roles')}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '1.5rem', color: '#9ca3af', fontSize: '0.875rem' }}>
+                {lang === 'zh' ? '暂无已保存的模板' : 'No saved templates available'}
+              </div>
+            )}
+
+            <ModalActions style={{ marginTop: '1.5rem' }}>
+              <ModalButton onClick={() => setShowTemplatePicker(false)}>
+                {lang === 'zh' ? '取消' : 'Cancel'}
+              </ModalButton>
+            </ModalActions>
+          </ModalContent>
+        </Modal>
+      )}
+
       {/* Form Field Selector Modal */}
       <FormFieldSelector
         isOpen={showFormFieldSelector}
         onClose={() => setShowFormFieldSelector(false)}
         onConfirm={handleFormFieldsConfirm}
         isLoading={isGeneratingWithFields}
+        initialFields={templateInitialFields}
       />
     </MainLayout>
   );

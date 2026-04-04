@@ -89,7 +89,7 @@ const Container = styled.div`
 const MainContent = styled.main`
   flex: 1;
   padding: 0 2rem 2rem 2rem;
-  margin-left: 280px;
+  margin-left: 320px;
   overflow-y: auto;
   animation: slideUp 0.6s ease;
   

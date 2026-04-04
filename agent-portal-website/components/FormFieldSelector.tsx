@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { useLanguage } from "@/context/LanguageContext";
 import { dict } from "@/i18n/translations";
@@ -200,6 +200,9 @@ interface FormFieldSelectorProps {
   onClose: () => void;
   onConfirm: (selectedFields: FormField[]) => void;
   isLoading?: boolean;
+  initialFields?: FormField[];
+  submitLabel?: string;
+  loadingLabel?: string;
 }
 
 interface FieldRequirementState {
@@ -1194,6 +1197,9 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
   onClose,
   onConfirm,
   isLoading = false,
+  initialFields,
+  submitLabel,
+  loadingLabel,
 }) => {
   const { lang } = useLanguage();
   
@@ -1273,6 +1279,40 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
   const [allFieldsOrder, setAllFieldsOrder] = useState<string[]>(
     AVAILABLE_FIELDS.map((f) => f.id)
   );
+
+  // Initialize state from initialFields when provided (for editing templates)
+  useEffect(() => {
+    if (!initialFields || initialFields.length === 0) return;
+    const knownIds = new Set(AVAILABLE_FIELDS.map(f => f.id));
+    const selectedSet = new Set<string>();
+    const reqs: FieldRequirementState = {};
+    const customs: FormField[] = [];
+    const order: string[] = [];
+
+    // Sort by order
+    const sorted = [...initialFields].sort((a, b) => a.order - b.order);
+    for (const f of sorted) {
+      if (knownIds.has(f.id)) {
+        selectedSet.add(f.id);
+        reqs[f.id] = f.required;
+        order.push(f.id);
+      } else {
+        customs.push(f);
+        order.push(f.id);
+      }
+    }
+    // Add remaining known fields that are not in initialFields (unselected)
+    for (const f of AVAILABLE_FIELDS) {
+      if (!selectedSet.has(f.id)) {
+        reqs[f.id] = f.required;
+        order.push(f.id);
+      }
+    }
+    setSelectedFields(selectedSet);
+    setFieldRequirements(reqs);
+    setCustomFields(customs);
+    setAllFieldsOrder(order);
+  }, [initialFields]);
 
   // Get all fields (available + custom) ordered by current order state
   const getAllOrderedFields = () => {
@@ -2094,7 +2134,7 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
             onClick={handleConfirm}
             disabled={(selectedCount + customFields.length) === 0 || isLoading}
           >
-            {isLoading ? t("generatingLink") : t("generateLink")}
+            {isLoading ? (loadingLabel || t("generatingLink")) : (submitLabel || t("generateLink"))}
           </Button>
         </Actions>
       </Content>

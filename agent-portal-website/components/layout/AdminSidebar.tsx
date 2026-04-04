@@ -67,6 +67,15 @@ const RegistrationIcon = () => (
   </svg>
 );
 
+const TemplateIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="7" rx="1"/>
+    <rect x="14" y="3" width="7" height="7" rx="1"/>
+    <rect x="3" y="14" width="7" height="7" rx="1"/>
+    <rect x="14" y="14" width="7" height="7" rx="1"/>
+  </svg>
+);
+
 const AdminIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 2a3 3 0 0 0-3 3v1a3 3 0 1 0 6 0V5a3 3 0 0 0-3-3z"/>
@@ -76,7 +85,7 @@ const AdminIcon = () => (
 );
 
 const Sidebar = styled.aside<{ $mobileOpen: boolean }>`
-  width: 280px;
+  width: 300px;
   background: white;
   box-shadow: 2px 0 8px rgba(30, 64, 175, 0.08);
   display: flex;
@@ -196,6 +205,88 @@ const NavIcon = styled.span`
   }
 `;
 
+const NavGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+
+const NavParent = styled.div<{ $active?: boolean }>`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: ${p => p.$active ? 'rgba(26, 35, 126, 0.08)' : 'transparent'};
+  color: ${p => p.$active ? '#1a237e' : '#0a3655'};
+  font-size: 0.9375rem;
+  font-weight: ${p => p.$active ? '600' : '500'};
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  
+  &:hover {
+    background: rgba(26, 35, 126, 0.05);
+    color: #1a237e;
+  }
+  
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: ${p => p.$active ? 'linear-gradient(180deg, #1a237e 0%, #00eaff 100%)' : 'transparent'};
+    transition: background 0.2s ease;
+  }
+  
+  &:hover::before {
+    background: linear-gradient(180deg, #1a237e 0%, #00eaff 100%);
+  }
+`;
+
+const NavParentLabel = styled.span`
+  flex: 1;
+`;
+
+const ChevronIcon = styled.span<{ $expanded: boolean }>`
+  display: flex;
+  align-items: center;
+  transition: transform 0.2s ease;
+  transform: rotate(${p => p.$expanded ? '90deg' : '0deg'});
+  
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+`;
+
+const SubNavList = styled.div<{ $expanded: boolean }>`
+  overflow: hidden;
+  max-height: ${p => p.$expanded ? '200px' : '0'};
+  transition: max-height 0.2s ease;
+`;
+
+const SubNavItem = styled(Link)<{ $active?: boolean }>`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 1.5rem 0.625rem 3.5rem;
+  background: ${p => p.$active ? 'rgba(26, 35, 126, 0.08)' : 'transparent'};
+  color: ${p => p.$active ? '#1a237e' : '#5c6b7a'};
+  font-size: 0.875rem;
+  font-weight: ${p => p.$active ? '600' : '500'};
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: rgba(26, 35, 126, 0.05);
+    color: #1a237e;
+  }
+`;
+
 interface AdminSidebarProps {
   mobileOpen: boolean;
   onClose: () => void;
@@ -205,6 +296,12 @@ export default function AdminSidebar({ mobileOpen, onClose }: AdminSidebarProps)
   const pathname = usePathname();
   const { userEmail, adminProfile, fetchAdminProfile } = useAuth();
   const { lang } = useLanguage();
+  const isRegistrationSection = pathname?.startsWith('/admin/registrations') ?? false;
+  const [registrationExpanded, setRegistrationExpanded] = React.useState(isRegistrationSection);
+
+  React.useEffect(() => {
+    if (isRegistrationSection) setRegistrationExpanded(true);
+  }, [isRegistrationSection]);
 
   const t = (key: keyof typeof dict) => dict[key][lang];
 
@@ -253,10 +350,30 @@ export default function AdminSidebar({ mobileOpen, onClose }: AdminSidebarProps)
             {lang === "zh" ? "代理管理" : "Agent Management"}
           </NavItem>
 
-          <NavItem href="/admin/registrations" $active={pathname === "/admin/registrations"} onClick={onClose} prefetch={true}>
-            <NavIcon><RegistrationIcon /></NavIcon>
-            {lang === "zh" ? "注册管理" : "Registration Management"}
-          </NavItem>
+          <NavGroup>
+            <NavParent
+              $active={isRegistrationSection}
+              onClick={() => setRegistrationExpanded(prev => !prev)}
+            >
+              <NavIcon><RegistrationIcon /></NavIcon>
+              <NavParentLabel>{lang === "zh" ? "注册管理" : "Registration Management"}</NavParentLabel>
+              <ChevronIcon $expanded={registrationExpanded}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </ChevronIcon>
+            </NavParent>
+            <SubNavList $expanded={registrationExpanded}>
+              <SubNavItem href="/admin/registrations" $active={pathname === "/admin/registrations"} onClick={onClose} prefetch={true}>
+                <NavIcon><RegistrationIcon /></NavIcon>
+                {lang === "zh" ? "注册表单" : "Registration Forms"}
+              </SubNavItem>
+              <SubNavItem href="/admin/registrations/templates" $active={pathname === "/admin/registrations/templates"} onClick={onClose} prefetch={true}>
+                <NavIcon><TemplateIcon /></NavIcon>
+                {lang === "zh" ? "表单模板" : "Form Templates"}
+              </SubNavItem>
+            </SubNavList>
+          </NavGroup>
 
           <NavItem href="/admin/admins" $active={pathname === "/admin/admins"} onClick={onClose} prefetch={true}>
             <NavIcon><AdminIcon /></NavIcon>
