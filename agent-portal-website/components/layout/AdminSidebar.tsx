@@ -85,7 +85,7 @@ const AdminIcon = () => (
 );
 
 const Sidebar = styled.aside<{ $mobileOpen: boolean }>`
-  width: 300px;
+  width: 310px;
   background: white;
   box-shadow: 2px 0 8px rgba(30, 64, 175, 0.08);
   display: flex;
