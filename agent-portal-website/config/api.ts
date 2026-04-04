@@ -44,6 +44,9 @@ export const API_CONFIG = {
     // Admin Management
     LIST_USER: "/admin/list_user",
     USER_DETAIL: "/admin/user_detail",
+    ADMIN_CREATE: "/admin/create_user",
+    ADMIN_UPDATE: "/admin/update_user",
+    ADMIN_DELETE: "/admin/delete_user",
     
     // Registration Management
     REGISTRATION_GENERATE: "/registration/generate",
