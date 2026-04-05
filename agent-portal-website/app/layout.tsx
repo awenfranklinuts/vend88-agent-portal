@@ -8,6 +8,7 @@ import { ToastProvider } from "@/context/ToastContext";
 import NavigationProgress from "@/components/layout/NavigationProgress";
 import SWRProvider from "@/components/layout/SWRProvider";
 import PrefetchLinks from "@/components/layout/PrefetchLinks";
+import ErrorBoundary from "@/components/ui/ErrorBoundary";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -26,15 +27,17 @@ export default function RootLayout({
       <body className={inter.className} suppressHydrationWarning>
         <StyledComponentsRegistry>
           <SWRProvider>
-            <NavigationProgress />
-            <PrefetchLinks />
-            <LanguageProvider>
-              <AuthProvider>
-                <ToastProvider>
-                  {children}
-                </ToastProvider>
-              </AuthProvider>
-            </LanguageProvider>
+            <ErrorBoundary>
+              <NavigationProgress />
+              <PrefetchLinks />
+              <LanguageProvider>
+                <AuthProvider>
+                  <ToastProvider>
+                    {children}
+                  </ToastProvider>
+                </AuthProvider>
+              </LanguageProvider>
+            </ErrorBoundary>
           </SWRProvider>
         </StyledComponentsRegistry>
       </body>
