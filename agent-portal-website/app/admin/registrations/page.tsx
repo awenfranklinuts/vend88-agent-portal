@@ -2163,7 +2163,7 @@ export default function RegistrationsPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
             <FilterSelect value={filterState} onChange={(e) => setFilterState(e.target.value)}>
-              <option value="all">{lang === "zh" ? "æ‰€æœ‰å·ž" : "All States"}</option>
+              <option value="all">{lang === "zh" ? "所有州" : "All States"}</option>
               <option value="NSW">NSW</option>
               <option value="VIC">VIC</option>
               <option value="QLD">QLD</option>
@@ -2175,7 +2175,7 @@ export default function RegistrationsPage() {
             </FilterSelect>
             {(searchQuery || filterState !== 'all') && (
               <ClearButton onClick={() => { setSearchQuery(''); setFilterState('all'); }}>
-                {lang === "zh" ? "æ¸…é™¤" : "Clear"}
+                {lang === "zh" ? "清除" : "Clear"}
               </ClearButton>
             )}
             <RefreshButton onClick={() => fetchRegistrationData()} disabled={isDataLoading} title={isDataLoading ? (lang === "zh" ? "åˆ·æ–°ä¸­..." : "Refreshing...") : (lang === "zh" ? "åˆ·æ–°" : "Refresh")}>
@@ -2205,7 +2205,7 @@ export default function RegistrationsPage() {
                     <Tr>
                       <CheckboxTh />
                       <Th>{lang === "zh" ? "业务名称" : "Business Name"}</Th>
-                      <Th>{lang === "zh" ? "è”ç³»é‚®ç®±" : "Contact Email"}</Th>
+                      <Th>{lang === "zh" ? "è”ç³»邮箱" : "Contact Email"}</Th>
                       <Th>{lang === "zh" ? "ç”Ÿæˆæ—¶é—´" : "Generated"}</Th>
                       <Th>{lang === "zh" ? "çŠ¶æ€" : "Status"}</Th>
                       <Th>{lang === "zh" ? "æ“ä½œ" : "Actions"}</Th>
@@ -2356,7 +2356,7 @@ export default function RegistrationsPage() {
                           $active={sortField === 'contactEmail'}
                           onClick={() => handleSort('contactEmail')}
                         >
-                          {lang === "zh" ? "è”ç³»é‚®ç®±" : "Contact Email"}
+                          {lang === "zh" ? "è”ç³»邮箱" : "Contact Email"}
                           <SortIcon $direction={sortField === 'contactEmail' ? sortDirection : undefined}>
                             {sortField === 'contactEmail' && sortDirection === 'asc' ? '↑' : '↓'}
                           </SortIcon>
@@ -2408,7 +2408,7 @@ export default function RegistrationsPage() {
                           {reg.status === 'submitted' && (
                             <>
                               <ActionButton $variant="view" onClick={() => handleViewDetails(reg)}>
-                                {lang === "zh" ? "æŸ¥çœ‹" : "View"}
+                                {lang === "zh" ? "查看" : "View"}
                               </ActionButton>
                               <ActionButton $variant="approve" onClick={() => handleApprove(reg.id)}>
                                 {lang === "zh" ? "æ‰¹å‡†" : "Approve"}
@@ -2430,12 +2430,12 @@ export default function RegistrationsPage() {
                           )}
                           {reg.status === 'approved' && (
                             <ActionButton $variant="view" onClick={() => handleViewDetails(reg)}>
-                              {lang === "zh" ? "æŸ¥çœ‹" : "View"}
+                              {lang === "zh" ? "查看" : "View"}
                             </ActionButton>
                           )}
                           {reg.status === 'rejected' && (
                             <ActionButton $variant="view" onClick={() => handleViewDetails(reg)}>
-                              {lang === "zh" ? "æŸ¥çœ‹" : "View"}
+                              {lang === "zh" ? "查看" : "View"}
                             </ActionButton>
                           )}
                         </Td>
@@ -2538,7 +2538,7 @@ export default function RegistrationsPage() {
               <SectionTitle>{lang === "zh" ? "ðŸ“§ è”ç³»ä¿¡æ¯" : "ðŸ“§ Contact Information"}</SectionTitle>
               
               <DetailSection>
-                <DetailLabel>{lang === "zh" ? "è”ç³»é‚®ç®±" : "Contact Email"}</DetailLabel>
+                <DetailLabel>{lang === "zh" ? "è”ç³»邮箱" : "Contact Email"}</DetailLabel>
                 {isEditMode ? (
                   <EditInput 
                     type="email"
@@ -3154,7 +3154,7 @@ export default function RegistrationsPage() {
             <ModalTitle>{lang === 'zh' ? 'é€‰æ‹©è¡¨å•æ¨¡æ¿' : 'Choose a Form Template'}</ModalTitle>
             <ModalText style={{ marginBottom: '1.5rem' }}>
               {lang === 'zh'
-                ? 'é€‰æ‹©å·²ä¿å­˜çš„æ¨¡æ¿å¿«é€Ÿç”Ÿæˆè¡¨å•ï¼Œæˆ–ä»Žå¤´åˆ›å»ºæ–°è¡¨å•ã€‚'
+                ? 'é€‰æ‹©å·²ä¿å­˜çš„æ¨¡æ¿å¿«é€Ÿç”Ÿæˆè¡¨å•ï¼Œæˆ–ä»Žå¤´创建æ–°è¡¨å•ã€‚'
                 : 'Pick a saved template to generate quickly, or create a form from scratch.'}
             </ModalText>
 
@@ -3189,7 +3189,7 @@ export default function RegistrationsPage() {
               }}>+</span>
               <div>
                 <div style={{ fontWeight: 700, color: '#0a3655', fontSize: '0.9375rem' }}>
-                  {lang === 'zh' ? 'ä»Žå¤´åˆ›å»º' : 'Create from Scratch'}
+                  {lang === 'zh' ? 'ä»Žå¤´创建' : 'Create from Scratch'}
                 </div>
                 <div style={{ fontSize: '0.8125rem', color: '#5c6b7a' }}>
                   {lang === 'zh' ? 'æ‰‹åŠ¨é€‰æ‹©æ‰€æœ‰è¡¨å•å­—æ®µ' : 'Manually select all form fields'}

@@ -1293,7 +1293,7 @@ export default function BusinessManagementPage() {
             <PageTitle>{t("businessManagement")}</PageTitle>
             <PageDescription>
               {lang === "zh"
-                ? "ç®¡ç†æ‰€æœ‰ä¸šåŠ¡å’Œåœ°ç‚¹ã€‚æŸ¥çœ‹ã€æ·»åŠ ã€ç¼–è¾‘å’Œç›‘æŽ§ä¸šåŠ¡ä¿¡æ¯ã€‚"
+                ? "ç®¡ç†æ‰€æœ‰ä¸šåŠ¡å’Œåœ°ç‚¹ã€‚查看ã€æ·»åŠ ã€ç¼–è¾‘å’Œç›‘æŽ§ä¸šåŠ¡ä¿¡æ¯ã€‚"
                 : "Manage all businesses and locations. View, add, edit, and monitor business information."}
             </PageDescription>
           </ContentHeader>
@@ -1304,15 +1304,15 @@ export default function BusinessManagementPage() {
               <StatValue>{stats.total}</StatValue>
             </StatCard>
             <StatCard>
-              <StatLabel>{lang === "zh" ? "æ´»è·ƒ" : "Active"}</StatLabel>
+              <StatLabel>{lang === "zh" ? "活跃" : "Active"}</StatLabel>
               <StatValue style={{ color: '#065f46' }}>{stats.active}</StatValue>
             </StatCard>
             <StatCard>
-              <StatLabel>{lang === "zh" ? "è®¾ç½®ä¸­" : "In Setup"}</StatLabel>
+              <StatLabel>{lang === "zh" ? "设置中" : "In Setup"}</StatLabel>
               <StatValue style={{ color: '#1e40af' }}>{stats.setup}</StatValue>
             </StatCard>
             <StatCard>
-              <StatLabel>{lang === "zh" ? "éžæ´»è·ƒ" : "Inactive"}</StatLabel>
+              <StatLabel>{lang === "zh" ? "非活跃" : "Inactive"}</StatLabel>
               <StatValue style={{ color: '#6b7280' }}>{stats.inactive}</StatValue>
             </StatCard>
           </StatsContainer>
@@ -1335,7 +1335,7 @@ export default function BusinessManagementPage() {
             <AdvancedSearchPanel $show={advancedSearchVisible}>
               <SearchInput
                 type="text"
-                placeholder={lang === "zh" ? "æŒ‰ ABN æœç´¢..." : "Search by ABN..."}
+                placeholder={lang === "zh" ? "按 ABN æœç´¢..." : "Search by ABN..."}
                 value={searchByABN}
                 onChange={(e) => setSearchByABN(e.target.value)}
               />
@@ -1347,19 +1347,19 @@ export default function BusinessManagementPage() {
               />
               <SearchInput
                 type="text"
-                placeholder={lang === "zh" ? "æŒ‰æ‰€æœ‰è€…æœç´¢..." : "Search by owner..."}
+                placeholder={lang === "zh" ? "按所有è€…æœç´¢..." : "Search by owner..."}
                 value={searchByOwner}
                 onChange={(e) => setSearchByOwner(e.target.value)}
               />
               <SearchInput
                 type="date"
-                placeholder={lang === "zh" ? "ä»Žæ—¥æœŸ" : "From date"}
+                placeholder={lang === "zh" ? "从日æœŸ" : "From date"}
                 value={dateFilterFrom}
                 onChange={(e) => setDateFilterFrom(e.target.value)}
               />
               <SearchInput
                 type="date"
-                placeholder={lang === "zh" ? "åˆ°æ—¥æœŸ" : "To date"}
+                placeholder={lang === "zh" ? "到日æœŸ" : "To date"}
                 value={dateFilterTo}
                 onChange={(e) => setDateFilterTo(e.target.value)}
               />
@@ -1367,14 +1367,14 @@ export default function BusinessManagementPage() {
             
             <FilterRow>
               <FilterSelect value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-                <option value="all">{lang === "zh" ? "æ‰€æœ‰çŠ¶æ€" : "All Status"}</option>
-                <option value="active">{lang === "zh" ? "æ´»è·ƒ" : "Active"}</option>
-                <option value="setup">{lang === "zh" ? "è®¾ç½®ä¸­" : "Setup"}</option>
-                <option value="inactive">{lang === "zh" ? "éžæ´»è·ƒ" : "Inactive"}</option>
+                <option value="all">{lang === "zh" ? "所有状态" : "All Status"}</option>
+                <option value="active">{lang === "zh" ? "活跃" : "Active"}</option>
+                <option value="setup">{lang === "zh" ? "设置中" : "Setup"}</option>
+                <option value="inactive">{lang === "zh" ? "非活跃" : "Inactive"}</option>
                 <option value="suspended">{lang === "zh" ? "æš‚åœ" : "Suspended"}</option>
               </FilterSelect>
               <FilterSelect value={filterState} onChange={(e) => setFilterState(e.target.value)}>
-                <option value="all">{lang === "zh" ? "æ‰€æœ‰å·ž" : "All States"}</option>
+                <option value="all">{lang === "zh" ? "所有州" : "All States"}</option>
                 <option value="NSW">NSW</option>
                 <option value="VIC">VIC</option>
                 <option value="QLD">QLD</option>
@@ -1386,7 +1386,7 @@ export default function BusinessManagementPage() {
               </FilterSelect>
               {(searchQuery || searchByABN || searchByAddress || searchByOwner || filterStatus !== 'all' || filterState !== 'all' || dateFilterFrom || dateFilterTo) && (
                 <ClearButton onClick={handleClearFilters}>
-                  {lang === "zh" ? "æ¸…é™¤" : "Clear"}
+                  {lang === "zh" ? "清除" : "Clear"}
                 </ClearButton>
               )}
             </FilterRow>
@@ -1468,13 +1468,13 @@ export default function BusinessManagementPage() {
                     <Th onClick={() => handleSort('name')}>
                       {lang === 'zh' ? '业务名称' : 'Business Name'} <SortIcon />
                     </Th>
-                    <Th>{lang === 'zh' ? 'æ‰€æœ‰è€…' : 'Owner'}</Th>
+                    <Th>{lang === 'zh' ? '所有者' : 'Owner'}</Th>
                     <Th onClick={() => handleSort('status')}>
                       {lang === 'zh' ? 'çŠ¶æ€' : 'Status'} <SortIcon />
                     </Th>
                     <Th>{lang === 'zh' ? 'åœ°ç‚¹' : 'Location'}</Th>
                     <Th onClick={() => handleSort('createdAt')}>
-                      {lang === 'zh' ? 'åˆ›å»ºæ—¥æœŸ' : 'Created'} <SortIcon />
+                      {lang === 'zh' ? '创建æ—¥æœŸ' : 'Created'} <SortIcon />
                     </Th>
                     <Th>{lang === 'zh' ? 'æ“ä½œ' : 'Actions'}</Th>
                   </Tr>
@@ -1499,7 +1499,7 @@ export default function BusinessManagementPage() {
                       <Td>{new Date(business.createdAt).toLocaleDateString()}</Td>
                       <Td>
                         <ActionButtons>
-                          <IconButton onClick={() => handleViewDetails(business)} title={lang === 'zh' ? 'æŸ¥çœ‹è¯¦æƒ…' : 'View Details'}>
+                          <IconButton onClick={() => handleViewDetails(business)} title={lang === 'zh' ? '查看è¯¦æƒ…' : 'View Details'}>
                             <EyeIcon />
                           </IconButton>
                           <IconButton onClick={() => handleBusinessClick(business._id)} title={lang === 'zh' ? 'ç¼–è¾‘' : 'Edit'}>
@@ -1537,7 +1537,7 @@ export default function BusinessManagementPage() {
                   </CardHeader>
                   <BusinessInfo>
                     <InfoRow>
-                      <InfoLabel>{lang === "zh" ? "æ‰€æœ‰è€…:" : "Owner:"}</InfoLabel>
+                      <InfoLabel>{lang === "zh" ? "所有者:" : "Owner:"}</InfoLabel>
                       <InfoValue>{getOwnerName(business.owner_id)}</InfoValue>
                     </InfoRow>
                     {business.abn && (
@@ -1548,12 +1548,12 @@ export default function BusinessManagementPage() {
                     )}
                     {business.contactEmail && (
                       <InfoRow>
-                        <InfoLabel>{lang === "zh" ? "é‚®ç®±:" : "Email:"}</InfoLabel>
+                        <InfoLabel>{lang === "zh" ? "邮箱:" : "Email:"}</InfoLabel>
                         <InfoValue>{business.contactEmail}</InfoValue>
                       </InfoRow>
                     )}
                     <InfoRow>
-                      <InfoLabel>{lang === "zh" ? "åˆ›å»º:" : "Created:"}</InfoLabel>
+                      <InfoLabel>{lang === "zh" ? "创建:" : "Created:"}</InfoLabel>
                       <InfoValue>{new Date(business.createdAt).toLocaleDateString()}</InfoValue>
                     </InfoRow>
                   </BusinessInfo>
@@ -1629,11 +1629,11 @@ export default function BusinessManagementPage() {
               <DetailValue>{selectedBusiness?._id}</DetailValue>
             </DetailItem>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? 'æ‰€æœ‰è€…' : 'Owner'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? '所有者' : 'Owner'}</DetailLabel>
               <DetailValue>{selectedBusiness ? getOwnerName(selectedBusiness.owner_id) : 'N/A'}</DetailValue>
             </DetailItem>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? 'æ‰€æœ‰è€…é‚®ç®±' : 'Owner Email'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? '所有者邮箱' : 'Owner Email'}</DetailLabel>
               <DetailValue>{selectedBusiness ? getOwnerEmail(selectedBusiness.owner_id) || 'N/A' : 'N/A'}</DetailValue>
             </DetailItem>
             <DetailItem>
@@ -1665,7 +1665,7 @@ export default function BusinessManagementPage() {
               <DetailValue>{selectedBusiness?.postcode || 'N/A'}</DetailValue>
             </DetailItem>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? 'è”ç³»é‚®ç®±' : 'Contact Email'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? 'è”ç³»邮箱' : 'Contact Email'}</DetailLabel>
               <DetailValue>{selectedBusiness?.contactEmail || 'N/A'}</DetailValue>
             </DetailItem>
             <DetailItem>
@@ -1681,7 +1681,7 @@ export default function BusinessManagementPage() {
               <DetailValue>{selectedBusiness?.alipayOption || 'N/A'}</DetailValue>
             </DetailItem>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? 'åˆ›å»ºæ—¥æœŸ' : 'Created Date'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? '创建æ—¥æœŸ' : 'Created Date'}</DetailLabel>
               <DetailValue>
                 {selectedBusiness?.createdAt 
                   ? new Date(selectedBusiness.createdAt).toLocaleDateString()
@@ -1689,7 +1689,7 @@ export default function BusinessManagementPage() {
               </DetailValue>
             </DetailItem>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? 'æ›´æ–°æ—¥æœŸ' : 'Updated Date'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? '更新æ—¥æœŸ' : 'Updated Date'}</DetailLabel>
               <DetailValue>
                 {selectedBusiness?.updatedAt 
                   ? new Date(selectedBusiness.updatedAt).toLocaleDateString()

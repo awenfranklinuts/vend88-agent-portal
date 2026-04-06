@@ -1179,7 +1179,7 @@ export default function CustomerManagementPage() {
         await fetchCustomers();
       } else if (result.status_code === 409) {
         showToast(
-          lang === 'zh' ? 'é‚®ç®±å·²å­˜åœ¨' : 'Email already exists',
+          lang === 'zh' ? '邮箱å·²å­˜åœ¨' : 'Email already exists',
           'error'
         );
       } else {
@@ -1188,7 +1188,7 @@ export default function CustomerManagementPage() {
     } catch (error) {
       console.error('Failed to create customer:', error);
       showToast(
-        lang === 'zh' ? 'åˆ›å»ºå¤±è´¥' : 'Failed to create customer',
+        lang === 'zh' ? '创建å¤±è´¥' : 'Failed to create customer',
         'error'
       );
     }
@@ -1290,7 +1290,7 @@ export default function CustomerManagementPage() {
               <PageTitle>{t("customerManagement")}</PageTitle>
               <PageDescription>
                 {lang === "zh"
-                  ? "ç®¡ç†æ‰€æœ‰POSå®¢æˆ·ã€‚æŸ¥çœ‹ã€æ·»åŠ ã€ç¼–è¾‘å’Œç›‘æŽ§å®¢æˆ·ä¿¡æ¯ã€‚"
+                  ? "ç®¡ç†æ‰€æœ‰POSå®¢æˆ·ã€‚查看ã€æ·»åŠ ã€ç¼–è¾‘å’Œç›‘æŽ§å®¢æˆ·ä¿¡æ¯ã€‚"
                   : "Manage all POS customers. View, add, edit, and monitor customer information."}
               </PageDescription>
             </div>
@@ -1335,7 +1335,7 @@ export default function CustomerManagementPage() {
             <AdvancedSearchPanel $show={advancedSearchVisible}>
               <SearchInput
                 type="text"
-                placeholder={lang === "zh" ? "æŒ‰ ABN æœç´¢..." : "Search by ABN..."}
+                placeholder={lang === "zh" ? "按 ABN æœç´¢..." : "Search by ABN..."}
                 value={searchByABN}
                 onChange={(e) => setSearchByABN(e.target.value)}
               />
@@ -1410,13 +1410,13 @@ export default function CustomerManagementPage() {
                     <Th onClick={() => handleSort('name')}>
                       {lang === 'zh' ? 'å§“å' : 'Name'} <SortIcon />
                     </Th>
-                    <Th>{lang === 'zh' ? 'é‚®ç®±' : 'Email'}</Th>
+                    <Th>{lang === 'zh' ? '邮箱' : 'Email'}</Th>
                     <Th>{lang === 'zh' ? 'ç”µè¯' : 'Phone'}</Th>
                     <Th onClick={() => handleSort('businessCount')}>
                       {lang === 'zh' ? '业务' : 'Businesses'} <SortIcon />
                     </Th>
                     <Th onClick={() => handleSort('created_at')}>
-                      {lang === 'zh' ? 'åˆ›å»ºæ—¥æœŸ' : 'Created'} <SortIcon />
+                      {lang === 'zh' ? '创建æ—¥æœŸ' : 'Created'} <SortIcon />
                     </Th>
                     <Th>{lang === 'zh' ? 'æ“ä½œ' : 'Actions'}</Th>
                   </Tr>
@@ -1435,7 +1435,7 @@ export default function CustomerManagementPage() {
                       </Td>
                       <Td>
                         <ActionButtons>
-                          <IconButton onClick={() => handleCustomerClick(customer)} title={lang === 'zh' ? 'æŸ¥çœ‹è¯¦æƒ…' : 'View Details'}>
+                          <IconButton onClick={() => handleCustomerClick(customer)} title={lang === 'zh' ? '查看è¯¦æƒ…' : 'View Details'}>
                             <EyeIcon />
                           </IconButton>
                           <IconButton onClick={() => handleEmailCustomer(customer.email)} title={lang === 'zh' ? 'å‘é€é‚®ä»¶' : 'Send Email'}>

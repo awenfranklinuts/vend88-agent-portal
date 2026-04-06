@@ -94,7 +94,7 @@ export default function ReportsPage() {
             <PageTitle>{lang === "zh" ? "æŠ¥å‘Šä¸Žåˆ†æž" : "Reports & Analytics"}</PageTitle>
             <PageDescription>
               {lang === "zh"
-                ? "æŸ¥çœ‹è¯¦ç»†æŠ¥å‘Šã€åˆ†æžå’Œæ‰€æœ‰å®¢æˆ·å’Œä¸šåŠ¡çš„æ´žå¯Ÿã€‚"
+                ? "查看è¯¦ç»†æŠ¥å‘Šã€åˆ†æžå’Œæ‰€æœ‰å®¢æˆ·å’Œä¸šåŠ¡çš„æ´žå¯Ÿã€‚"
                 : "View detailed reports, analytics, and insights across all customers and businesses."}
             </PageDescription>
           </ContentHeader>

@@ -293,6 +293,32 @@ interface AdminSidebarProps {
   onClose: () => void;
 }
 
+/* ─── Skeleton styles for loading state ─── */
+const shimmer = `
+  @keyframes shimmer {
+    0% { background-position: -200px 0; }
+    100% { background-position: calc(200px + 100%) 0; }
+  }
+`;
+
+const SkeletonPulse = styled.div`
+  ${shimmer}
+  background: linear-gradient(90deg, #e8ecf1 25%, #f0f3f7 50%, #e8ecf1 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+`;
+
+const SkeletonNavItem = styled(SkeletonPulse)`
+  height: 40px;
+  margin: 4px 16px;
+`;
+
+const SkeletonHeaderLine = styled(SkeletonPulse)`
+  height: 14px;
+  margin: 4px 0;
+`;
+
 export default function AdminSidebar({ mobileOpen, onClose }: AdminSidebarProps) {
   const pathname = usePathname();
   const { userEmail, adminProfile, fetchAdminProfile } = useAuth();
@@ -321,6 +347,27 @@ export default function AdminSidebar({ mobileOpen, onClose }: AdminSidebarProps)
   const displayName = adminProfile 
     ? `${adminProfile.first_name} ${adminProfile.last_name}`.trim() || userEmail?.split("@")[0]
     : userEmail?.split("@")[0];
+
+  // Show skeleton while adminProfile is loading
+  if (!adminProfile) {
+    return (
+      <>
+        <Overlay $show={mobileOpen} onClick={onClose} />
+        <Sidebar $mobileOpen={mobileOpen}>
+          <SidebarHeader>
+            <SkeletonHeaderLine style={{ width: '70%', height: '16px' }} />
+            <SkeletonHeaderLine style={{ width: '90%', height: '12px' }} />
+            <SkeletonHeaderLine style={{ width: '50%', height: '20px', marginTop: '4px' }} />
+          </SidebarHeader>
+          <NavList>
+            {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+              <SkeletonNavItem key={i} />
+            ))}
+          </NavList>
+        </Sidebar>
+      </>
+    );
+  }
 
   return (
     <>
