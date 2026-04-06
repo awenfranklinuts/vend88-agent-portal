@@ -1555,7 +1555,7 @@ export default function RegistrationsPage() {
           setIsEditMode(false);
           // Refresh the list
           fetchRegistrationData();
-          showToast(lang === 'zh' ? 'ä¿å­˜æˆåŠŸï¼' : 'Saved successfully!', 'success');
+          showToast(lang === 'zh' ? '保存成功！' : 'Saved successfully!', 'success');
         } else {
           console.error('Failed to save:', response.error);
           showToast('Failed to save changes', 'error');
@@ -1573,7 +1573,7 @@ export default function RegistrationsPage() {
   };
 
   const handleGenerateForm = async () => {
-    // Show template picker modal â€” fetch available templates first
+    // Show template picker modal — fetch available templates first
     setShowTemplatePicker(true);
     setLoadingTemplates(true);
     try {
@@ -1751,7 +1751,7 @@ export default function RegistrationsPage() {
             if (response.data && response.data.success) {
               // Refresh the list
               fetchRegistrationData();
-              showToast(lang === 'zh' ? 'æ‰¹å‡†æˆåŠŸï¼' : 'Approved successfully!', 'success');
+              showToast(lang === 'zh' ? '批准成功！' : 'Approved successfully!', 'success');
               if (selectedRegistration?.id === id) setShowDetailsModal(false);
             } else {
               showToast(response.data?.error || 'Failed to approve', 'error');
@@ -1778,7 +1778,7 @@ export default function RegistrationsPage() {
 
             // Refresh the list
             fetchRegistrationData();
-            showToast(lang === 'zh' ? 'æ‰¹å‡†æˆåŠŸï¼' : 'Approved successfully!', 'success');
+            showToast(lang === 'zh' ? '批准成功！' : 'Approved successfully!', 'success');
             // Close modals
             setShowApproveModal(false);
             setRegistrationToApprove(null);
@@ -1856,7 +1856,7 @@ export default function RegistrationsPage() {
       await fetchRegistrationData();
       console.log('[Reject] Registration list refreshed');
       
-      showToast(lang === 'zh' ? 'å·²æ‹’ç»' : 'Rejected successfully', 'success');
+      showToast(lang === 'zh' ? '已拒绝' : 'Rejected successfully', 'success');
       
       // Close details modal if open
       if (selectedRegistration?.id === id) {
@@ -1900,7 +1900,7 @@ export default function RegistrationsPage() {
       if (result && (result.success || result.status_code === 200)) {
         // Refresh the list
         fetchRegistrationData();
-        showToast(lang === 'zh' ? 'å·²æ’¤é”€ï¼' : 'Revoked successfully!', 'success');
+        showToast(lang === 'zh' ? '已撤销！' : 'Revoked successfully!', 'success');
         // Close details modal if open
         if (selectedRegistration?.id === id) {
           setShowDetailsModal(false);
@@ -1956,11 +1956,11 @@ export default function RegistrationsPage() {
     fetchRegistrationData();
 
     if (successes.length > 0) {
-      showToast(`${successes.length} ${lang === 'zh' ? 'æ¡é“¾æŽ¥å·²æ’¤é”€' : 'links revoked'}`, 'success');
+      showToast(`${successes.length} ${lang === 'zh' ? '条链接已撤销' : 'links revoked'}`, 'success');
     }
     if (failures.length > 0) {
       console.error('[BulkRevoke] failures:', failures);
-      showToast(`${failures.length} ${lang === 'zh' ? 'æ¡é“¾æŽ¥æ’¤é”€å¤±è´¥' : 'links failed'}`, 'error');
+      showToast(`${failures.length} ${lang === 'zh' ? '条链接撤销失败' : 'links failed'}`, 'error');
     }
   };
 
@@ -2134,24 +2134,24 @@ export default function RegistrationsPage() {
   }
 
   return (
-    <MainLayout currentPage={lang === "zh" ? "æ³¨å†Œç®¡ç†" : "Registration Management"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
+    <MainLayout currentPage={lang === "zh" ? "注册管理" : "Registration Management"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
       <Container>
         <AdminSidebar mobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
         <MainContent>
           <ContentHeader>
             <HeaderLeft>
-              <PageTitle>{lang === "zh" ? "æ³¨å†Œç®¡ç†" : "Registration Management"}</PageTitle>
+              <PageTitle>{lang === "zh" ? "注册管理" : "Registration Management"}</PageTitle>
               <PageDescription>
                 {lang === "zh"
-                  ? "ç”Ÿæˆæ³¨å†Œè¡¨å•å¹¶ç®¡ç†å®¢æˆ·æ³¨å†Œå®¡æ‰¹"
+                  ? "生成注册表单并管理客户注册审批"
                   : "Generate registration forms and manage customer approvals"}
               </PageDescription>
             </HeaderLeft>
             <GenerateButton onClick={handleGenerateForm} disabled={isGenerating}>
               <PlusIcon />
               {isGenerating 
-                ? (lang === "zh" ? "ç”Ÿæˆä¸­..." : "Generating...") 
-                : (lang === "zh" ? "ç”Ÿæˆæ–°è¡¨å•" : "Generate New Form")}
+                ? (lang === "zh" ? "生成中..." : "Generating...") 
+                : (lang === "zh" ? "生成新表单" : "Generate New Form")}
             </GenerateButton>
           </ContentHeader>
 
@@ -2178,7 +2178,7 @@ export default function RegistrationsPage() {
                 {lang === "zh" ? "清除" : "Clear"}
               </ClearButton>
             )}
-            <RefreshButton onClick={() => fetchRegistrationData()} disabled={isDataLoading} title={isDataLoading ? (lang === "zh" ? "åˆ·æ–°ä¸­..." : "Refreshing...") : (lang === "zh" ? "åˆ·æ–°" : "Refresh")}>
+            <RefreshButton onClick={() => fetchRegistrationData()} disabled={isDataLoading} title={isDataLoading ? (lang === "zh" ? "刷新中..." : "Refreshing...") : (lang === "zh" ? "刷新" : "Refresh")}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M21 10C21 10 18.995 7.26822 17.3662 5.63824C15.7373 4.00827 13.4864 3 11 3C6.02944 3 2 7.02944 2 12C2 16.9706 6.02944 21 11 21C15.1031 21 18.5649 18.2543 19.6482 14.5M21 10V4M21 10H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
@@ -2188,13 +2188,13 @@ export default function RegistrationsPage() {
           <TabContainer>
             <TabButtons>
               <TabButton $active={activeTab === 'submitted'} onClick={() => setActiveTab('submitted')}>
-                {lang === "zh" ? "å¾…å®¡æ‰¹" : "Pending Approval"} ({allRegistrations.filter(r => r.status === 'submitted').length})
+                {lang === "zh" ? "待审批" : "Pending Approval"} ({allRegistrations.filter(r => r.status === 'submitted').length})
               </TabButton>
               <TabButton $active={activeTab === 'pending'} onClick={() => setActiveTab('pending')}>
-                {lang === "zh" ? "æœªå¡«å†™" : "Not Filled"} ({allRegistrations.filter(r => r.status === 'pending').length})
+                {lang === "zh" ? "未填写" : "Not Filled"} ({allRegistrations.filter(r => r.status === 'pending').length})
               </TabButton>
               <TabButton $active={activeTab === 'all'} onClick={() => setActiveTab('all')}>
-                {lang === "zh" ? "å…¨éƒ¨" : "All"} ({allRegistrations.length})
+                {lang === "zh" ? "全部" : "All"} ({allRegistrations.length})
               </TabButton>
             </TabButtons>
 
@@ -2205,10 +2205,10 @@ export default function RegistrationsPage() {
                     <Tr>
                       <CheckboxTh />
                       <Th>{lang === "zh" ? "业务名称" : "Business Name"}</Th>
-                      <Th>{lang === "zh" ? "è”ç³»邮箱" : "Contact Email"}</Th>
-                      <Th>{lang === "zh" ? "ç”Ÿæˆæ—¶é—´" : "Generated"}</Th>
-                      <Th>{lang === "zh" ? "çŠ¶æ€" : "Status"}</Th>
-                      <Th>{lang === "zh" ? "æ“ä½œ" : "Actions"}</Th>
+                      <Th>{lang === "zh" ? "联系邮箱" : "Contact Email"}</Th>
+                      <Th>{lang === "zh" ? "生成时间" : "Generated"}</Th>
+                      <Th>{lang === "zh" ? "状态" : "Status"}</Th>
+                      <Th>{lang === "zh" ? "操作" : "Actions"}</Th>
                     </Tr>
                   </Thead>
                   <Tbody>
@@ -2247,22 +2247,22 @@ export default function RegistrationsPage() {
                   </EmptyIcon>
                   <EmptyText>
                     {searchQuery || filterState !== 'all' 
-                      ? (lang === "zh" ? "æœªæ‰¾åˆ°åŒ¹é…ç»“æžœ" : "No matching results")
+                      ? (lang === "zh" ? "未找到匹配结果" : "No matching results")
                       : activeTab === 'submitted' 
-                        ? (lang === "zh" ? "æš‚æ— å¾…å®¡æ‰¹" : "No Pending Approvals")
+                        ? (lang === "zh" ? "暂无待审批" : "No Pending Approvals")
                         : activeTab === 'pending'
-                          ? (lang === "zh" ? "æš‚æ— æœªå¡«å†™è¡¨å•" : "No Unfilled Forms")
-                          : (lang === "zh" ? "æš‚æ— è®°å½•" : "No Records")}
+                          ? (lang === "zh" ? "暂无未填写表单" : "No Unfilled Forms")
+                          : (lang === "zh" ? "暂无记录" : "No Records")}
                   </EmptyText>
                   <EmptySubtext>
                     {searchQuery || filterState !== 'all'
                       ? (lang === "zh" 
-                          ? "å°è¯•è°ƒæ•´æ‚¨çš„æœç´¢æ¡ä»¶æˆ–ç­›é€‰å™¨ä»¥æŸ¥æ‰¾æ‚¨è¦æŸ¥æ‰¾çš„å†…å®¹"
+                          ? "尝试调整您的搜索条件或筛选器以查找您要查找的内容"
                           : "Try adjusting your search terms or filters to find what you're looking for")
                       : activeTab === 'submitted' 
-                        ? (lang === "zh" ? "ç›®å‰æ²¡æœ‰éœ€è¦å®¡æ‰¹çš„æ³¨å†Œç”³è¯·" : "There are currently no registrations awaiting approval")
+                        ? (lang === "zh" ? "目前没有需要审批的注册申请" : "There are currently no registrations awaiting approval")
                         : activeTab === 'pending'
-                          ? (lang === "zh" ? "æ‰€æœ‰ç”Ÿæˆçš„è¡¨å•éƒ½å·²å¡«å†™å®Œæˆ" : "All generated forms have been completed")
+                          ? (lang === "zh" ? "所有生成的表单都已填写完成" : "All generated forms have been completed")
                           : (lang === "zh" ? "点击上方按钮生成新的注册表单" : "Click the button above to generate a new registration form")}
                   </EmptySubtext>
                 </EmptyState>
@@ -2270,7 +2270,7 @@ export default function RegistrationsPage() {
                 <>
                   <BulkActionBar $show={selectedRows.size > 0}>
                     <BulkActionText>
-                      {selectedRows.size} {lang === "zh" ? "å·²é€‰æ‹©" : "selected"}
+                      {selectedRows.size} {lang === "zh" ? "已选择" : "selected"}
                     </BulkActionText>
                     <BulkActionButtons>
                       {activeTab === 'submitted' && (
@@ -2279,14 +2279,14 @@ export default function RegistrationsPage() {
                             selectedRows.forEach(id => handleApprove(id));
                             setSelectedRows(new Set());
                           }}>
-                            {lang === "zh" ? "æ‰¹å‡†æ‰€é€‰" : "Approve Selected"}
+                            {lang === "zh" ? "批准所选" : "Approve Selected"}
                           </ActionButton>
                           <ActionButton $variant="reject" onClick={() => {
                             const firstId = Array.from(selectedRows)[0];
                             handleReject(firstId);
                             setSelectedRows(new Set());
                           }}>
-                            {lang === "zh" ? "æ‹’ç»æ‰€é€‰" : "Reject Selected"}
+                            {lang === "zh" ? "拒绝所选" : "Reject Selected"}
                           </ActionButton>
                         </>
                       )}
@@ -2296,7 +2296,7 @@ export default function RegistrationsPage() {
                           setSelectedRows(new Set());
                           await handleBulkRevoke(ids);
                         }}>
-                          {lang === "zh" ? "æ’¤é”€æ‰€é€‰" : "Revoke Selected"}
+                          {lang === "zh" ? "撤销所选" : "Revoke Selected"}
                         </ActionButton>
                       )}
                       {activeTab === 'all' && (
@@ -2308,7 +2308,7 @@ export default function RegistrationsPage() {
                             submittedIds.forEach(id => handleApprove(id));
                             setSelectedRows(new Set());
                           }}>
-                            {lang === "zh" ? "æ‰¹å‡†å·²æäº¤" : "Approve Submitted"}
+                            {lang === "zh" ? "批准已提交" : "Approve Submitted"}
                           </ActionButton>
                           <ActionButton $variant="reject" onClick={() => {
                             const submittedIds = paginatedRegistrations
@@ -2318,7 +2318,7 @@ export default function RegistrationsPage() {
                             if (firstId) handleReject(firstId);
                             setSelectedRows(new Set());
                           }}>
-                            {lang === "zh" ? "æ‹’ç»å·²æäº¤" : "Reject Submitted"}
+                            {lang === "zh" ? "拒绝已提交" : "Reject Submitted"}
                           </ActionButton>
                           <ActionButton $variant="reject" onClick={() => {
                             const pendingIds = paginatedRegistrations
@@ -2327,7 +2327,7 @@ export default function RegistrationsPage() {
                             pendingIds.forEach(id => handleRevoke(id));
                             setSelectedRows(new Set());
                           }}>
-                            {lang === "zh" ? "æ’¤é”€æœªå¡«å†™" : "Revoke Pending"}
+                            {lang === "zh" ? "撤销未填写" : "Revoke Pending"}
                           </ActionButton>
                         </>
                       )}
@@ -2356,7 +2356,7 @@ export default function RegistrationsPage() {
                           $active={sortField === 'contactEmail'}
                           onClick={() => handleSort('contactEmail')}
                         >
-                          {lang === "zh" ? "è”ç³»邮箱" : "Contact Email"}
+                          {lang === "zh" ? "联系邮箱" : "Contact Email"}
                           <SortIcon $direction={sortField === 'contactEmail' ? sortDirection : undefined}>
                             {sortField === 'contactEmail' && sortDirection === 'asc' ? '↑' : '↓'}
                           </SortIcon>
@@ -2365,7 +2365,7 @@ export default function RegistrationsPage() {
                           $active={sortField === 'submittedAt'}
                           onClick={() => handleSort('submittedAt')}
                         >
-                          {lang === "zh" ? "ç”Ÿæˆæ—¶é—´" : "Generated"}
+                          {lang === "zh" ? "生成时间" : "Generated"}
                           <SortIcon $direction={sortField === 'submittedAt' ? sortDirection : undefined}>
                             {sortField === 'submittedAt' && sortDirection === 'asc' ? '↑' : '↓'}
                           </SortIcon>
@@ -2374,12 +2374,12 @@ export default function RegistrationsPage() {
                           $active={sortField === 'status'}
                           onClick={() => handleSort('status')}
                         >
-                          {lang === "zh" ? "çŠ¶æ€" : "Status"}
+                          {lang === "zh" ? "状态" : "Status"}
                           <SortIcon $direction={sortField === 'status' ? sortDirection : undefined}>
                             {sortField === 'status' && sortDirection === 'asc' ? '↑' : '↓'}
                           </SortIcon>
                         </SortableHeader>
-                        <Th>{lang === "zh" ? "æ“ä½œ" : "Actions"}</Th>
+                        <Th>{lang === "zh" ? "操作" : "Actions"}</Th>
                       </Tr>
                     </Thead>
                     <Tbody>
@@ -2411,10 +2411,10 @@ export default function RegistrationsPage() {
                                 {lang === "zh" ? "查看" : "View"}
                               </ActionButton>
                               <ActionButton $variant="approve" onClick={() => handleApprove(reg.id)}>
-                                {lang === "zh" ? "æ‰¹å‡†" : "Approve"}
+                                {lang === "zh" ? "批准" : "Approve"}
                               </ActionButton>
                               <ActionButton $variant="reject" onClick={() => handleReject(reg.id)}>
-                                {lang === "zh" ? "æ‹’ç»" : "Reject"}
+                                {lang === "zh" ? "拒绝" : "Reject"}
                               </ActionButton>
                             </>
                           )}
@@ -2424,7 +2424,7 @@ export default function RegistrationsPage() {
                                 {lang === "zh" ? "复制链接" : "Copy Link"}
                               </ActionButton>
                               <ActionButton $variant="reject" onClick={() => handleRevoke(reg.id)}>
-                                {lang === "zh" ? "æ’¤é”€é“¾æŽ¥" : "Revoke Link"}
+                                {lang === "zh" ? "撤销链接" : "Revoke Link"}
                               </ActionButton>
                             </>
                           )}
@@ -2448,7 +2448,7 @@ export default function RegistrationsPage() {
                   <PaginationContainer>
                     <PaginationInfo>
                       {lang === "zh" 
-                        ? `æ˜¾ç¤º ${startIndex + 1}-${Math.min(startIndex + itemsPerPage, sortedRegistrations.length)} æ¡ï¼Œå…± ${sortedRegistrations.length} æ¡`
+                        ? `显示 ${startIndex + 1}-${Math.min(startIndex + itemsPerPage, sortedRegistrations.length)} 条,共 ${sortedRegistrations.length} 条`
                         : `Showing ${startIndex + 1}-${Math.min(startIndex + itemsPerPage, sortedRegistrations.length)} of ${sortedRegistrations.length}`
                       }
                     </PaginationInfo>
@@ -2502,19 +2502,19 @@ export default function RegistrationsPage() {
 
       <Modal $show={showGenerateModal} onClick={() => setShowGenerateModal(false)}>
         <ModalContent onClick={e => e.stopPropagation()}>
-          <ModalTitle>{lang === "zh" ? "è¡¨å•ç”ŸæˆæˆåŠŸ" : "Form Generated Successfully"}</ModalTitle>
+          <ModalTitle>{lang === "zh" ? "表单生成成功" : "Form Generated Successfully"}</ModalTitle>
           <ModalText>
             {lang === "zh" ? "请将以下链接发送给客户。此链接仅可使用一次。" : "Send the following link to your customer. This link can only be used once."}
           </ModalText>
           <LinkBox>{generatedLink}</LinkBox>
           <ModalActions>
             <ModalButton onClick={() => setShowGenerateModal(false)}>
-              {lang === "zh" ? "å…³é—­" : "Close"}
+              {lang === "zh" ? "关闭" : "Close"}
             </ModalButton>
             <ModalButton $primary onClick={handleCopyLink} style={isLinkCopied ? { background: '#10b981' } : {}}>
               {isLinkCopied ? <SaveIcon /> : <CopyIcon />}
               {isLinkCopied 
-                ? (lang === "zh" ? "å·²å¤åˆ¶!" : "Copied!") 
+                ? (lang === "zh" ? "已复制!" : "Copied!") 
                 : (lang === "zh" ? "复制链接" : "Copy Link")}
             </ModalButton>
           </ModalActions>
@@ -2524,21 +2524,21 @@ export default function RegistrationsPage() {
       <Modal $show={showDetailsModal} onClick={() => setShowDetailsModal(false)}>
         <ModalContent onClick={e => e.stopPropagation()} style={{ maxHeight: '85vh', overflowY: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <ModalTitle style={{ margin: 0 }}>{lang === "zh" ? "æ³¨å†Œè¯¦æƒ…" : "Registration Details"}</ModalTitle>
+            <ModalTitle style={{ margin: 0 }}>{lang === "zh" ? "注册详情" : "Registration Details"}</ModalTitle>
             {!isEditMode && (
               <EditButton onClick={() => setIsEditMode(true)}>
                 <EditIcon />
-                {lang === "zh" ? "ç¼–è¾‘" : "Edit"}
+                {lang === "zh" ? "编辑" : "Edit"}
               </EditButton>
             )}
           </div>
           
           {selectedRegistration && editedRegistration && (
             <>
-              <SectionTitle>{lang === "zh" ? "ðŸ“§ è”ç³»ä¿¡æ¯" : "ðŸ“§ Contact Information"}</SectionTitle>
+              <SectionTitle>{lang === "zh" ? "📧 联系信息" : "📧 Contact Information"}</SectionTitle>
               
               <DetailSection>
-                <DetailLabel>{lang === "zh" ? "è”ç³»邮箱" : "Contact Email"}</DetailLabel>
+                <DetailLabel>{lang === "zh" ? "联系邮箱" : "Contact Email"}</DetailLabel>
                 {isEditMode ? (
                   <EditInput 
                     type="email"
@@ -2551,7 +2551,7 @@ export default function RegistrationsPage() {
               </DetailSection>
 
               <DetailSection>
-                <DetailLabel>{lang === "zh" ? "å…¨å" : "Full Name"}</DetailLabel>
+                <DetailLabel>{lang === "zh" ? "全名" : "Full Name"}</DetailLabel>
                 {isEditMode ? (
                   <EditInput 
                     value={editedRegistration.ownerName || editedRegistration.contact_name || ''}
@@ -2563,7 +2563,7 @@ export default function RegistrationsPage() {
               </DetailSection>
 
               <DetailSection>
-                <DetailLabel>{lang === "zh" ? "è”ç³»ç”µè¯" : "Contact Phone"}</DetailLabel>
+                <DetailLabel>{lang === "zh" ? "联系电话" : "Contact Phone"}</DetailLabel>
                 {isEditMode ? (
                   <EditInput 
                     type="tel"
@@ -2578,7 +2578,7 @@ export default function RegistrationsPage() {
               {(selectedRegistration.messagingAppType || isEditMode) && (
                 <DetailSection>
                   <DetailLabel>
-                    {lang === "zh" ? "å³æ—¶é€šè®¯" : "Messaging App"}
+                    {lang === "zh" ? "即时通讯" : "Messaging App"}
                   </DetailLabel>
                   {isEditMode ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -2586,17 +2586,17 @@ export default function RegistrationsPage() {
                         value={editedRegistration.messagingAppType || ''}
                         onChange={(e) => handleEditChange('messagingAppType', e.target.value)}
                       >
-                        <option value="">{lang === "zh" ? "-- é€‰æ‹©åº”ç”¨ --" : "-- Select app --"}</option>
-                        <option value="wechat">{lang === "zh" ? "å¾®ä¿¡å·" : "WeChat ID"}</option>
-                        <option value="whatsapp">{lang === "zh" ? "WhatsApp å·ç " : "WhatsApp Number"}</option>
+                        <option value="">{lang === "zh" ? "-- 选择应用 --" : "-- Select app --"}</option>
+                        <option value="wechat">{lang === "zh" ? "微信号" : "WeChat ID"}</option>
+                        <option value="whatsapp">{lang === "zh" ? "WhatsApp 号码" : "WhatsApp Number"}</option>
                       </EditSelect>
                       {editedRegistration.messagingAppType && (
                         <EditInput 
                           value={editedRegistration.messagingAppId || ''}
                           onChange={(e) => handleEditChange('messagingAppId', e.target.value)}
                           placeholder={editedRegistration.messagingAppType === 'wechat' 
-                            ? (lang === "zh" ? "è¾“å…¥å¾®ä¿¡å·" : "Enter WeChat ID")
-                            : (lang === "zh" ? "è¾“å…¥ WhatsApp å·ç " : "Enter WhatsApp number")
+                            ? (lang === "zh" ? "输入微信号" : "Enter WeChat ID")
+                            : (lang === "zh" ? "输入 WhatsApp 号码" : "Enter WhatsApp number")
                           }
                         />
                       )}
@@ -2613,10 +2613,10 @@ export default function RegistrationsPage() {
 
               <Divider />
 
-              <SectionTitle>{lang === "zh" ? "ðŸ¢ å•†ä¸šä¿¡æ¯" : "ðŸ¢ Business Information"}</SectionTitle>
+              <SectionTitle>{lang === "zh" ? "🏢 商业信息" : "🏢 Business Information"}</SectionTitle>
 
               <DetailSection>
-                <DetailLabel>{lang === "zh" ? "æŠ¥ä»·å•/å‘ç¥¨å·ç " : "Quote/Invoice Number"}</DetailLabel>
+                <DetailLabel>{lang === "zh" ? "报价单/发票号码" : "Quote/Invoice Number"}</DetailLabel>
                 {isEditMode ? (
                   <EditInput 
                     value={editedRegistration.quoteNumber || ''}
@@ -2628,7 +2628,7 @@ export default function RegistrationsPage() {
               </DetailSection>
 
               <DetailSection>
-                <DetailLabel>{lang === "zh" ? "å…¬å¸äº¤æ˜“åç§°" : "Business Trading Name"}</DetailLabel>
+                <DetailLabel>{lang === "zh" ? "公司交易名称" : "Business Trading Name"}</DetailLabel>
                 {isEditMode ? (
                   <EditInput 
                     value={editedRegistration.businessName || editedRegistration.business_name || ''}
@@ -2654,10 +2654,10 @@ export default function RegistrationsPage() {
 
               <Divider />
 
-              <SectionTitle>{lang === "zh" ? "ðŸ“ æ³¨å†Œåœ°å€" : "ðŸ“ Registered Address"}</SectionTitle>
+              <SectionTitle>{lang === "zh" ? "📍 注册地址" : "📍 Registered Address"}</SectionTitle>
 
               <DetailSection>
-                <DetailLabel>{lang === "zh" ? "è¡—é“åœ°å€" : "Street Address"}</DetailLabel>
+                <DetailLabel>{lang === "zh" ? "街道地址" : "Street Address"}</DetailLabel>
                 {isEditMode ? (
                   <EditInput 
                     value={editedRegistration.registeredAddress || ''}
@@ -2669,7 +2669,7 @@ export default function RegistrationsPage() {
               </DetailSection>
 
               <DetailSection>
-                <DetailLabel>{lang === "zh" ? "åŸŽå¸‚/éƒŠåŒº" : "City/Suburb"}</DetailLabel>
+                <DetailLabel>{lang === "zh" ? "城市/郊区" : "City/Suburb"}</DetailLabel>
                 {isEditMode ? (
                   <EditInput 
                     value={editedRegistration.registeredSuburb || ''}
@@ -2681,7 +2681,7 @@ export default function RegistrationsPage() {
               </DetailSection>
 
               <DetailSection>
-                <DetailLabel>{lang === "zh" ? "é‚®æ”¿ç¼–ç " : "Postcode"}</DetailLabel>
+                <DetailLabel>{lang === "zh" ? "邮政编码" : "Postcode"}</DetailLabel>
                 {isEditMode ? (
                   <EditInput 
                     value={editedRegistration.registeredPostcode || ''}
@@ -2694,13 +2694,13 @@ export default function RegistrationsPage() {
               </DetailSection>
 
               <DetailSection>
-                <DetailLabel>{lang === "zh" ? "å·ž/é¢†åœ°" : "State/Territory"}</DetailLabel>
+                <DetailLabel>{lang === "zh" ? "州/领地" : "State/Territory"}</DetailLabel>
                 {isEditMode ? (
                   <EditSelect 
                     value={editedRegistration.registeredState || ''}
                     onChange={(e) => handleEditChange('registeredState', e.target.value)}
                   >
-                    <option value="">{lang === "zh" ? "-- é€‰æ‹© --" : "-- Select --"}</option>
+                    <option value="">{lang === "zh" ? "-- 选择 --" : "-- Select --"}</option>
                     <option value="NSW">NSW</option>
                     <option value="VIC">VIC</option>
                     <option value="QLD">QLD</option>
@@ -2716,7 +2716,7 @@ export default function RegistrationsPage() {
               </DetailSection>
 
               <DetailSection>
-                <DetailLabel>{lang === "zh" ? "å›½å®¶" : "Country"}</DetailLabel>
+                <DetailLabel>{lang === "zh" ? "国家" : "Country"}</DetailLabel>
                 {isEditMode ? (
                   <EditSelect 
                     value={editedRegistration.registeredCountry || 'Australia'}
@@ -2731,10 +2731,10 @@ export default function RegistrationsPage() {
 
               <Divider />
 
-              <SectionTitle>{lang === "zh" ? "ðŸ’³ æ”¯ä»˜ä¸Žé›†æˆ" : "ðŸ’³ Payment & Integration"}</SectionTitle>
+              <SectionTitle>{lang === "zh" ? "💳 支付与集成" : "💳 Payment & Integration"}</SectionTitle>
 
               <DetailSection>
-                <DetailLabel>{lang === "zh" ? "EFTPOS é›†æˆ" : "EFTPOS Integration"}</DetailLabel>
+                <DetailLabel>{lang === "zh" ? "EFTPOS 集成" : "EFTPOS Integration"}</DetailLabel>
                 {isEditMode ? (
                   <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
                     <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
@@ -2743,7 +2743,7 @@ export default function RegistrationsPage() {
                         checked={editedRegistration.eftposIntegration === 'yes'}
                         onChange={() => handleEditChange('eftposIntegration', 'yes')}
                       />
-                      {lang === "zh" ? "æ˜¯" : "Yes"}
+                      {lang === "zh" ? "是" : "Yes"}
                     </label>
                     <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                       <input 
@@ -2751,50 +2751,50 @@ export default function RegistrationsPage() {
                         checked={editedRegistration.eftposIntegration === 'no'}
                         onChange={() => handleEditChange('eftposIntegration', 'no')}
                       />
-                      {lang === "zh" ? "å¦" : "No"}
+                      {lang === "zh" ? "否" : "No"}
                     </label>
                   </div>
                 ) : (
                   <DetailValue>
                     {selectedRegistration.eftposIntegration === 'yes' 
-                      ? (lang === "zh" ? "æ˜¯" : "Yes") 
+                      ? (lang === "zh" ? "是" : "Yes") 
                       : selectedRegistration.eftposIntegration === 'no'
-                      ? (lang === "zh" ? "å¦" : "No")
+                      ? (lang === "zh" ? "否" : "No")
                       : '-'}
                   </DetailValue>
                 )}
               </DetailSection>
 
               <DetailSection>
-                <DetailLabel>{lang === "zh" ? "æ”¯ä»˜å®/å¾®ä¿¡æ”¯ä»˜" : "Alipay/WeChat Pay"}</DetailLabel>
+                <DetailLabel>{lang === "zh" ? "支付宝/微信支付" : "Alipay/WeChat Pay"}</DetailLabel>
                 {isEditMode ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     <EditSelect 
                       value={editedRegistration.alipayOption || ''}
                       onChange={(e) => handleEditChange('alipayOption', e.target.value)}
                     >
-                      <option value="">{lang === "zh" ? "-- é€‰æ‹© --" : "-- Select --"}</option>
-                      <option value="open">{lang === "zh" ? "å¼€é€š" : "Open Account"}</option>
-                      <option value="not-interested">{lang === "zh" ? "ä¸æ„Ÿå…´è¶£" : "Not Interested"}</option>
+                      <option value="">{lang === "zh" ? "-- 选择 --" : "-- Select --"}</option>
+                      <option value="open">{lang === "zh" ? "开通" : "Open Account"}</option>
+                      <option value="not-interested">{lang === "zh" ? "不感兴趣" : "Not Interested"}</option>
                       <option value="superpay">Superpay</option>
                       <option value="royalpay">Royalpay</option>
-                      <option value="other">{lang === "zh" ? "å…¶ä»–" : "Other"}</option>
+                      <option value="other">{lang === "zh" ? "其他" : "Other"}</option>
                     </EditSelect>
                     {editedRegistration.alipayOption === 'other' && (
                       <EditInput 
                         value={editedRegistration.alipayOther || ''}
                         onChange={(e) => handleEditChange('alipayOther', e.target.value)}
-                        placeholder={lang === "zh" ? "è¯·æè¿°" : "Please describe"}
+                        placeholder={lang === "zh" ? "请描述" : "Please describe"}
                       />
                     )}
                   </div>
                 ) : (
                   <DetailValue>
-                    {selectedRegistration.alipayOption === 'open' && (lang === "zh" ? "å¼€é€š" : "Open Account")}
-                    {selectedRegistration.alipayOption === 'not-interested' && (lang === "zh" ? "ä¸æ„Ÿå…´è¶£" : "Not Interested")}
+                    {selectedRegistration.alipayOption === 'open' && (lang === "zh" ? "开通" : "Open Account")}
+                    {selectedRegistration.alipayOption === 'not-interested' && (lang === "zh" ? "不感兴趣" : "Not Interested")}
                     {selectedRegistration.alipayOption === 'superpay' && "Superpay"}
                     {selectedRegistration.alipayOption === 'royalpay' && "Royalpay"}
-                    {selectedRegistration.alipayOption === 'other' && `${lang === "zh" ? "å…¶ä»–" : "Other"}: ${selectedRegistration.alipayOther || ''}`}
+                    {selectedRegistration.alipayOption === 'other' && `${lang === "zh" ? "其他" : "Other"}: ${selectedRegistration.alipayOther || ''}`}
                     {!selectedRegistration.alipayOption && '-'}
                   </DetailValue>
                 )}
@@ -2802,10 +2802,10 @@ export default function RegistrationsPage() {
 
               <Divider />
 
-              <SectionTitle>{lang === "zh" ? "ðŸ“‹ é™„åŠ ä¿¡æ¯" : "ðŸ“‹ Additional Information"}</SectionTitle>
+              <SectionTitle>{lang === "zh" ? "📋 附加信息" : "📋 Additional Information"}</SectionTitle>
 
               <DetailSection>
-                <DetailLabel>{lang === "zh" ? "é¢„æœŸéƒ¨ç½²æ—¶é—´" : "Expected Deployment"}</DetailLabel>
+                <DetailLabel>{lang === "zh" ? "预期部署时间" : "Expected Deployment"}</DetailLabel>
                 {isEditMode ? (
                   <EditTextarea 
                     value={editedRegistration.readyBy || ''}
@@ -2818,35 +2818,35 @@ export default function RegistrationsPage() {
               </DetailSection>
 
               <DetailSection>
-                <DetailLabel>{lang === "zh" ? "å¦‚ä½•äº†è§£æˆ‘ä»¬" : "How Did You Hear About Us"}</DetailLabel>
+                <DetailLabel>{lang === "zh" ? "如何了解我们" : "How Did You Hear About Us"}</DetailLabel>
                 {isEditMode ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     <EditSelect 
                       value={editedRegistration.heardAbout || ''}
                       onChange={(e) => handleEditChange('heardAbout', e.target.value)}
                     >
-                      <option value="">{lang === "zh" ? "-- é€‰æ‹© --" : "-- Select --"}</option>
-                      <option value="friend">{lang === "zh" ? "æœ‹å‹æŽ¨è" : "Friend Referral"}</option>
+                      <option value="">{lang === "zh" ? "-- 选择 --" : "-- Select --"}</option>
+                      <option value="friend">{lang === "zh" ? "朋友推荐" : "Friend Referral"}</option>
                       <option value="google">Google</option>
-                      <option value="wechat">{lang === "zh" ? "å¾®ä¿¡" : "WeChat"}</option>
-                      <option value="saw">{lang === "zh" ? "çœ‹åˆ°ä½¿ç”¨" : "Saw in Use"}</option>
-                      <option value="other">{lang === "zh" ? "å…¶ä»–" : "Other"}</option>
+                      <option value="wechat">{lang === "zh" ? "微信" : "WeChat"}</option>
+                      <option value="saw">{lang === "zh" ? "看到使用" : "Saw in Use"}</option>
+                      <option value="other">{lang === "zh" ? "其他" : "Other"}</option>
                     </EditSelect>
                     {editedRegistration.heardAbout === 'other' && (
                       <EditInput 
                         value={editedRegistration.heardOther || ''}
                         onChange={(e) => handleEditChange('heardOther', e.target.value)}
-                        placeholder={lang === "zh" ? "è¯·æè¿°" : "Please describe"}
+                        placeholder={lang === "zh" ? "请描述" : "Please describe"}
                       />
                     )}
                   </div>
                 ) : (
                   <DetailValue>
-                    {selectedRegistration.heardAbout === 'friend' && (lang === "zh" ? "æœ‹å‹æŽ¨è" : "Friend Referral")}
+                    {selectedRegistration.heardAbout === 'friend' && (lang === "zh" ? "朋友推荐" : "Friend Referral")}
                     {selectedRegistration.heardAbout === 'google' && "Google"}
-                    {selectedRegistration.heardAbout === 'wechat' && (lang === "zh" ? "å¾®ä¿¡" : "WeChat")}
-                    {selectedRegistration.heardAbout === 'saw' && (lang === "zh" ? "çœ‹åˆ°ä½¿ç”¨" : "Saw in Use")}
-                    {selectedRegistration.heardAbout === 'other' && `${lang === "zh" ? "å…¶ä»–" : "Other"}: ${selectedRegistration.heardOther || ''}`}
+                    {selectedRegistration.heardAbout === 'wechat' && (lang === "zh" ? "微信" : "WeChat")}
+                    {selectedRegistration.heardAbout === 'saw' && (lang === "zh" ? "看到使用" : "Saw in Use")}
+                    {selectedRegistration.heardAbout === 'other' && `${lang === "zh" ? "其他" : "Other"}: ${selectedRegistration.heardOther || ''}`}
                     {!selectedRegistration.heardAbout && '-'}
                   </DetailValue>
                 )}
@@ -2854,14 +2854,14 @@ export default function RegistrationsPage() {
 
               {selectedRegistration.menuFiles && selectedRegistration.menuFiles.length > 0 && (
                 <DetailSection>
-                  <DetailLabel>{lang === "zh" ? "èœå•æ–‡ä»¶" : "Menu Files"}</DetailLabel>
+                  <DetailLabel>{lang === "zh" ? "菜单文件" : "Menu Files"}</DetailLabel>
                   <DetailValue>
                     {selectedRegistration.menuFiles.map((file, idx) => {
                       // Handle both old string format and new object format
                       if (typeof file === 'string') {
                         return (
                           <div key={idx} style={{ padding: '0.5rem', background: 'rgba(43,123,227,0.05)', borderRadius: '4px', marginTop: idx > 0 ? '0.5rem' : 0 }}>
-                            ðŸ“„ {file}
+                            📄 {file}
                           </div>
                         );
                       }
@@ -2877,19 +2877,19 @@ export default function RegistrationsPage() {
                             if (file.url.startsWith('/mock-files/')) {
                               e.preventDefault();
                               alert(lang === 'zh' 
-                                ? `æ¨¡æ‹Ÿä¸‹è½½: ${file.filename}\nå®žé™…åº”ç”¨ä¸­ï¼Œè¿™å°†ä»ŽæœåŠ¡å™¨ä¸‹è½½çœŸå®žæ–‡ä»¶ã€‚` 
+                                ? `模拟下载: ${file.filename}\n实际应用中,这将从服务器下载真实文件。` 
                                 : `Mock download: ${file.filename}\nIn production, this would download the actual file from the server.`);
                             }
                           }}
                         >
                           <FileInfo>
-                            <span>ðŸ“„</span>
+                            <span>📄</span>
                             <div>
                               <FileName>{file.filename}</FileName>
                               {(file.size || file.uploadedAt) && (
                                 <FileMetadata>
                                   {file.size && formatFileSize(file.size)}
-                                  {file.size && file.uploadedAt && ' â€¢ '}
+                                  {file.size && file.uploadedAt && ' • '}
                                   {file.uploadedAt && new Date(file.uploadedAt).toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
                                 </FileMetadata>
                               )}
@@ -2908,14 +2908,14 @@ export default function RegistrationsPage() {
 
               {selectedRegistration.menuSendLater && (
                 <DetailSection>
-                  <DetailLabel>{lang === "zh" ? "èœå•" : "Menu"}</DetailLabel>
-                  <DetailValue>{lang === "zh" ? "ç¨åŽå‘é€" : "Will send later"}</DetailValue>
+                  <DetailLabel>{lang === "zh" ? "菜单" : "Menu"}</DetailLabel>
+                  <DetailValue>{lang === "zh" ? "稍后发送" : "Will send later"}</DetailValue>
                 </DetailSection>
               )}
 
               {(selectedRegistration.notes || isEditMode) && (
                 <DetailSection>
-                  <DetailLabel>{lang === "zh" ? "å¤‡æ³¨" : "Notes"}</DetailLabel>
+                  <DetailLabel>{lang === "zh" ? "备注" : "Notes"}</DetailLabel>
                   {isEditMode ? (
                     <EditTextarea 
                       value={editedRegistration.notes || ''}
@@ -2931,7 +2931,7 @@ export default function RegistrationsPage() {
               <Divider />
 
               <DetailSection>
-                <DetailLabel>{lang === "zh" ? "æäº¤æ—¶é—´" : "Submitted At"}</DetailLabel>
+                <DetailLabel>{lang === "zh" ? "提交时间" : "Submitted At"}</DetailLabel>
                 <DetailValue>
                   {selectedRegistration.submittedAt 
                     ? new Date(selectedRegistration.submittedAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')
@@ -2940,7 +2940,7 @@ export default function RegistrationsPage() {
               </DetailSection>
 
               <DetailSection>
-                <DetailLabel>{lang === "zh" ? "çŠ¶æ€" : "Status"}</DetailLabel>
+                <DetailLabel>{lang === "zh" ? "状态" : "Status"}</DetailLabel>
                 <DetailValue>
                   <StatusBadge $status={selectedRegistration.status}>
                     {selectedRegistration.status}
@@ -2948,24 +2948,24 @@ export default function RegistrationsPage() {
                   <div style={{ fontSize: '0.875rem', color: '#5c6b7a', marginTop: '0.75rem' }}>
                     {selectedRegistration.status === 'pending' && selectedRegistration.generatedAt && (
                       <>
-                        {lang === "zh" ? "ç”Ÿæˆæ—¶é—´ï¼š" : "Generated at: "}
+                        {lang === "zh" ? "生成时间：" : "Generated at: "}
                         {new Date(selectedRegistration.generatedAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
                       </>
                     )}
                     {selectedRegistration.status === 'submitted' && selectedRegistration.submittedAt && (
                       <>
-                        {lang === "zh" ? "æäº¤æ—¶é—´ï¼š" : "Submitted at: "}
+                        {lang === "zh" ? "提交时间：" : "Submitted at: "}
                         {new Date(selectedRegistration.submittedAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
                       </>
                     )}
                     {selectedRegistration.status === 'approved' && selectedRegistration.approvedAt && (
                       <>
-                        {lang === "zh" ? "æ‰¹å‡†æ—¶é—´ï¼š" : "Approved at: "}
+                        {lang === "zh" ? "批准时间：" : "Approved at: "}
                         {new Date(selectedRegistration.approvedAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
                         {selectedRegistration.approvedBy && (
                           <>
                             <br />
-                            {lang === "zh" ? "æ‰¹å‡†äººï¼š" : "Approved by: "}
+                            {lang === "zh" ? "批准人：" : "Approved by: "}
                             {selectedRegistration.approvedBy}
                           </>
                         )}
@@ -2973,12 +2973,12 @@ export default function RegistrationsPage() {
                     )}
                     {selectedRegistration.status === 'rejected' && selectedRegistration.rejectedAt && (
                       <>
-                        {lang === "zh" ? "æ‹’ç»æ—¶é—´ï¼š" : "Rejected at: "}
+                        {lang === "zh" ? "拒绝时间：" : "Rejected at: "}
                         {new Date(selectedRegistration.rejectedAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
                         {selectedRegistration.rejectedBy && (
                           <>
                             <br />
-                            {lang === "zh" ? "æ‹’ç»äººï¼š" : "Rejected by: "}
+                            {lang === "zh" ? "拒绝人：" : "Rejected by: "}
                             {selectedRegistration.rejectedBy}
                           </>
                         )}
@@ -2990,7 +2990,7 @@ export default function RegistrationsPage() {
 
               {selectedRegistration.status === 'rejected' && selectedRegistration.rejectionReason && (
                 <DetailSection>
-                  <DetailLabel>{lang === "zh" ? "æ‹’ç»åŽŸå› " : "Rejection Reason"}</DetailLabel>
+                  <DetailLabel>{lang === "zh" ? "拒绝原因" : "Rejection Reason"}</DetailLabel>
                   <DetailValue style={{ color: '#991b1b', background: '#fee2e2', padding: '0.75rem', borderRadius: '8px' }}>
                     {selectedRegistration.rejectionReason}
                   </DetailValue>
@@ -3011,18 +3011,18 @@ export default function RegistrationsPage() {
               fontSize: '0.9375rem',
               fontWeight: '500'
             }}>
-              âš ï¸ {approveError}
+              ⚠️ {approveError}
             </div>
           )}
           <ModalActions>
             {isEditMode ? (
               <>
                 <ModalButton onClick={handleCancelEdit}>
-                  {lang === "zh" ? "å–æ¶ˆ" : "Cancel"}
+                  {lang === "zh" ? "取消" : "Cancel"}
                 </ModalButton>
                 <ModalButton $primary onClick={handleSaveEdit}>
                   <SaveIcon />
-                  {lang === "zh" ? "ä¿å­˜" : "Save"}
+                  {lang === "zh" ? "保存" : "Save"}
                 </ModalButton>
               </>
             ) : (
@@ -3032,30 +3032,30 @@ export default function RegistrationsPage() {
                     <ModalButton onClick={() => {
                       handleReject(selectedRegistration.id);
                     }}>
-                      {lang === "zh" ? "æ‹’ç»" : "Reject"}
+                      {lang === "zh" ? "拒绝" : "Reject"}
                     </ModalButton>
                     <ModalButton $primary onClick={() => {
                       handleApprove(selectedRegistration.id);
                     }}>
-                      {lang === "zh" ? "æ‰¹å‡†" : "Approve"}
+                      {lang === "zh" ? "批准" : "Approve"}
                     </ModalButton>
                   </>
                 )}
                 {selectedRegistration?.status === 'rejected' && (
                   <>
                     <ModalButton onClick={() => setShowDetailsModal(false)}>
-                      {lang === "zh" ? "å…³é—­" : "Close"}
+                      {lang === "zh" ? "关闭" : "Close"}
                     </ModalButton>
                     <ModalButton $primary onClick={() => {
                       handleApprove(selectedRegistration.id);
                     }}>
-                      {lang === "zh" ? "æ”¹ä¸ºæ‰¹å‡†" : "Change to Approve"}
+                      {lang === "zh" ? "改为批准" : "Change to Approve"}
                     </ModalButton>
                   </>
                 )}
                 {selectedRegistration?.status !== 'submitted' && selectedRegistration?.status !== 'rejected' && (
                   <ModalButton onClick={() => setShowDetailsModal(false)}>
-                    {lang === "zh" ? "å…³é—­" : "Close"}
+                    {lang === "zh" ? "关闭" : "Close"}
                   </ModalButton>
                 )}
               </>
@@ -3068,16 +3068,16 @@ export default function RegistrationsPage() {
       {showRejectModal && (
         <Modal $show={showRejectModal} onClick={() => setShowRejectModal(false)}>
           <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
-            <ModalTitle>{lang === 'zh' ? 'æ‹’ç»æ³¨å†Œ' : 'Reject Registration'}</ModalTitle>
+            <ModalTitle>{lang === 'zh' ? '拒绝注册' : 'Reject Registration'}</ModalTitle>
             <ModalText>
               {lang === 'zh' 
-                ? 'è¯·è¾“å…¥æ‹’ç»åŽŸå› ï¼ˆå¯é€‰ï¼‰ï¼š'
+                ? '请输入拒绝原因(可选):'
                 : 'Enter rejection reason (optional):'}
             </ModalText>
             <EditTextarea
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
-              placeholder={lang === 'zh' ? 'æ‹’ç»åŽŸå› ...' : 'Rejection reason...'}
+              placeholder={lang === 'zh' ? '拒绝原因...' : 'Rejection reason...'}
               rows={3}
               style={{ width: '100%', marginBottom: '1.5rem' }}
             />
@@ -3087,10 +3087,10 @@ export default function RegistrationsPage() {
                 setRegistrationToReject(null);
                 setRejectionReason('');
               }}>
-                {lang === 'zh' ? 'å–æ¶ˆ' : 'Cancel'}
+                {lang === 'zh' ? '取消' : 'Cancel'}
               </ModalButton>
               <ModalButton $primary onClick={handleConfirmReject} style={{ background: '#ef4444' }}>
-                {lang === 'zh' ? 'ç¡®è®¤æ‹’ç»' : 'Confirm Reject'}
+                {lang === 'zh' ? '确认拒绝' : 'Confirm Reject'}
               </ModalButton>
             </ModalActions>
           </ModalContent>
@@ -3101,10 +3101,10 @@ export default function RegistrationsPage() {
       {showApproveModal && (
         <Modal $show={showApproveModal} onClick={() => setShowApproveModal(false)}>
           <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-            <ModalTitle>{lang === 'zh' ? 'æ‰¹å‡†æ³¨å†Œ' : 'Approve Registration'}</ModalTitle>
+            <ModalTitle>{lang === 'zh' ? '批准注册' : 'Approve Registration'}</ModalTitle>
             <ModalText>
               {lang === 'zh' 
-                ? 'ç¡®å®šè¦æ‰¹å‡†æ­¤æ³¨å†Œå—ï¼Ÿ'
+                ? '确定要批准此注册吗?'
                 : 'Are you sure you want to approve this registration?'}
             </ModalText>
             <ModalActions>
@@ -3112,10 +3112,10 @@ export default function RegistrationsPage() {
                 setShowApproveModal(false);
                 setRegistrationToApprove(null);
               }}>
-                {lang === 'zh' ? 'å–æ¶ˆ' : 'Cancel'}
+                {lang === 'zh' ? '取消' : 'Cancel'}
               </ModalButton>
               <ModalButton $primary onClick={handleConfirmApprove} style={{ background: '#10b981' }}>
-                {lang === 'zh' ? 'ç¡®è®¤æ‰¹å‡†' : 'Confirm Approve'}
+                {lang === 'zh' ? '确认批准' : 'Confirm Approve'}
               </ModalButton>
             </ModalActions>
           </ModalContent>
@@ -3126,10 +3126,10 @@ export default function RegistrationsPage() {
       {showRevokeModal && (
         <Modal $show={showRevokeModal} onClick={() => setShowRevokeModal(false)}>
           <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-            <ModalTitle>{lang === 'zh' ? 'æ’¤é”€æ³¨å†Œé“¾æŽ¥' : 'Revoke Registration Link'}</ModalTitle>
+            <ModalTitle>{lang === 'zh' ? '撤销注册链接' : 'Revoke Registration Link'}</ModalTitle>
             <ModalText>
               {lang === 'zh' 
-                ? 'ç¡®å®šè¦æ’¤é”€æ­¤æ³¨å†Œé“¾æŽ¥å—ï¼Ÿæ’¤é”€åŽè¯¥é“¾æŽ¥å°†æ— æ³•ä½¿ç”¨ã€‚'
+                ? '确定要撤销此注册链接吗?撤销后该链接将无法使用。'
                 : 'Are you sure you want to revoke this registration link? Once revoked, the link cannot be used.'}
             </ModalText>
             <ModalActions>
@@ -3137,10 +3137,10 @@ export default function RegistrationsPage() {
                 setShowRevokeModal(false);
                 setRegistrationToRevoke(null);
               }}>
-                {lang === 'zh' ? 'å–æ¶ˆ' : 'Cancel'}
+                {lang === 'zh' ? '取消' : 'Cancel'}
               </ModalButton>
               <ModalButton $primary onClick={handleConfirmRevoke} style={{ background: '#ef4444' }}>
-                {lang === 'zh' ? 'ç¡®è®¤æ’¤é”€' : 'Confirm Revoke'}
+                {lang === 'zh' ? '确认撤销' : 'Confirm Revoke'}
               </ModalButton>
             </ModalActions>
           </ModalContent>
@@ -3151,10 +3151,10 @@ export default function RegistrationsPage() {
       {showTemplatePicker && (
         <Modal $show={showTemplatePicker} onClick={() => setShowTemplatePicker(false)}>
           <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '640px' }}>
-            <ModalTitle>{lang === 'zh' ? 'é€‰æ‹©è¡¨å•æ¨¡æ¿' : 'Choose a Form Template'}</ModalTitle>
+            <ModalTitle>{lang === 'zh' ? '选择表单模板' : 'Choose a Form Template'}</ModalTitle>
             <ModalText style={{ marginBottom: '1.5rem' }}>
               {lang === 'zh'
-                ? 'é€‰æ‹©å·²ä¿å­˜çš„æ¨¡æ¿å¿«é€Ÿç”Ÿæˆè¡¨å•ï¼Œæˆ–ä»Žå¤´创建æ–°è¡¨å•ã€‚'
+                ? '选择已保存的模板快速生成表单,或从头创建新表单。'
                 : 'Pick a saved template to generate quickly, or create a form from scratch.'}
             </ModalText>
 
@@ -3189,10 +3189,10 @@ export default function RegistrationsPage() {
               }}>+</span>
               <div>
                 <div style={{ fontWeight: 700, color: '#0a3655', fontSize: '0.9375rem' }}>
-                  {lang === 'zh' ? 'ä»Žå¤´创建' : 'Create from Scratch'}
+                  {lang === 'zh' ? 'ä»Ž头创建' : 'Create from Scratch'}
                 </div>
                 <div style={{ fontSize: '0.8125rem', color: '#5c6b7a' }}>
-                  {lang === 'zh' ? 'æ‰‹åŠ¨é€‰æ‹©æ‰€æœ‰è¡¨å•å­—æ®µ' : 'Manually select all form fields'}
+                  {lang === 'zh' ? '手动选择所有表单字段' : 'Manually select all form fields'}
                 </div>
               </div>
             </div>
@@ -3200,7 +3200,7 @@ export default function RegistrationsPage() {
             {/* Template list */}
             {loadingTemplates ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: '#5c6b7a' }}>
-                {lang === 'zh' ? 'åŠ è½½æ¨¡æ¿...' : 'Loading templates...'}
+                {lang === 'zh' ? '加载模板...' : 'Loading templates...'}
               </div>
             ) : availableTemplates.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -3236,16 +3236,16 @@ export default function RegistrationsPage() {
                       </span>
                     </div>
                     <div style={{ fontSize: '0.8125rem', color: '#5c6b7a', marginBottom: '0.5rem' }}>
-                      {tpl.description || (lang === 'zh' ? 'æ— æè¿°' : 'No description')}
+                      {tpl.description || (lang === 'zh' ? '无描述' : 'No description')}
                     </div>
                     <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: '#9ca3af' }}>
-                      <span>{tpl.fields?.length || 0} {lang === 'zh' ? 'ä¸ªå­—æ®µ' : 'fields'}</span>
+                      <span>{tpl.fields?.length || 0} {lang === 'zh' ? '个字段' : 'fields'}</span>
                       <span>
                         {tpl.visibility === 'all'
-                          ? (lang === 'zh' ? 'æ‰€æœ‰äººå¯è§' : 'Visible to all')
+                          ? (lang === 'zh' ? '所有人可见' : 'Visible to all')
                           : tpl.visibility === 'admin_only'
-                          ? (lang === 'zh' ? 'ä»…ç®¡ç†å‘˜' : 'Admin only')
-                          : (lang === 'zh' ? 'æŒ‡å®šè§’è‰²' : 'Specific roles')}
+                          ? (lang === 'zh' ? '仅管理员' : 'Admin only')
+                          : (lang === 'zh' ? '指定角色' : 'Specific roles')}
                       </span>
                     </div>
                   </div>
@@ -3253,13 +3253,13 @@ export default function RegistrationsPage() {
               </div>
             ) : (
               <div style={{ textAlign: 'center', padding: '1.5rem', color: '#9ca3af', fontSize: '0.875rem' }}>
-                {lang === 'zh' ? 'æš‚æ— å·²ä¿å­˜çš„æ¨¡æ¿' : 'No saved templates available'}
+                {lang === 'zh' ? '暂无已保存的模板' : 'No saved templates available'}
               </div>
             )}
 
             <ModalActions style={{ marginTop: '1.5rem' }}>
               <ModalButton onClick={() => setShowTemplatePicker(false)}>
-                {lang === 'zh' ? 'å–æ¶ˆ' : 'Cancel'}
+                {lang === 'zh' ? '取消' : 'Cancel'}
               </ModalButton>
             </ModalActions>
           </ModalContent>

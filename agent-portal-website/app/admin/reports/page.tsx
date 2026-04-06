@@ -86,15 +86,15 @@ export default function ReportsPage() {
   }
 
   return (
-    <MainLayout currentPage={lang === "zh" ? "æŠ¥å‘Šä¸Žåˆ†æž" : "Reports & Analytics"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
+    <MainLayout currentPage={lang === "zh" ? "报告与分析" : "Reports & Analytics"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
       <Container>
         <AdminSidebar mobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
         <MainContent>
           <ContentHeader>
-            <PageTitle>{lang === "zh" ? "æŠ¥å‘Šä¸Žåˆ†æž" : "Reports & Analytics"}</PageTitle>
+            <PageTitle>{lang === "zh" ? "报告与分析" : "Reports & Analytics"}</PageTitle>
             <PageDescription>
               {lang === "zh"
-                ? "查看è¯¦ç»†æŠ¥å‘Šã€åˆ†æžå’Œæ‰€æœ‰å®¢æˆ·å’Œä¸šåŠ¡çš„æ´žå¯Ÿã€‚"
+                ? "查看详细报告、分析和所有客户和业务的洞察。"
                 : "View detailed reports, analytics, and insights across all customers and businesses."}
             </PageDescription>
           </ContentHeader>

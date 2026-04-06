@@ -94,7 +94,7 @@ export default function AgentManagementPage() {
             <PageTitle>{lang === "zh" ? "代理管理" : "Agent Management"}</PageTitle>
             <PageDescription>
               {lang === "zh"
-                ? "ç®¡ç†ä»£ç†è´¦æˆ·å’Œæƒé™ã€‚åˆ†é…ä¸šåŠ¡è®¿é—®æƒé™ã€‚"
+                ? "管理代理账户和权限。分配业务访问权限。"
                 : "Manage agent accounts and permissions. Assign business access rights."}
             </PageDescription>
           </ContentHeader>

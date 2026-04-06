@@ -1130,7 +1130,7 @@ export default function CustomerManagementPage() {
       // Validate required fields
       if (!newCustomer.name || !newCustomer.email) {
         showToast(
-          lang === 'zh' ? 'è¯·å¡«å†™å¿…å¡«å­—æ®µ' : 'Please fill in required fields',
+          lang === 'zh' ? '请填写必填字段' : 'Please fill in required fields',
           'error'
         );
         return;
@@ -1179,7 +1179,7 @@ export default function CustomerManagementPage() {
         await fetchCustomers();
       } else if (result.status_code === 409) {
         showToast(
-          lang === 'zh' ? '邮箱å·²å­˜åœ¨' : 'Email already exists',
+          lang === 'zh' ? '邮箱已存在' : 'Email already exists',
           'error'
         );
       } else {
@@ -1188,7 +1188,7 @@ export default function CustomerManagementPage() {
     } catch (error) {
       console.error('Failed to create customer:', error);
       showToast(
-        lang === 'zh' ? '创建å¤±è´¥' : 'Failed to create customer',
+        lang === 'zh' ? '创建失败' : 'Failed to create customer',
         'error'
       );
     }
@@ -1290,7 +1290,7 @@ export default function CustomerManagementPage() {
               <PageTitle>{t("customerManagement")}</PageTitle>
               <PageDescription>
                 {lang === "zh"
-                  ? "ç®¡ç†æ‰€æœ‰POSå®¢æˆ·ã€‚查看ã€æ·»åŠ ã€ç¼–è¾‘å’Œç›‘æŽ§å®¢æˆ·ä¿¡æ¯ã€‚"
+                  ? "管理所有POS客户。查看、添加、编辑和监控客户信息。"
                   : "Manage all POS customers. View, add, edit, and monitor customer information."}
               </PageDescription>
             </div>
@@ -1314,7 +1314,7 @@ export default function CustomerManagementPage() {
             </StatCard>
             <StatCard>
               <StatValue>{stats.recentAdditions}</StatValue>
-              <StatLabel>{lang === 'zh' ? 'è¿‘30å¤©æ–°å¢ž' : 'Added Last 30 Days'}</StatLabel>
+              <StatLabel>{lang === 'zh' ? '近30天新增' : 'Added Last 30 Days'}</StatLabel>
             </StatCard>
           </StatsGrid>
 
@@ -1328,20 +1328,20 @@ export default function CustomerManagementPage() {
               />
               <AdvancedSearchToggle onClick={() => setAdvancedSearchVisible(!advancedSearchVisible)}>
                 {advancedSearchVisible 
-                  ? (lang === 'zh' ? 'éšè—é«˜çº§æœç´¢' : 'Hide Advanced') 
-                  : (lang === 'zh' ? 'é«˜çº§æœç´¢' : 'Advanced Search')}
+                  ? (lang === 'zh' ? '隐藏高级搜索' : 'Hide Advanced') 
+                  : (lang === 'zh' ? '高级搜索' : 'Advanced Search')}
               </AdvancedSearchToggle>
             </SearchRow>
             <AdvancedSearchPanel $show={advancedSearchVisible}>
               <SearchInput
                 type="text"
-                placeholder={lang === "zh" ? "按 ABN æœç´¢..." : "Search by ABN..."}
+                placeholder={lang === "zh" ? "按 ABN 搜索..." : "Search by ABN..."}
                 value={searchByABN}
                 onChange={(e) => setSearchByABN(e.target.value)}
               />
               <SearchInput
                 type="text"
-                placeholder={lang === "zh" ? "æŒ‰åœ°å€æœç´¢..." : "Search by address..."}
+                placeholder={lang === "zh" ? "按地址搜索..." : "Search by address..."}
                 value={searchByAddress}
                 onChange={(e) => setSearchByAddress(e.target.value)}
               />
@@ -1356,26 +1356,26 @@ export default function CustomerManagementPage() {
                 <option value="withoutBusiness">{lang === 'zh' ? '无业务' : 'Without Businesses'}</option>
               </Select>
               <Select value={sortField} onChange={(e) => setSortField(e.target.value as any)}>
-                <option value="name">{lang === 'zh' ? 'æŒ‰åç§°æŽ’åº' : 'Sort by Name'}</option>
+                <option value="name">{lang === 'zh' ? '按名称排序' : 'Sort by Name'}</option>
                 <option value="created_at">{lang === 'zh' ? '按日期排序' : 'Sort by Date'}</option>
                 <option value="businessCount">{lang === 'zh' ? '按业务数排序' : 'Sort by Business Count'}</option>
               </Select>
               <Select value={sortDirection} onChange={(e) => setSortDirection(e.target.value as any)}>
-                <option value="asc">{lang === 'zh' ? 'å‡åº' : 'Ascending'}</option>
-                <option value="desc">{lang === 'zh' ? 'é™åº' : 'Descending'}</option>
+                <option value="asc">{lang === 'zh' ? '升序' : 'Ascending'}</option>
+                <option value="desc">{lang === 'zh' ? '降序' : 'Descending'}</option>
               </Select>
             </ControlGroup>
             <ControlGroup>
               <ViewToggle>
                 <ViewButton $active={viewMode === 'grid'} onClick={() => setViewMode('grid')}>
-                  <GridIcon /> {lang === 'zh' ? 'ç½‘æ ¼' : 'Grid'}
+                  <GridIcon /> {lang === 'zh' ? '网格' : 'Grid'}
                 </ViewButton>
                 <ViewButton $active={viewMode === 'table'} onClick={() => setViewMode('table')}>
-                  <ListIcon /> {lang === 'zh' ? 'è¡¨æ ¼' : 'Table'}
+                  <ListIcon /> {lang === 'zh' ? '表格' : 'Table'}
                 </ViewButton>
               </ViewToggle>
               <ExportButton onClick={handleExportCSV}>
-                <DownloadIcon /> {lang === 'zh' ? 'å¯¼å‡º CSV' : 'Export CSV'}
+                <DownloadIcon /> {lang === 'zh' ? '导出 CSV' : 'Export CSV'}
               </ExportButton>
             </ControlGroup>
           </ControlBar>
@@ -1408,17 +1408,17 @@ export default function CustomerManagementPage() {
                 <Thead>
                   <Tr>
                     <Th onClick={() => handleSort('name')}>
-                      {lang === 'zh' ? 'å§“å' : 'Name'} <SortIcon />
+                      {lang === 'zh' ? '姓名' : 'Name'} <SortIcon />
                     </Th>
                     <Th>{lang === 'zh' ? '邮箱' : 'Email'}</Th>
-                    <Th>{lang === 'zh' ? 'ç”µè¯' : 'Phone'}</Th>
+                    <Th>{lang === 'zh' ? '电话' : 'Phone'}</Th>
                     <Th onClick={() => handleSort('businessCount')}>
                       {lang === 'zh' ? '业务' : 'Businesses'} <SortIcon />
                     </Th>
                     <Th onClick={() => handleSort('created_at')}>
-                      {lang === 'zh' ? '创建æ—¥æœŸ' : 'Created'} <SortIcon />
+                      {lang === 'zh' ? '创建日期' : 'Created'} <SortIcon />
                     </Th>
-                    <Th>{lang === 'zh' ? 'æ“ä½œ' : 'Actions'}</Th>
+                    <Th>{lang === 'zh' ? '操作' : 'Actions'}</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
@@ -1435,10 +1435,10 @@ export default function CustomerManagementPage() {
                       </Td>
                       <Td>
                         <ActionButtons>
-                          <IconButton onClick={() => handleCustomerClick(customer)} title={lang === 'zh' ? '查看è¯¦æƒ…' : 'View Details'}>
+                          <IconButton onClick={() => handleCustomerClick(customer)} title={lang === 'zh' ? '查看详情' : 'View Details'}>
                             <EyeIcon />
                           </IconButton>
-                          <IconButton onClick={() => handleEmailCustomer(customer.email)} title={lang === 'zh' ? 'å‘é€é‚®ä»¶' : 'Send Email'}>
+                          <IconButton onClick={() => handleEmailCustomer(customer.email)} title={lang === 'zh' ? '发送邮件' : 'Send Email'}>
                             <MailIcon />
                           </IconButton>
                         </ActionButtons>
@@ -1484,14 +1484,14 @@ export default function CustomerManagementPage() {
                         {customer.businesses.length > 3 && (
                           <CustomerDetail style={{ marginTop: '0.5rem', fontStyle: 'italic' }}>
                             {lang === "zh" 
-                              ? `+ ${customer.businesses.length - 3} æ›´å¤šä¸šåŠ¡` 
+                              ? `+ ${customer.businesses.length - 3} 更多业务` 
                               : `+ ${customer.businesses.length - 3} more business${customer.businesses.length - 3 > 1 ? 'es' : ''}`}
                           </CustomerDetail>
                         )}
                       </BusinessList>
                     ) : (
                       <CustomerDetail style={{ fontStyle: 'italic', opacity: 0.7 }}>
-                        {lang === "zh" ? "æ— ä¸šåŠ¡" : "No businesses"}
+                        {lang === "zh" ? "无业务" : "No businesses"}
                       </CustomerDetail>
                     )}
                   </BusinessSection>
@@ -1504,7 +1504,7 @@ export default function CustomerManagementPage() {
             <PaginationContainer>
               <PaginationInfo>
                 {lang === 'zh' 
-                  ? `æ˜¾ç¤º ${startIndex + 1} - ${Math.min(startIndex + itemsPerPage, filteredCustomers.length)} / å…± ${filteredCustomers.length}` 
+                  ? `显示 ${startIndex + 1} - ${Math.min(startIndex + itemsPerPage, filteredCustomers.length)} / 共 ${filteredCustomers.length}` 
                   : `Showing ${startIndex + 1} - ${Math.min(startIndex + itemsPerPage, filteredCustomers.length)} of ${filteredCustomers.length}`}
               </PaginationInfo>
               <PaginationControls>
@@ -1557,11 +1557,11 @@ export default function CustomerManagementPage() {
         <ModalContent onClick={(e) => e.stopPropagation()}>
           <ModalHeader>
             <ModalTitle>{lang === 'zh' ? '创建新客户' : 'Create New Customer'}</ModalTitle>
-            <CloseButton onClick={() => setShowCreateModal(false)}>Ã—</CloseButton>
+            <CloseButton onClick={() => setShowCreateModal(false)}>×</CloseButton>
           </ModalHeader>
           
           <Section>
-            <DetailLabel>{lang === "zh" ? "å§“å" : "Name"} *</DetailLabel>
+            <DetailLabel>{lang === "zh" ? "姓名" : "Name"} *</DetailLabel>
             <Input
               type="text"
               value={newCustomer.name}
@@ -1571,53 +1571,53 @@ export default function CustomerManagementPage() {
           </Section>
 
           <Section>
-            <DetailLabel>{lang === "zh" ? "ç”µå­é‚®ä»¶" : "Email"} *</DetailLabel>
+            <DetailLabel>{lang === "zh" ? "电子邮件" : "Email"} *</DetailLabel>
             <Input
               type="email"
               value={newCustomer.email}
               onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
-              placeholder={lang === "zh" ? "è¾“å…¥ç”µå­é‚®ä»¶åœ°å€" : "Enter email address"}
+              placeholder={lang === "zh" ? "输入电子邮件地址" : "Enter email address"}
             />
           </Section>
 
           <Section>
-            <DetailLabel>{lang === "zh" ? "ç”µè¯" : "Phone"}</DetailLabel>
+            <DetailLabel>{lang === "zh" ? "电话" : "Phone"}</DetailLabel>
             <Input
               type="tel"
               value={newCustomer.phone}
               onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
-              placeholder={lang === "zh" ? "è¾“å…¥ç”µè¯å·ç " : "Enter phone number"}
+              placeholder={lang === "zh" ? "输入电话号码" : "Enter phone number"}
             />
           </Section>
 
           <Section>
-            <DetailLabel>{lang === "zh" ? "æ¶ˆæ¯åº”ç”¨ç±»åž‹" : "Messaging App Type"}</DetailLabel>
+            <DetailLabel>{lang === "zh" ? "消息应用类型" : "Messaging App Type"}</DetailLabel>
             <Select
               value={newCustomer.messagingAppType || ''}
               onChange={(e) => setNewCustomer({ ...newCustomer, messagingAppType: e.target.value })}
             >
-              <option value="">{lang === "zh" ? "é€‰æ‹©æ¶ˆæ¯åº”ç”¨ç±»åž‹" : "Select messaging app type"}</option>
+              <option value="">{lang === "zh" ? "选择消息应用类型" : "Select messaging app type"}</option>
               <option value="WeChat">WeChat</option>
               <option value="WhatsApp">WhatsApp</option>
-              <option value="Other">{lang === "zh" ? "å…¶ä»–" : "Other"}</option>
+              <option value="Other">{lang === "zh" ? "其他" : "Other"}</option>
             </Select>
           </Section>
 
           {newCustomer.messagingAppType && (
             <Section>
-              <DetailLabel>{lang === "zh" ? "æ¶ˆæ¯åº”ç”¨ ID" : "Messaging App ID"}</DetailLabel>
+              <DetailLabel>{lang === "zh" ? "消息应用 ID" : "Messaging App ID"}</DetailLabel>
               <Input
                 type="text"
                 value={newCustomer.messagingAppId}
                 onChange={(e) => setNewCustomer({ ...newCustomer, messagingAppId: e.target.value })}
-                placeholder={lang === "zh" ? "è¾“å…¥åº”ç”¨ ID" : "Enter app ID"}
+                placeholder={lang === "zh" ? "输入应用 ID" : "Enter app ID"}
               />
             </Section>
           )}
 
           <ModalActions>
             <ActionButton onClick={() => setShowCreateModal(false)}>
-              {lang === 'zh' ? 'å–æ¶ˆ' : 'Cancel'}
+              {lang === 'zh' ? '取消' : 'Cancel'}
             </ActionButton>
             <ActionButton $variant="primary" onClick={handleCreateCustomer}>
               <SaveIcon /> {lang === 'zh' ? '创建客户' : 'Create Customer'}

@@ -86,15 +86,15 @@ export default function SettingsPage() {
   }
 
   return (
-    <MainLayout currentPage={lang === "zh" ? "ç³»ç»Ÿè®¾ç½®" : "System Settings"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
+    <MainLayout currentPage={lang === "zh" ? "系统设置" : "System Settings"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
       <Container>
         <AdminSidebar mobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
         <MainContent>
           <ContentHeader>
-            <PageTitle>{lang === "zh" ? "ç³»ç»Ÿè®¾ç½®" : "System Settings"}</PageTitle>
+            <PageTitle>{lang === "zh" ? "系统设置" : "System Settings"}</PageTitle>
             <PageDescription>
               {lang === "zh"
-                ? "é…ç½®ç³»ç»Ÿè®¾ç½®ã€ç”¨æˆ·æƒé™å’Œåº”ç”¨ç¨‹åºåå¥½ã€‚"
+                ? "配置系统设置、用户权限和应用程序偏好。"
                 : "Configure system settings, user permissions, and application preferences."}
             </PageDescription>
           </ContentHeader>
