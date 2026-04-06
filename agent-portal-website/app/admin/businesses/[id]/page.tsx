@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import styled from "styled-components";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, isAdminRole } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import MainLayout from "@/components/layout/MainLayout";
@@ -879,7 +879,7 @@ export default function BusinessDetailPage() {
   useEffect(() => {
     if (!authLoading && !token) {
       router.push("/login");
-    } else if (!authLoading && token && role !== "admin") {
+    } else if (!authLoading && token && !isAdminRole(role)) {
       router.push("/agent");
     }
   }, [token, role, authLoading, router]);
@@ -1492,7 +1492,7 @@ export default function BusinessDetailPage() {
     );
   }
 
-  if (!token || role !== "admin") {
+  if (!token || !isAdminRole(role)) {
     return null;
   }
 

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import styled from "styled-components";
 import axios from "axios";
 import MainLayout from "@/components/layout/MainLayout";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, isAdminRole } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import { API_CONFIG, getApiUrl } from "@/config/api";
@@ -824,7 +824,7 @@ const normalizeRegistration = (r: any): Registration => {
 export default function RegistrationDetailsPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
-  const { token, role, isLoading } = useAuth();
+  const { token, role, isLoading, adminProfile } = useAuth();
   const { lang } = useLanguage();
   const { showToast } = useToast();
   const [registration, setRegistration] = useState<Registration | null>(null);
@@ -856,7 +856,7 @@ export default function RegistrationDetailsPage() {
       return;
     }
 
-    if (!isLoading && token && role !== "admin") {
+    if (!isLoading && token && !isAdminRole(role)) {
       router.push("/agent");
     }
   }, [isLoading, token, role, router]);
@@ -1500,6 +1500,11 @@ export default function RegistrationDetailsPage() {
       </Field>
     );
   };
+
+  if (!adminProfile?.permissions?.includes('manage_registration_forms')) {
+    router.push('/admin');
+    return null;
+  }
 
   return (
     <MainLayout currentPage={`Registrations › ${loading ? 'Loading...' : registration?.form_id || 'Details'}`}>

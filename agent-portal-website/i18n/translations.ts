@@ -83,6 +83,7 @@ export const dict = {
   incorrectPassword: { zh: "密码错误。请重试。", en: "Incorrect password. Please try again." },
   loginFailedCredentials: { zh: "登录失败。请检查您的凭据。", en: "Login failed. Please check your credentials." },
   invalidCredentials: { zh: "邮箱或密码无效。请检查您的凭据。", en: "Invalid email or password. Please check your credentials." },
+  accountSuspended: { zh: "您的账户已被暂停。请联系管理员。", en: "Your account has been suspended. Please contact your administrator." },
   loginServiceUnavailable: { zh: "登录服务不可用。请稍后重试。", en: "Login service unavailable. Please try again later." },
   serverErrorTryAgain: { zh: "服务器错误。请稍后重试。", en: "Server error. Please try again later." },
   requestTimeout: { zh: "请求超时。请检查您的网络连接。", en: "Request timeout. Please check your internet connection." },

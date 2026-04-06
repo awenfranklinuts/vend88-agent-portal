@@ -8,8 +8,8 @@ const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const fullUrl = `${getBackendBaseUrl()}/portal/admin/create`;
-    console.log('[Admin Create API] Forwarding to:', fullUrl);
+    const fullUrl = `${getBackendBaseUrl()}/portal/admin/permissions`;
+    console.log('[Admin Permissions API] Forwarding to:', fullUrl);
 
     const response = await axios.post(fullUrl, body, {
       headers: { 'Content-Type': 'application/json' },
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(response.data, { status: response.status });
   } catch (error: any) {
-    console.error('[Admin Create API] Error:', error.response?.data || error.message);
+    console.error('[Admin Permissions API] Error:', error.response?.data || error.message);
     if (error.response) {
       return NextResponse.json(error.response.data, { status: error.response.status });
     }

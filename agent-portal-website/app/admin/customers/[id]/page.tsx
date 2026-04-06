@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import styled from "styled-components";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, isAdminRole } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import { dict } from "@/i18n/translations";
@@ -376,7 +376,7 @@ interface Business {
 export default function CustomerDetailPage() {
   const router = useRouter();
   const params = useParams();
-  const { token, role, isLoading } = useAuth();
+  const { token, role, isLoading, adminProfile } = useAuth();
   const { lang } = useLanguage();
   const { showToast } = useToast();
   
@@ -393,13 +393,13 @@ export default function CustomerDetailPage() {
   useEffect(() => {
     if (!isLoading && !token) {
       router.push("/login");
-    } else if (!isLoading && token && role !== "admin") {
+    } else if (!isLoading && token && !isAdminRole(role)) {
       router.push("/agent");
     }
   }, [token, role, isLoading, router]);
 
   useEffect(() => {
-    if (token && role === "admin" && customerId) {
+    if (token && isAdminRole(role) && customerId) {
       fetchCustomerDetail();
     }
   }, [token, role, customerId]);
@@ -542,7 +542,12 @@ export default function CustomerDetailPage() {
     );
   }
 
-  if (!token || role !== "admin") {
+  if (!token || !isAdminRole(role)) {
+    return null;
+  }
+
+  if (!adminProfile?.permissions?.includes('manage_customers')) {
+    router.push('/admin');
     return null;
   }
 

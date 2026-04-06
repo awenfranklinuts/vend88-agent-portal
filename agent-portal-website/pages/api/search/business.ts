@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
 import https from 'https';
+import { getBackendBaseUrl } from '@/config/server';
 
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false,
@@ -106,7 +107,7 @@ export default async function handler(
     // Try to fetch from real API first
     try {
       const response = await axios.post(
-        'https://dev.vend88.com/search/business_search',
+        `${getBackendBaseUrl()}/search/business_search`,
         req.body,
         {
           headers: {

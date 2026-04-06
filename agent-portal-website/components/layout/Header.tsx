@@ -7,6 +7,7 @@ import styled from "styled-components";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { dict } from "@/i18n/translations";
+import { formatRole } from "@/lib/roleFormatter";
 
 const HeaderContainer = styled.header<{ $scrolled: boolean }>`
   background: ${p => p.$scrolled 
@@ -382,7 +383,7 @@ export default function Header({ currentPage = "Home", onMenuToggle }: HeaderPro
   
   // Fetch admin profile on mount if role is admin
   React.useEffect(() => {
-    if (token && role === "admin" && !adminProfile) {
+    if (token && (role === "admin" || role === "super_admin") && !adminProfile) {
       fetchAdminProfile();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -448,7 +449,7 @@ export default function Header({ currentPage = "Home", onMenuToggle }: HeaderPro
           
           <LogoSection onClick={() => {
             if (token) {
-              if (role === "admin") {
+              if (role === "admin" || role === "super_admin") {
                 router.push("/admin");
               } else if (role === "agent") {
                 router.push("/agent");
@@ -469,7 +470,7 @@ export default function Header({ currentPage = "Home", onMenuToggle }: HeaderPro
           
           {token && (
             <Breadcrumbs>
-              <BreadcrumbItem>{role === "admin" ? t("admin") : t("agent")}</BreadcrumbItem>
+              <BreadcrumbItem>{(role === "admin" || role === "super_admin") ? t("admin") : t("agent")}</BreadcrumbItem>
               <BreadcrumbItem $active>{currentPage}</BreadcrumbItem>
             </Breadcrumbs>
           )}
@@ -489,7 +490,7 @@ export default function Header({ currentPage = "Home", onMenuToggle }: HeaderPro
                 </UserAvatar>
                 <UserInfo>
                   <UserEmail>{getDisplayName()}</UserEmail>
-                  <UserRole>{role}</UserRole>
+                  <UserRole>{formatRole(role)}</UserRole>
                 </UserInfo>
               </UserSection>
               

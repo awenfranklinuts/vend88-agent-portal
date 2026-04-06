@@ -5,12 +5,18 @@ import {
   useContext,
   useState,
   useEffect,
+  useRef,
   ReactNode,
   useCallback,
 } from "react";
 import { useRouter } from 'next/navigation';
 import axios from "axios";
 import { getApiUrl, API_CONFIG } from "@/config/api";
+
+// ── Idle timeout configuration ──────────────────────────────────
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000;   // 30 minutes of inactivity → logout
+const IDLE_WARNING_MS = 25 * 60 * 1000;   // show warning at 25 minutes
+const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'] as const;
 
 export interface Customer {
   _id: string;
@@ -43,19 +49,25 @@ interface AdminProfile {
   role: string;
   first_name: string;
   last_name: string;
+  permissions: string[];
 }
+
+export type UserRole = "agent" | "admin" | "super_admin";
+
+// Returns true for roles that access the /admin dashboard
+export const isAdminRole = (role: string | null): boolean => role === "admin" || role === "super_admin";
 
   interface AuthContextType {
   token: string | null;
   userEmail: string | null;
-  role: "agent" | "admin" | null;
+  role: UserRole | null;
   adminProfile: AdminProfile | null;
   customers: Customer[];
   businesses: Business[];
   isLoading: boolean;
   setToken: (token: string | null) => void;
   setUserEmail: (email: string | null) => void;
-  setRole: (role: "agent" | "admin" | null) => void;
+  setRole: (role: UserRole | null) => void;
   fetchAdminProfile: (tokenArg?: string) => Promise<boolean>;
   fetchCustomers: () => Promise<void>;
   fetchBusinesses: () => Promise<void>;
@@ -70,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [token, setTokenState] = useState<string | null>(null);
   const [userEmail, setUserEmailState] = useState<string | null>(null);
-  const [role, setRoleState] = useState<"agent" | "admin" | null>(null);
+  const [role, setRoleState] = useState<UserRole | null>(null);
   const [adminProfile, setAdminProfile] = useState<AdminProfile | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -79,12 +91,80 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [sessionExpired, setSessionExpired] = useState(false);
   // When user clicks Dismiss, suppress re-showing modal until this timestamp
   const [suppressSessionExpiredUntil, setSuppressSessionExpiredUntil] = useState<number | null>(null);
+  // Idle warning shown before hard logout
+  const [idleWarning, setIdleWarning] = useState(false);
+  const [idleCountdown, setIdleCountdown] = useState(0);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Idle-timeout helpers ────────────────────────────────────
+  const resetIdleTimers = useCallback(() => {
+    // Update the stored session timeout so the mount-check stays in sync
+    if (token) {
+      const newTimeout = Date.now() + IDLE_TIMEOUT_MS;
+      sessionStorage.setItem('sessionTimeout', newTimeout.toString());
+    }
+
+    // Clear existing timers
+    if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    setIdleWarning(false);
+
+    if (!token) return; // only run when logged in
+
+    // Warning timer
+    warningTimerRef.current = setTimeout(() => {
+      setIdleWarning(true);
+      setIdleCountdown(Math.ceil((IDLE_TIMEOUT_MS - IDLE_WARNING_MS) / 1000));
+    }, IDLE_WARNING_MS);
+
+    // Hard logout timer
+    idleTimerRef.current = setTimeout(() => {
+      setIdleWarning(false);
+      setSessionExpired(true);
+      logout();
+    }, IDLE_TIMEOUT_MS);
+  }, [token]);
+
+  // Attach / detach activity listeners
+  useEffect(() => {
+    if (!token) return;
+
+    const onActivity = () => {
+      // If the warning is showing, any activity dismisses it and resets
+      resetIdleTimers();
+    };
+
+    ACTIVITY_EVENTS.forEach((evt) => window.addEventListener(evt, onActivity, { passive: true }));
+    resetIdleTimers(); // start the first cycle
+
+    return () => {
+      ACTIVITY_EVENTS.forEach((evt) => window.removeEventListener(evt, onActivity));
+      if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, [token, resetIdleTimers]);
+
+  // Countdown ticker while the warning is visible
+  useEffect(() => {
+    if (!idleWarning) return;
+    const interval = setInterval(() => {
+      setIdleCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [idleWarning]);
 
   useEffect(() => {
     // Initialize from localStorage and verify session timeout
     const storedToken = localStorage.getItem("token");
     const storedEmail = localStorage.getItem("userEmail");
-    const storedRole = localStorage.getItem("role") as "agent" | "admin" | null;
+    const storedRole = localStorage.getItem("role") as UserRole | null;
     const sessionTimeout = sessionStorage.getItem('sessionTimeout');
 
     const now = Date.now();
@@ -156,7 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const setRole = (newRole: "agent" | "admin" | null) => {
+  const setRole = (newRole: UserRole | null) => {
     setRoleState(newRole);
     if (newRole) {
       localStorage.setItem("role", newRole);
@@ -188,6 +268,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: response.data.role,
           first_name: response.data.first_name,
           last_name: response.data.last_name,
+          permissions: response.data.permissions || [],
         });
         setIsFetchingProfile(false);
         return true;
@@ -346,6 +427,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               <button onClick={() => { clearSessionExpired(); }} style={{ padding: '8px 12px', borderRadius: 8, background: '#e5e7eb', border: 'none', cursor: 'pointer' }}>{'Dismiss'}</button>
               <button onClick={() => { logout(); router.push('/login'); }} style={{ padding: '8px 12px', borderRadius: 8, background: '#3b82f6', color: 'white', border: 'none', cursor: 'pointer' }}>{'Go to Login'}</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {idleWarning && !sessionExpired && (
+        <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)', zIndex: 1100 }}>
+          <div style={{ background: 'white', padding: 24, borderRadius: 12, maxWidth: 420, width: '90%', textAlign: 'center' }}>
+            <h3 style={{ margin: 0, marginBottom: 8, color: '#b45309' }}>{'Are you still there?'}</h3>
+            <p style={{ marginTop: 0, marginBottom: 8, color: '#5c6b7a' }}>{'You have been idle for a while. Your session will expire soon due to inactivity.'}</p>
+            <p style={{ marginTop: 0, marginBottom: 12, color: '#9ca3af' }}>{`Logging out in ${idleCountdown} second${idleCountdown === 1 ? '' : 's'}...`}</p>
+            <button onClick={() => resetIdleTimers()} style={{ padding: '8px 16px', borderRadius: 8, background: '#3b82f6', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 600 }}>{'I\'m still here'}</button>
           </div>
         </div>
       )}

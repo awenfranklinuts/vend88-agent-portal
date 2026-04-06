@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styled from "styled-components";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, isAdminRole } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { dict } from "@/i18n/translations";
 import MainLayout from "@/components/layout/MainLayout";
@@ -889,7 +889,7 @@ interface Business {
 
 export default function BusinessManagementPage() {
   const router = useRouter();
-  const { token, role, isLoading } = useAuth();
+  const { token, role, isLoading, adminProfile } = useAuth();
   const { lang } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -923,13 +923,13 @@ export default function BusinessManagementPage() {
   useEffect(() => {
     if (!isLoading && !token) {
       router.push("/login");
-    } else if (!isLoading && token && role !== "admin") {
+    } else if (!isLoading && token && !isAdminRole(role)) {
       router.push("/agent");
     }
   }, [token, role, isLoading, router]);
 
   useEffect(() => {
-    if (token && role === "admin") {
+    if (token && isAdminRole(role)) {
       fetchBusinesses();
     }
   }, [token, role]);
@@ -1275,7 +1275,12 @@ export default function BusinessManagementPage() {
     );
   }
 
-  if (!token || role !== "admin") {
+  if (!token || !isAdminRole(role)) {
+    return null;
+  }
+
+  if (!adminProfile?.permissions?.includes('manage_businesses')) {
+    router.push('/admin');
     return null;
   }
 
@@ -1288,26 +1293,26 @@ export default function BusinessManagementPage() {
             <PageTitle>{t("businessManagement")}</PageTitle>
             <PageDescription>
               {lang === "zh"
-                ? "管理所有业务和地点。查看、添加、编辑和监控业务信息。"
+                ? "ç®¡ç†æ‰€æœ‰ä¸šåŠ¡å’Œåœ°ç‚¹ã€‚æŸ¥çœ‹ã€æ·»åŠ ã€ç¼–è¾‘å’Œç›‘æŽ§ä¸šåŠ¡ä¿¡æ¯ã€‚"
                 : "Manage all businesses and locations. View, add, edit, and monitor business information."}
             </PageDescription>
           </ContentHeader>
 
           <StatsContainer>
             <StatCard>
-              <StatLabel>{lang === "zh" ? "总业务数" : "Total Businesses"}</StatLabel>
+              <StatLabel>{lang === "zh" ? "æ€»ä¸šåŠ¡æ•°" : "Total Businesses"}</StatLabel>
               <StatValue>{stats.total}</StatValue>
             </StatCard>
             <StatCard>
-              <StatLabel>{lang === "zh" ? "活跃" : "Active"}</StatLabel>
+              <StatLabel>{lang === "zh" ? "æ´»è·ƒ" : "Active"}</StatLabel>
               <StatValue style={{ color: '#065f46' }}>{stats.active}</StatValue>
             </StatCard>
             <StatCard>
-              <StatLabel>{lang === "zh" ? "设置中" : "In Setup"}</StatLabel>
+              <StatLabel>{lang === "zh" ? "è®¾ç½®ä¸­" : "In Setup"}</StatLabel>
               <StatValue style={{ color: '#1e40af' }}>{stats.setup}</StatValue>
             </StatCard>
             <StatCard>
-              <StatLabel>{lang === "zh" ? "非活跃" : "Inactive"}</StatLabel>
+              <StatLabel>{lang === "zh" ? "éžæ´»è·ƒ" : "Inactive"}</StatLabel>
               <StatValue style={{ color: '#6b7280' }}>{stats.inactive}</StatValue>
             </StatCard>
           </StatsContainer>
@@ -1316,45 +1321,45 @@ export default function BusinessManagementPage() {
             <SearchRow>
               <SearchInput
                 type="text"
-                placeholder={lang === "zh" ? "搜索业务名称、ID、邮箱..." : "Search business name, ID, email..."}
+                placeholder={lang === "zh" ? "æœç´¢ä¸šåŠ¡åç§°ã€IDã€é‚®ç®±..." : "Search business name, ID, email..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
               <AdvancedSearchToggle onClick={() => setAdvancedSearchVisible(!advancedSearchVisible)}>
                 {advancedSearchVisible 
-                  ? (lang === 'zh' ? '隐藏高级搜索' : 'Hide Advanced') 
-                  : (lang === 'zh' ? '高级搜索' : 'Advanced Search')}
+                  ? (lang === 'zh' ? 'éšè—é«˜çº§æœç´¢' : 'Hide Advanced') 
+                  : (lang === 'zh' ? 'é«˜çº§æœç´¢' : 'Advanced Search')}
               </AdvancedSearchToggle>
             </SearchRow>
             
             <AdvancedSearchPanel $show={advancedSearchVisible}>
               <SearchInput
                 type="text"
-                placeholder={lang === "zh" ? "按 ABN 搜索..." : "Search by ABN..."}
+                placeholder={lang === "zh" ? "æŒ‰ ABN æœç´¢..." : "Search by ABN..."}
                 value={searchByABN}
                 onChange={(e) => setSearchByABN(e.target.value)}
               />
               <SearchInput
                 type="text"
-                placeholder={lang === "zh" ? "按地址搜索..." : "Search by address..."}
+                placeholder={lang === "zh" ? "æŒ‰åœ°å€æœç´¢..." : "Search by address..."}
                 value={searchByAddress}
                 onChange={(e) => setSearchByAddress(e.target.value)}
               />
               <SearchInput
                 type="text"
-                placeholder={lang === "zh" ? "按所有者搜索..." : "Search by owner..."}
+                placeholder={lang === "zh" ? "æŒ‰æ‰€æœ‰è€…æœç´¢..." : "Search by owner..."}
                 value={searchByOwner}
                 onChange={(e) => setSearchByOwner(e.target.value)}
               />
               <SearchInput
                 type="date"
-                placeholder={lang === "zh" ? "从日期" : "From date"}
+                placeholder={lang === "zh" ? "ä»Žæ—¥æœŸ" : "From date"}
                 value={dateFilterFrom}
                 onChange={(e) => setDateFilterFrom(e.target.value)}
               />
               <SearchInput
                 type="date"
-                placeholder={lang === "zh" ? "到日期" : "To date"}
+                placeholder={lang === "zh" ? "åˆ°æ—¥æœŸ" : "To date"}
                 value={dateFilterTo}
                 onChange={(e) => setDateFilterTo(e.target.value)}
               />
@@ -1362,14 +1367,14 @@ export default function BusinessManagementPage() {
             
             <FilterRow>
               <FilterSelect value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-                <option value="all">{lang === "zh" ? "所有状态" : "All Status"}</option>
-                <option value="active">{lang === "zh" ? "活跃" : "Active"}</option>
-                <option value="setup">{lang === "zh" ? "设置中" : "Setup"}</option>
-                <option value="inactive">{lang === "zh" ? "非活跃" : "Inactive"}</option>
-                <option value="suspended">{lang === "zh" ? "暂停" : "Suspended"}</option>
+                <option value="all">{lang === "zh" ? "æ‰€æœ‰çŠ¶æ€" : "All Status"}</option>
+                <option value="active">{lang === "zh" ? "æ´»è·ƒ" : "Active"}</option>
+                <option value="setup">{lang === "zh" ? "è®¾ç½®ä¸­" : "Setup"}</option>
+                <option value="inactive">{lang === "zh" ? "éžæ´»è·ƒ" : "Inactive"}</option>
+                <option value="suspended">{lang === "zh" ? "æš‚åœ" : "Suspended"}</option>
               </FilterSelect>
               <FilterSelect value={filterState} onChange={(e) => setFilterState(e.target.value)}>
-                <option value="all">{lang === "zh" ? "所有州" : "All States"}</option>
+                <option value="all">{lang === "zh" ? "æ‰€æœ‰å·ž" : "All States"}</option>
                 <option value="NSW">NSW</option>
                 <option value="VIC">VIC</option>
                 <option value="QLD">QLD</option>
@@ -1381,7 +1386,7 @@ export default function BusinessManagementPage() {
               </FilterSelect>
               {(searchQuery || searchByABN || searchByAddress || searchByOwner || filterStatus !== 'all' || filterState !== 'all' || dateFilterFrom || dateFilterTo) && (
                 <ClearButton onClick={handleClearFilters}>
-                  {lang === "zh" ? "清除" : "Clear"}
+                  {lang === "zh" ? "æ¸…é™¤" : "Clear"}
                 </ClearButton>
               )}
             </FilterRow>
@@ -1390,26 +1395,26 @@ export default function BusinessManagementPage() {
           <ControlBar>
             <ControlGroup>
               <Select value={sortField} onChange={(e) => setSortField(e.target.value as any)}>
-                <option value="name">{lang === 'zh' ? '按名称排序' : 'Sort by Name'}</option>
-                <option value="createdAt">{lang === 'zh' ? '按日期排序' : 'Sort by Date'}</option>
-                <option value="status">{lang === 'zh' ? '按状态排序' : 'Sort by Status'}</option>
+                <option value="name">{lang === 'zh' ? 'æŒ‰åç§°æŽ’åº' : 'Sort by Name'}</option>
+                <option value="createdAt">{lang === 'zh' ? 'æŒ‰æ—¥æœŸæŽ’åº' : 'Sort by Date'}</option>
+                <option value="status">{lang === 'zh' ? 'æŒ‰çŠ¶æ€æŽ’åº' : 'Sort by Status'}</option>
               </Select>
               <Select value={sortDirection} onChange={(e) => setSortDirection(e.target.value as any)}>
-                <option value="asc">{lang === 'zh' ? '升序' : 'Ascending'}</option>
-                <option value="desc">{lang === 'zh' ? '降序' : 'Descending'}</option>
+                <option value="asc">{lang === 'zh' ? 'å‡åº' : 'Ascending'}</option>
+                <option value="desc">{lang === 'zh' ? 'é™åº' : 'Descending'}</option>
               </Select>
             </ControlGroup>
             <ControlGroup>
               <ViewToggle>
                 <ViewButton $active={viewMode === 'grid'} onClick={() => setViewMode('grid')}>
-                  <GridIcon /> {lang === 'zh' ? '网格' : 'Grid'}
+                  <GridIcon /> {lang === 'zh' ? 'ç½‘æ ¼' : 'Grid'}
                 </ViewButton>
                 <ViewButton $active={viewMode === 'table'} onClick={() => setViewMode('table')}>
-                  <ListIcon /> {lang === 'zh' ? '表格' : 'Table'}
+                  <ListIcon /> {lang === 'zh' ? 'è¡¨æ ¼' : 'Table'}
                 </ViewButton>
               </ViewToggle>
               <ExportButton onClick={handleExportCSV}>
-                <DownloadIcon /> {lang === 'zh' ? '导出 CSV' : 'Export CSV'}
+                <DownloadIcon /> {lang === 'zh' ? 'å¯¼å‡º CSV' : 'Export CSV'}
               </ExportButton>
             </ControlGroup>
           </ControlBar>
@@ -1428,10 +1433,10 @@ export default function BusinessManagementPage() {
             </BusinessGrid>
           ) : businesses.length === 0 ? (
             <EmptyState>
-              <EmptyIcon>🏢</EmptyIcon>
-              <EmptyText>{lang === "zh" ? "暂无业务" : "No businesses found"}</EmptyText>
+              <EmptyIcon>ðŸ¢</EmptyIcon>
+              <EmptyText>{lang === "zh" ? "æš‚æ— ä¸šåŠ¡" : "No businesses found"}</EmptyText>
               <EmptySubtext>
-                {lang === "zh" ? "批准注册表单后，业务将自动创建。" : "Businesses will be created automatically when registrations are approved."}
+                {lang === "zh" ? "æ‰¹å‡†æ³¨å†Œè¡¨å•åŽï¼Œä¸šåŠ¡å°†è‡ªåŠ¨åˆ›å»ºã€‚" : "Businesses will be created automatically when registrations are approved."}
               </EmptySubtext>
             </EmptyState>
           ) : viewMode === 'table' ? (
@@ -1439,15 +1444,15 @@ export default function BusinessManagementPage() {
               <BulkActionBar $show={selectedRows.size > 0}>
                 <BulkActionText>
                   {lang === 'zh' 
-                    ? `已选择 ${selectedRows.size} 个业务` 
+                    ? `å·²é€‰æ‹© ${selectedRows.size} ä¸ªä¸šåŠ¡` 
                     : `${selectedRows.size} business${selectedRows.size > 1 ? 'es' : ''} selected`}
                 </BulkActionText>
                 <BulkActionButtons>
                   <ActionButton onClick={handleBulkExport}>
-                    <DownloadIcon /> {lang === 'zh' ? '导出选中' : 'Export Selected'}
+                    <DownloadIcon /> {lang === 'zh' ? 'å¯¼å‡ºé€‰ä¸­' : 'Export Selected'}
                   </ActionButton>
                   <ActionButton onClick={() => setSelectedRows(new Set())}>
-                    {lang === 'zh' ? '取消选择' : 'Deselect All'}
+                    {lang === 'zh' ? 'å–æ¶ˆé€‰æ‹©' : 'Deselect All'}
                   </ActionButton>
                 </BulkActionButtons>
               </BulkActionBar>
@@ -1461,17 +1466,17 @@ export default function BusinessManagementPage() {
                       />
                     </CheckboxTh>
                     <Th onClick={() => handleSort('name')}>
-                      {lang === 'zh' ? '业务名称' : 'Business Name'} <SortIcon />
+                      {lang === 'zh' ? 'ä¸šåŠ¡åç§°' : 'Business Name'} <SortIcon />
                     </Th>
-                    <Th>{lang === 'zh' ? '所有者' : 'Owner'}</Th>
+                    <Th>{lang === 'zh' ? 'æ‰€æœ‰è€…' : 'Owner'}</Th>
                     <Th onClick={() => handleSort('status')}>
-                      {lang === 'zh' ? '状态' : 'Status'} <SortIcon />
+                      {lang === 'zh' ? 'çŠ¶æ€' : 'Status'} <SortIcon />
                     </Th>
-                    <Th>{lang === 'zh' ? '地点' : 'Location'}</Th>
+                    <Th>{lang === 'zh' ? 'åœ°ç‚¹' : 'Location'}</Th>
                     <Th onClick={() => handleSort('createdAt')}>
-                      {lang === 'zh' ? '创建日期' : 'Created'} <SortIcon />
+                      {lang === 'zh' ? 'åˆ›å»ºæ—¥æœŸ' : 'Created'} <SortIcon />
                     </Th>
-                    <Th>{lang === 'zh' ? '操作' : 'Actions'}</Th>
+                    <Th>{lang === 'zh' ? 'æ“ä½œ' : 'Actions'}</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
@@ -1494,10 +1499,10 @@ export default function BusinessManagementPage() {
                       <Td>{new Date(business.createdAt).toLocaleDateString()}</Td>
                       <Td>
                         <ActionButtons>
-                          <IconButton onClick={() => handleViewDetails(business)} title={lang === 'zh' ? '查看详情' : 'View Details'}>
+                          <IconButton onClick={() => handleViewDetails(business)} title={lang === 'zh' ? 'æŸ¥çœ‹è¯¦æƒ…' : 'View Details'}>
                             <EyeIcon />
                           </IconButton>
-                          <IconButton onClick={() => handleBusinessClick(business._id)} title={lang === 'zh' ? '编辑' : 'Edit'}>
+                          <IconButton onClick={() => handleBusinessClick(business._id)} title={lang === 'zh' ? 'ç¼–è¾‘' : 'Edit'}>
                             <EditIcon />
                           </IconButton>
                         </ActionButtons>
@@ -1532,7 +1537,7 @@ export default function BusinessManagementPage() {
                   </CardHeader>
                   <BusinessInfo>
                     <InfoRow>
-                      <InfoLabel>{lang === "zh" ? "所有者:" : "Owner:"}</InfoLabel>
+                      <InfoLabel>{lang === "zh" ? "æ‰€æœ‰è€…:" : "Owner:"}</InfoLabel>
                       <InfoValue>{getOwnerName(business.owner_id)}</InfoValue>
                     </InfoRow>
                     {business.abn && (
@@ -1543,21 +1548,21 @@ export default function BusinessManagementPage() {
                     )}
                     {business.contactEmail && (
                       <InfoRow>
-                        <InfoLabel>{lang === "zh" ? "邮箱:" : "Email:"}</InfoLabel>
+                        <InfoLabel>{lang === "zh" ? "é‚®ç®±:" : "Email:"}</InfoLabel>
                         <InfoValue>{business.contactEmail}</InfoValue>
                       </InfoRow>
                     )}
                     <InfoRow>
-                      <InfoLabel>{lang === "zh" ? "创建:" : "Created:"}</InfoLabel>
+                      <InfoLabel>{lang === "zh" ? "åˆ›å»º:" : "Created:"}</InfoLabel>
                       <InfoValue>{new Date(business.createdAt).toLocaleDateString()}</InfoValue>
                     </InfoRow>
                   </BusinessInfo>
                   <CardActions>
                     <CardButton onClick={() => handleViewDetails(business)}>
-                      <EyeIcon /> {lang === 'zh' ? '详情' : 'Details'}
+                      <EyeIcon /> {lang === 'zh' ? 'è¯¦æƒ…' : 'Details'}
                     </CardButton>
                     <CardButton $variant="primary" onClick={() => handleBusinessClick(business._id)}>
-                      <EditIcon /> {lang === 'zh' ? '编辑' : 'Edit'}
+                      <EditIcon /> {lang === 'zh' ? 'ç¼–è¾‘' : 'Edit'}
                     </CardButton>
                   </CardActions>
                 </BusinessCard>
@@ -1569,7 +1574,7 @@ export default function BusinessManagementPage() {
             <PaginationContainer>
               <PaginationInfo>
                 {lang === 'zh' 
-                  ? `显示 ${startIndex + 1} - ${Math.min(startIndex + itemsPerPage, businesses.length)} / 共 ${businesses.length}` 
+                  ? `æ˜¾ç¤º ${startIndex + 1} - ${Math.min(startIndex + itemsPerPage, businesses.length)} / å…± ${businesses.length}` 
                   : `Showing ${startIndex + 1} - ${Math.min(startIndex + itemsPerPage, businesses.length)} of ${businesses.length}`}
               </PaginationInfo>
               <PaginationControls>
@@ -1578,7 +1583,7 @@ export default function BusinessManagementPage() {
                   $disabled={currentPage === 1}
                   disabled={currentPage === 1}
                 >
-                  {lang === 'zh' ? '上一页' : 'Previous'}
+                  {lang === 'zh' ? 'ä¸Šä¸€é¡µ' : 'Previous'}
                 </PageButton>
                 {Array.from({ length: totalPages }, (_, i) => i + 1)
                   .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
@@ -1602,7 +1607,7 @@ export default function BusinessManagementPage() {
                   $disabled={currentPage === totalPages}
                   disabled={currentPage === totalPages}
                 >
-                  {lang === 'zh' ? '下一页' : 'Next'}
+                  {lang === 'zh' ? 'ä¸‹ä¸€é¡µ' : 'Next'}
                 </PageButton>
               </PaginationControls>
             </PaginationContainer>
@@ -1615,24 +1620,24 @@ export default function BusinessManagementPage() {
         <ModalContent onClick={(e) => e.stopPropagation()}>
           <ModalHeader>
             <ModalTitle>{selectedBusiness?.name}</ModalTitle>
-            <CloseButton onClick={handleCloseModal}>×</CloseButton>
+            <CloseButton onClick={handleCloseModal}>Ã—</CloseButton>
           </ModalHeader>
           
           <DetailGrid>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? '业务 ID' : 'Business ID'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? 'ä¸šåŠ¡ ID' : 'Business ID'}</DetailLabel>
               <DetailValue>{selectedBusiness?._id}</DetailValue>
             </DetailItem>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? '所有者' : 'Owner'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? 'æ‰€æœ‰è€…' : 'Owner'}</DetailLabel>
               <DetailValue>{selectedBusiness ? getOwnerName(selectedBusiness.owner_id) : 'N/A'}</DetailValue>
             </DetailItem>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? '所有者邮箱' : 'Owner Email'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? 'æ‰€æœ‰è€…é‚®ç®±' : 'Owner Email'}</DetailLabel>
               <DetailValue>{selectedBusiness ? getOwnerEmail(selectedBusiness.owner_id) || 'N/A' : 'N/A'}</DetailValue>
             </DetailItem>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? '状态' : 'Status'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? 'çŠ¶æ€' : 'Status'}</DetailLabel>
               <DetailValue>
                 <StatusBadge $status={selectedBusiness?.status || 'inactive'}>
                   {selectedBusiness?.status}
@@ -1644,39 +1649,39 @@ export default function BusinessManagementPage() {
               <DetailValue>{selectedBusiness?.abn || 'N/A'}</DetailValue>
             </DetailItem>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? '地址' : 'Address'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? 'åœ°å€' : 'Address'}</DetailLabel>
               <DetailValue>{selectedBusiness?.address || 'N/A'}</DetailValue>
             </DetailItem>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? '郊区' : 'Suburb'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? 'éƒŠåŒº' : 'Suburb'}</DetailLabel>
               <DetailValue>{selectedBusiness?.suburb || 'N/A'}</DetailValue>
             </DetailItem>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? '州' : 'State'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? 'å·ž' : 'State'}</DetailLabel>
               <DetailValue>{selectedBusiness?.state || 'N/A'}</DetailValue>
             </DetailItem>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? '邮编' : 'Postcode'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? 'é‚®ç¼–' : 'Postcode'}</DetailLabel>
               <DetailValue>{selectedBusiness?.postcode || 'N/A'}</DetailValue>
             </DetailItem>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? '联系邮箱' : 'Contact Email'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? 'è”ç³»é‚®ç®±' : 'Contact Email'}</DetailLabel>
               <DetailValue>{selectedBusiness?.contactEmail || 'N/A'}</DetailValue>
             </DetailItem>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? '联系电话' : 'Contact Phone'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? 'è”ç³»ç”µè¯' : 'Contact Phone'}</DetailLabel>
               <DetailValue>{selectedBusiness?.contactPhone || 'N/A'}</DetailValue>
             </DetailItem>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? 'EFTPOS 集成' : 'EFTPOS Integration'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? 'EFTPOS é›†æˆ' : 'EFTPOS Integration'}</DetailLabel>
               <DetailValue>{selectedBusiness?.eftposIntegration || 'N/A'}</DetailValue>
             </DetailItem>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? '支付宝选项' : 'Alipay Option'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? 'æ”¯ä»˜å®é€‰é¡¹' : 'Alipay Option'}</DetailLabel>
               <DetailValue>{selectedBusiness?.alipayOption || 'N/A'}</DetailValue>
             </DetailItem>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? '创建日期' : 'Created Date'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? 'åˆ›å»ºæ—¥æœŸ' : 'Created Date'}</DetailLabel>
               <DetailValue>
                 {selectedBusiness?.createdAt 
                   ? new Date(selectedBusiness.createdAt).toLocaleDateString()
@@ -1684,7 +1689,7 @@ export default function BusinessManagementPage() {
               </DetailValue>
             </DetailItem>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? '更新日期' : 'Updated Date'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? 'æ›´æ–°æ—¥æœŸ' : 'Updated Date'}</DetailLabel>
               <DetailValue>
                 {selectedBusiness?.updatedAt 
                   ? new Date(selectedBusiness.updatedAt).toLocaleDateString()
@@ -1695,11 +1700,11 @@ export default function BusinessManagementPage() {
           
           <ModalActions>
             <ActionButton onClick={handleCloseModal}>
-              {lang === 'zh' ? '关闭' : 'Close'}
+              {lang === 'zh' ? 'å…³é—­' : 'Close'}
             </ActionButton>
             {selectedBusiness && getOwnerEmail(selectedBusiness.owner_id) && (
               <ActionButton onClick={() => window.location.href = `mailto:${getOwnerEmail(selectedBusiness.owner_id)}`}>
-                {lang === 'zh' ? '发送邮件' : 'Send Email'}
+                {lang === 'zh' ? 'å‘é€é‚®ä»¶' : 'Send Email'}
               </ActionButton>
             )}
             <ActionButton $variant="primary" onClick={() => {
@@ -1708,7 +1713,7 @@ export default function BusinessManagementPage() {
                 handleCloseModal();
               }
             }}>
-              <EditIcon /> {lang === 'zh' ? '编辑业务' : 'Edit Business'}
+              <EditIcon /> {lang === 'zh' ? 'ç¼–è¾‘ä¸šåŠ¡' : 'Edit Business'}
             </ActionButton>
           </ModalActions>
         </ModalContent>
@@ -1718,10 +1723,10 @@ export default function BusinessManagementPage() {
       {showStatusModal && (
         <Modal $show={showStatusModal} onClick={() => setShowStatusModal(false)}>
           <ModalContent onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-            <ModalTitle>{lang === 'zh' ? '更改状态' : 'Change Status'}</ModalTitle>
+            <ModalTitle>{lang === 'zh' ? 'æ›´æ”¹çŠ¶æ€' : 'Change Status'}</ModalTitle>
             <DetailValue style={{ margin: '1.5rem 0' }}>
               {lang === 'zh' 
-                ? `确定要将状态更改为 "${statusToChange?.newStatus}" 吗？`
+                ? `ç¡®å®šè¦å°†çŠ¶æ€æ›´æ”¹ä¸º "${statusToChange?.newStatus}" å—ï¼Ÿ`
                 : `Are you sure you want to change the status to "${statusToChange?.newStatus}"?`}
             </DetailValue>
             <ModalActions>
@@ -1729,10 +1734,10 @@ export default function BusinessManagementPage() {
                 setShowStatusModal(false);
                 setStatusToChange(null);
               }}>
-                {lang === 'zh' ? '取消' : 'Cancel'}
+                {lang === 'zh' ? 'å–æ¶ˆ' : 'Cancel'}
               </ActionButton>
               <ActionButton $variant="primary" onClick={handleConfirmStatusChange}>
-                {lang === 'zh' ? '确认更改' : 'Confirm Change'}
+                {lang === 'zh' ? 'ç¡®è®¤æ›´æ”¹' : 'Confirm Change'}
               </ActionButton>
             </ModalActions>
           </ModalContent>

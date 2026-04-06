@@ -7,6 +7,7 @@ import styled from "styled-components";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { dict } from "@/i18n/translations";
+import { formatRole } from "@/lib/roleFormatter";
 
 // Icon Components
 const HomeIcon = () => (
@@ -305,6 +306,10 @@ export default function AdminSidebar({ mobileOpen, onClose }: AdminSidebarProps)
 
   const t = (key: keyof typeof dict) => dict[key][lang];
 
+  // Permission check helper
+  const perms = adminProfile?.permissions || [];
+  const hasPerm = (permId: string) => perms.includes(permId);
+
   // Fetch admin profile on mount
   React.useEffect(() => {
     if (!adminProfile) {
@@ -326,7 +331,7 @@ export default function AdminSidebar({ mobileOpen, onClose }: AdminSidebarProps)
             {t("welcome")}, {displayName}
           </WelcomeText>
           <UserEmail>{userEmail}</UserEmail>
-          <RoleBadge>{t("admin")}</RoleBadge>
+          <RoleBadge>{formatRole(adminProfile?.role)}</RoleBadge>
         </SidebarHeader>
 
         <NavList>
@@ -335,60 +340,78 @@ export default function AdminSidebar({ mobileOpen, onClose }: AdminSidebarProps)
             {lang === "zh" ? "首页" : "Home"}
           </NavItem>
 
-          <NavItem href="/admin/businesses" $active={pathname === "/admin/businesses"} onClick={onClose} prefetch={true}>
-            <NavIcon><BusinessIcon /></NavIcon>
-            {t("businessManagement")}
-          </NavItem>
+          {hasPerm('manage_businesses') && (
+            <NavItem href="/admin/businesses" $active={pathname === "/admin/businesses"} onClick={onClose} prefetch={true}>
+              <NavIcon><BusinessIcon /></NavIcon>
+              {t("businessManagement")}
+            </NavItem>
+          )}
 
-          <NavItem href="/admin/customers" $active={pathname === "/admin/customers"} onClick={onClose} prefetch={true}>
-            <NavIcon><CustomersIcon /></NavIcon>
-            {t("customerManagement")}
-          </NavItem>
+          {hasPerm('manage_customers') && (
+            <NavItem href="/admin/customers" $active={pathname === "/admin/customers"} onClick={onClose} prefetch={true}>
+              <NavIcon><CustomersIcon /></NavIcon>
+              {t("customerManagement")}
+            </NavItem>
+          )}
 
-          <NavItem href="/admin/agents" $active={pathname === "/admin/agents"} onClick={onClose} prefetch={true}>
-            <NavIcon><AgentIcon /></NavIcon>
-            {lang === "zh" ? "代理管理" : "Agent Management"}
-          </NavItem>
+          {hasPerm('manage_agents') && (
+            <NavItem href="/admin/agents" $active={pathname === "/admin/agents"} onClick={onClose} prefetch={true}>
+              <NavIcon><AgentIcon /></NavIcon>
+              {lang === "zh" ? "代理管理" : "Agent Management"}
+            </NavItem>
+          )}
 
-          <NavGroup>
-            <NavParent
-              $active={isRegistrationSection}
-              onClick={() => setRegistrationExpanded(prev => !prev)}
-            >
-              <NavIcon><RegistrationIcon /></NavIcon>
-              <NavParentLabel>{lang === "zh" ? "注册管理" : "Registration Management"}</NavParentLabel>
-              <ChevronIcon $expanded={registrationExpanded}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="9 18 15 12 9 6"/>
-                </svg>
-              </ChevronIcon>
-            </NavParent>
-            <SubNavList $expanded={registrationExpanded}>
-              <SubNavItem href="/admin/registrations" $active={pathname === "/admin/registrations"} onClick={onClose} prefetch={true}>
+          {(hasPerm('manage_registration_forms') || hasPerm('manage_form_templates')) && (
+            <NavGroup>
+              <NavParent
+                $active={isRegistrationSection}
+                onClick={() => setRegistrationExpanded(prev => !prev)}
+              >
                 <NavIcon><RegistrationIcon /></NavIcon>
-                {lang === "zh" ? "注册表单" : "Registration Forms"}
-              </SubNavItem>
-              <SubNavItem href="/admin/registrations/templates" $active={pathname === "/admin/registrations/templates"} onClick={onClose} prefetch={true}>
-                <NavIcon><TemplateIcon /></NavIcon>
-                {lang === "zh" ? "表单模板" : "Form Templates"}
-              </SubNavItem>
-            </SubNavList>
-          </NavGroup>
+                <NavParentLabel>{lang === "zh" ? "注册管理" : "Registration Management"}</NavParentLabel>
+                <ChevronIcon $expanded={registrationExpanded}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </ChevronIcon>
+              </NavParent>
+              <SubNavList $expanded={registrationExpanded}>
+                {hasPerm('manage_registration_forms') && (
+                  <SubNavItem href="/admin/registrations" $active={pathname === "/admin/registrations"} onClick={onClose} prefetch={true}>
+                    <NavIcon><RegistrationIcon /></NavIcon>
+                    {lang === "zh" ? "注册表单" : "Registration Forms"}
+                  </SubNavItem>
+                )}
+                {hasPerm('manage_form_templates') && (
+                  <SubNavItem href="/admin/registrations/templates" $active={pathname === "/admin/registrations/templates"} onClick={onClose} prefetch={true}>
+                    <NavIcon><TemplateIcon /></NavIcon>
+                    {lang === "zh" ? "表单模板" : "Form Templates"}
+                  </SubNavItem>
+                )}
+              </SubNavList>
+            </NavGroup>
+          )}
 
-          <NavItem href="/admin/admins" $active={pathname === "/admin/admins"} onClick={onClose} prefetch={true}>
-            <NavIcon><AdminIcon /></NavIcon>
-            {lang === "zh" ? "管理员管理" : "Admin Management"}
-          </NavItem>
+          {hasPerm('manage_admins') && (
+            <NavItem href="/admin/admins" $active={pathname === "/admin/admins"} onClick={onClose} prefetch={true}>
+              <NavIcon><AdminIcon /></NavIcon>
+              {lang === "zh" ? "管理员管理" : "Admin Management"}
+            </NavItem>
+          )}
 
-          <NavItem href="/admin/reports" $active={pathname === "/admin/reports"} onClick={onClose} prefetch={true}>
-            <NavIcon><ReportsIcon /></NavIcon>
-            {lang === "zh" ? "报告与分析" : "Reports & Analytics"}
-          </NavItem>
+          {hasPerm('view_reports') && (
+            <NavItem href="/admin/reports" $active={pathname === "/admin/reports"} onClick={onClose} prefetch={true}>
+              <NavIcon><ReportsIcon /></NavIcon>
+              {lang === "zh" ? "报告与分析" : "Reports & Analytics"}
+            </NavItem>
+          )}
 
-          <NavItem href="/admin/settings" $active={pathname === "/admin/settings"} onClick={onClose} prefetch={true}>
-            <NavIcon><SettingsIcon /></NavIcon>
-            {lang === "zh" ? "系统设置" : "System Settings"}
-          </NavItem>
+          {hasPerm('manage_system_settings') && (
+            <NavItem href="/admin/settings" $active={pathname === "/admin/settings"} onClick={onClose} prefetch={true}>
+              <NavIcon><SettingsIcon /></NavIcon>
+              {lang === "zh" ? "系统设置" : "System Settings"}
+            </NavItem>
+          )}
         </NavList>
       </Sidebar>
     </>

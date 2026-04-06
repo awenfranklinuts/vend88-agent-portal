@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
 import https from 'https';
+import { getBackendBaseUrl } from '@/config/server';
 
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false,
@@ -112,7 +113,7 @@ export default async function handler(
       }
 
       const response = await axios.get(
-        'https://dev.vend88.com/registration/list',
+        `${getBackendBaseUrl()}/registration/list`,
         {
           headers: {
             'Content-Type': 'application/json',

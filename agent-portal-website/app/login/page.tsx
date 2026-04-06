@@ -746,7 +746,7 @@ export default function LoginPage() {
         if (!sessionTimeout || now < timeout) {
           // Session is valid, redirect to appropriate dashboard
           console.log("Valid session found, redirecting to dashboard");
-          const redirectPath = userRole === "admin" ? "/admin" : "/agent";
+          const redirectPath = (userRole === "admin" || userRole === "super_admin") ? "/admin" : "/agent";
           router.push(redirectPath);
           return;
         } else {
@@ -859,16 +859,9 @@ export default function LoginPage() {
       return;
     }
     
-    // Security Check 4: Rate limiting
-    const rateCheck = checkRateLimit(sanitizedEmail);
-    if (!rateCheck.allowed) {
-      setErrorMessage(`Too many failed attempts. Please wait ${rateCheck.waitTime} seconds before trying again.`);
-      return;
-    }
-    
     setIsLoading(true);
 
-    // Only allow admin login for now
+    // Only allow admin/super_admin login for now
     if (role !== "admin") {
       console.log("Agent login not available");
       setErrorKey("agentLoginNotAvailable");
@@ -892,6 +885,7 @@ export default function LoginPage() {
       const response = await axios.post(apiUrl, {
         email: sanitizedEmail,
         password: sanitizedPassword,
+        role: role,
       }, {
         timeout: 15000, // 15 second timeout
         headers: {
@@ -908,15 +902,19 @@ export default function LoginPage() {
       console.log("Login response:", response.data);
 
       if (response.data.status_code === 200 && response.data.token) {
-        // Security: Clear failed login attempts on success
-        clearFailedAttempts(sanitizedEmail);
-        
         // Set authentication data
         const userToken = response.data.token;
+        // Use role from server response if available, otherwise fall back to selected role
+        const serverRole = response.data.user?.role || role;
         console.log("Setting token:", userToken);
         setToken(userToken);
-        setUserEmail(sanitizedEmail);
-        setRole(role);
+        setUserEmail(response.data.user?.email || sanitizedEmail);
+        setRole(serverRole);
+        
+        // Store permissions if returned
+        if (response.data.permissions) {
+          sessionStorage.setItem('permissions', JSON.stringify(response.data.permissions));
+        }
         
         // Handle remember me functionality (only store email, never password)
         if (rememberMe) {
@@ -930,11 +928,13 @@ export default function LoginPage() {
         // Clear the saved role from sessionStorage on successful login
         sessionStorage.removeItem('loginRole');
         
-        // Security: Set session timeout (30 minutes of inactivity)
-        const sessionTimeout = Date.now() + (30 * 60 * 1000);
+        // Security: Set session timeout from server or default 30 minutes
+        const timeoutSeconds = response.data.session_timeout || 1800;
+        const sessionTimeout = Date.now() + (timeoutSeconds * 1000);
         sessionStorage.setItem('sessionTimeout', sessionTimeout.toString());
         
-        console.log("Login successful, redirecting to:", role === "admin" ? "/admin" : "/agent");
+        const redirectPath = (serverRole === "admin" || serverRole === "super_admin") ? "/admin" : "/agent";
+        console.log("Login successful, redirecting to:", redirectPath);
         
         // Show loading screen during navigation
         setIsNavigating(true);
@@ -942,15 +942,11 @@ export default function LoginPage() {
         
         // Small delay to ensure state is saved, then redirect
         setTimeout(() => {
-          const redirectPath = role === "admin" ? "/admin" : "/agent";
           console.log("Navigating to:", redirectPath);
           router.push(redirectPath);
         }, 300);
       } else {
-        // Security: Record failed attempt
-        recordFailedAttempt(sanitizedEmail);
-        
-        // Security: Use generic error messages to prevent username enumeration
+        // Use generic error messages to prevent username enumeration
         // Don't reveal whether email exists or password is wrong
         setErrorKey("invalidCredentials");
       }
@@ -964,16 +960,18 @@ export default function LoginPage() {
         status: err.response?.status
       });
       
-      // Security: Record failed attempt
-      recordFailedAttempt(sanitizedEmail);
-      
-      // Security: Use generic error messages to prevent information leakage
+      // Use generic error messages to prevent information leakage
       // Network errors (cannot reach server)
       if (err.code === 'ERR_NETWORK' || err.message.includes('Network Error')) {
         setErrorMessage("Cannot reach server. Please check your connection.");
       } else if (err.response?.status === 401 || err.response?.status === 403) {
-        // Generic message - don't reveal if email exists or password is wrong
-        setErrorKey("invalidCredentials");
+        // Check if account is suspended
+        if (err.response?.data?.detail?.status_msg === 'suspended' || err.response?.data?.status_msg === 'suspended') {
+          setErrorKey("accountSuspended");
+        } else {
+          // Generic message - don't reveal if email exists or password is wrong
+          setErrorKey("invalidCredentials");
+        }
       } else if (err.response?.status === 429) {
         setErrorMessage("Too many requests. Please try again later.");
       } else if (err.response?.status >= 500) {

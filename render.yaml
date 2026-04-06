@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: vend88-agent-portal-api
+    runtime: python
+    rootDir: local-api
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: RENDER
+        value: "true"
+    plan: free

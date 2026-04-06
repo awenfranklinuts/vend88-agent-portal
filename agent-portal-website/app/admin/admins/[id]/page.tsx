@@ -17,9 +17,11 @@ interface Admin {
   first_name: string;
   last_name: string;
   role: string;
+  status: string;
   created_at: string;
   updated_at: string;
   last_login?: string;
+  permissions?: string[];
 }
 
 interface AdminFormData {
@@ -27,13 +29,135 @@ interface AdminFormData {
   first_name: string;
   last_name: string;
   role: string;
+  status: string;
   password: string;
   confirm_password: string;
+}
+
+interface AuditLog {
+  timestamp: string;
+  action: string;
+  target_email: string;
+  actor_email: string;
+  details: string;
+}
+
+interface Permission {
+  id: string;
+  name_en: string;
+  name_zh: string;
+  enabled: boolean;
+}
+
+interface PermissionCategory {
+  category_en: string;
+  category_zh: string;
+  permissions: Permission[];
 }
 
 const ROLE_LABELS: Record<string, { en: string; zh: string }> = {
   admin: { en: 'Admin', zh: '管理员' },
   super_admin: { en: 'Super Admin', zh: '超级管理员' },
+};
+
+const AVAILABLE_PERMISSIONS: Record<string, PermissionCategory[]> = {
+  admin: [
+    {
+      category_en: 'Business Management',
+      category_zh: '业务管理',
+      permissions: [
+        { id: 'manage_businesses', name_en: 'Business Management', name_zh: '业务管理', enabled: true },
+      ],
+    },
+    {
+      category_en: 'Customer Management',
+      category_zh: '客户管理',
+      permissions: [
+        { id: 'manage_customers', name_en: 'Customer Management', name_zh: '客户管理', enabled: true },
+      ],
+    },
+    {
+      category_en: 'Agent Management',
+      category_zh: '代理管理',
+      permissions: [
+        { id: 'manage_agents', name_en: 'Agent Management', name_zh: '代理管理', enabled: true },
+      ],
+    },
+    {
+      category_en: 'Registration Management',
+      category_zh: '注册管理',
+      permissions: [
+        { id: 'manage_registration_forms', name_en: 'Registration Forms', name_zh: '注册表单', enabled: true },
+        { id: 'manage_form_templates', name_en: 'Form Templates', name_zh: '表单模板', enabled: true },
+      ],
+    },
+    {
+      category_en: 'Reports & Analytics',
+      category_zh: '报告与分析',
+      permissions: [
+        { id: 'view_reports', name_en: 'Reports & Analytics', name_zh: '报告与分析', enabled: true },
+      ],
+    },
+    {
+      category_en: 'System Settings',
+      category_zh: '系统设置',
+      permissions: [
+        { id: 'manage_system_settings', name_en: 'System Settings', name_zh: '系统设置', enabled: true },
+      ],
+    },
+  ],
+  super_admin: [
+    {
+      category_en: 'Business Management',
+      category_zh: '业务管理',
+      permissions: [
+        { id: 'manage_businesses', name_en: 'Business Management', name_zh: '业务管理', enabled: true },
+      ],
+    },
+    {
+      category_en: 'Customer Management',
+      category_zh: '客户管理',
+      permissions: [
+        { id: 'manage_customers', name_en: 'Customer Management', name_zh: '客户管理', enabled: true },
+      ],
+    },
+    {
+      category_en: 'Agent Management',
+      category_zh: '代理管理',
+      permissions: [
+        { id: 'manage_agents', name_en: 'Agent Management', name_zh: '代理管理', enabled: true },
+      ],
+    },
+    {
+      category_en: 'Registration Management',
+      category_zh: '注册管理',
+      permissions: [
+        { id: 'manage_registration_forms', name_en: 'Registration Forms', name_zh: '注册表单', enabled: true },
+        { id: 'manage_form_templates', name_en: 'Form Templates', name_zh: '表单模板', enabled: true },
+      ],
+    },
+    {
+      category_en: 'Admin Management',
+      category_zh: '管理员管理',
+      permissions: [
+        { id: 'manage_admins', name_en: 'Admin Management', name_zh: '管理员管理', enabled: true },
+      ],
+    },
+    {
+      category_en: 'Reports & Analytics',
+      category_zh: '报告与分析',
+      permissions: [
+        { id: 'view_reports', name_en: 'Reports & Analytics', name_zh: '报告与分析', enabled: true },
+      ],
+    },
+    {
+      category_en: 'System Settings',
+      category_zh: '系统设置',
+      permissions: [
+        { id: 'manage_system_settings', name_en: 'System Settings', name_zh: '系统设置', enabled: true },
+      ],
+    },
+  ]
 };
 
 /* ─── Styled Components ─── */
@@ -139,6 +263,28 @@ const RoleBadge = styled.span<{ $role: string }>`
         return 'background: linear-gradient(135deg, rgba(126,34,206,0.12) 0%, rgba(168,85,247,0.12) 100%); color: #7e22ce;';
       case 'admin':
         return 'background: rgba(26, 35, 126, 0.1); color: #1a237e;';
+      default:
+        return 'background: #e5e7eb; color: #374151;';
+    }
+  }}
+`;
+
+const StatusBadge = styled.span<{ $status: string }>`
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  width: fit-content;
+  ${p => {
+    switch (p.$status) {
+      case 'active':
+        return 'background: rgba(34, 197, 94, 0.12); color: #15803d;';
+      case 'inactive':
+        return 'background: rgba(239, 68, 68, 0.12); color: #991b1b;';
+      case 'suspended':
+        return 'background: rgba(244, 164, 96, 0.12); color: #b45309;';
       default:
         return 'background: #e5e7eb; color: #374151;';
     }
@@ -353,6 +499,86 @@ const ConfirmWarning = styled.p`
   margin-top: 1rem;
 `;
 
+const AuditLogSection = styled.div`
+  margin-top: 0.5rem;
+`;
+
+const AuditLogTitle = styled.h3`
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0a3655;
+  margin: 0 0 1rem 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const AuditTable = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+`;
+
+const AuditThead = styled.thead`
+  background: #f7faff;
+`;
+
+const AuditTh = styled.th`
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #0a3655;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 0.75rem;
+  border-bottom: 2px solid #e0e7ef;
+`;
+
+const AuditTbody = styled.tbody``;
+
+const AuditTr = styled.tr`
+  border-bottom: 1px solid #e0e7ef;
+  transition: background 0.2s ease;
+  &:hover {
+    background: #f7faff;
+  }
+`;
+
+const AuditTd = styled.td`
+  padding: 1rem;
+  color: #0a3655;
+  word-break: break-word;
+`;
+
+const ActionBadge = styled.span<{ $action: string }>`
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  ${p => {
+    switch (p.$action) {
+      case 'CREATE':
+        return 'background: rgba(34, 197, 94, 0.12); color: #15803d;';
+      case 'UPDATE':
+        return 'background: rgba(59, 130, 246, 0.12); color: #1e40af;';
+      case 'DELETE':
+        return 'background: rgba(239, 68, 68, 0.12); color: #991b1b;';
+      default:
+        return 'background: #e5e7eb; color: #374151;';
+    }
+  }}
+`;
+
+const AuditEmpty = styled.div`
+  text-align: center;
+  padding: 2rem;
+  color: #9ca3af;
+  font-size: 0.875rem;
+`;
+
 const SkeletonBlock = styled.div`
   height: 1rem;
   background: linear-gradient(90deg, #e0e7ef 25%, #f0f4f8 50%, #e0e7ef 75%);
@@ -368,6 +594,73 @@ const SkeletonBlock = styled.div`
 const SkeletonLine = styled(SkeletonBlock)<{ width?: string }>`
   width: ${p => p.width || '100%'};
   margin-bottom: 0.75rem;
+`;
+
+const PermissionGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+`;
+
+const PermissionCheckboxItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: #f7faff;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: #f0f4f8;
+  }
+`;
+
+const PermissionCheckbox = styled.input`
+  width: 1.125rem;
+  height: 1.125rem;
+  cursor: pointer;
+  accent-color: #1a237e;
+`;
+
+const PermissionLabel = styled.label<{ $disabled?: boolean }>`
+  font-size: 0.9375rem;
+  color: #0a3655;
+  cursor: pointer;
+  font-weight: 500;
+  flex: 1;
+  margin: 0;
+  opacity: ${p => p.$disabled ? 0.5 : 1};
+  ${p => p.$disabled ? 'cursor: not-allowed;' : ''}
+`;
+
+const PermissionSection = styled.div`
+  margin-bottom: 1.5rem;
+`;
+
+const PermissionSubtitle = styled.h4`
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #5c6b7a;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 0 0 1rem 0;
+  padding: 0;
+`;
+
+const SavePermissionsButton = styled.button`
+  padding: 0.75rem 1.5rem;
+  background: #1a237e;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 1rem;
+  &:hover { background: #0d1547; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
 `;
 
 /* ─── Icons ─── */
@@ -394,7 +687,7 @@ const DeleteIcon = () => (
 export default function AdminDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { token, role, isLoading: authLoading } = useAuth();
+  const { token, role, isLoading: authLoading, adminProfile: myProfile } = useAuth();
   const { lang } = useLanguage();
   const { showToast } = useToast();
 
@@ -404,10 +697,14 @@ export default function AdminDetailPage() {
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Edit modal
-  const [showEditModal, setShowEditModal] = useState(false);
+  // Audit logs
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [loadingAuditLogs, setLoadingAuditLogs] = useState(false);
+
+  // Inline edit mode
+  const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<AdminFormData>({
-    email: '', first_name: '', last_name: '', role: 'admin', password: '', confirm_password: '',
+    email: '', first_name: '', last_name: '', role: 'admin', status: 'active', password: '', confirm_password: '',
   });
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof AdminFormData, string>>>({});
   const [saving, setSaving] = useState(false);
@@ -417,6 +714,12 @@ export default function AdminDetailPage() {
   // Delete modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Permission management (view mode)
+  const [permissionCategories, setPermissionCategories] = useState<PermissionCategory[]>([]);
+
+  // Permission management (edit mode)
+  const [editModePermissions, setEditModePermissions] = useState<PermissionCategory[]>([]);
 
   /* ─── Fetch admin detail ─── */
   const fetchAdmin = useCallback(async () => {
@@ -431,9 +734,11 @@ export default function AdminDetailPage() {
         first_name: d.first_name,
         last_name: d.last_name,
         role: d.role || 'admin',
+        status: d.status || 'active',
         created_at: d.created_at,
         updated_at: d.updated_at,
         last_login: d.last_login,
+        permissions: d.permissions || [],
       });
     } catch {
       showToast(lang === 'zh' ? '获取管理员详情失败' : 'Failed to load admin details', 'error');
@@ -448,25 +753,68 @@ export default function AdminDetailPage() {
     if (token) fetchAdmin();
   }, [authLoading, token, role, router, fetchAdmin]);
 
+  /* ─── Fetch audit logs ─── */
+  const fetchAuditLogs = useCallback(async () => {
+    if (!token || !adminId) return;
+    setLoadingAuditLogs(true);
+    try {
+      const res = await axios.get(`/api/admin/audit-log/${adminId}?token=${token}`);
+      setAuditLogs(res.data?.audit_log || []);
+    } catch (err) {
+      console.error('Failed to fetch audit logs:', err);
+    } finally {
+      setLoadingAuditLogs(false);
+    }
+  }, [token, adminId]);
+
+  useEffect(() => {
+    if (token && admin) {
+      fetchAuditLogs();
+      // Initialize permissions based on admin role
+      const roleCategories = AVAILABLE_PERMISSIONS[admin.role] || [];
+      const enabledPermIds = admin.permissions || [];
+      const categoriesWithStatus = roleCategories.map(category => ({
+        ...category,
+        permissions: category.permissions.map(p => ({
+          ...p,
+          enabled: enabledPermIds.includes(p.id)
+        }))
+      }));
+      setPermissionCategories(categoriesWithStatus);
+    }
+  }, [token, admin, fetchAuditLogs]);
+
   /* ─── Edit helpers ─── */
-  const openEditModal = () => {
+  const enterEditMode = () => {
     if (!admin) return;
     setFormData({
       email: admin.email,
       first_name: admin.first_name,
       last_name: admin.last_name,
       role: admin.role,
+      status: admin.status || 'active',
       password: '',
       confirm_password: '',
     });
+    // Initialize edit mode permissions based on current admin permissions
+    const roleCategories = AVAILABLE_PERMISSIONS[admin.role] || [];
+    const enabledPermIds = admin.permissions || [];
+    const categoriesWithStatus = roleCategories.map(category => ({
+      ...category,
+      permissions: category.permissions.map(p => ({
+        ...p,
+        enabled: enabledPermIds.includes(p.id)
+      }))
+    }));
+    setEditModePermissions(categoriesWithStatus);
     setFormErrors({});
     setShowPassword(false);
     setShowConfirmPassword(false);
-    setShowEditModal(true);
+    setIsEditing(true);
   };
 
-  const closeEditModal = () => {
-    setShowEditModal(false);
+  const cancelEditMode = () => {
+    setIsEditing(false);
     setFormErrors({});
     setSaving(false);
   };
@@ -474,6 +822,28 @@ export default function AdminDetailPage() {
   const handleInputChange = (field: keyof AdminFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (formErrors[field]) setFormErrors(prev => ({ ...prev, [field]: undefined }));
+    // When role changes, reinitialize edit mode permissions for the new role
+    if (field === 'role' && admin) {
+      const roleCategories = AVAILABLE_PERMISSIONS[value] || [];
+      const enabledPermIds = admin.permissions || [];
+      const categoriesWithStatus = roleCategories.map(category => ({
+        ...category,
+        permissions: category.permissions.map(p => ({
+          ...p,
+          enabled: enabledPermIds.includes(p.id)
+        }))
+      }));
+      setEditModePermissions(categoriesWithStatus);
+    }
+  };
+
+  const handleEditModePermissionToggle = (permissionId: string) => {
+    setEditModePermissions(prev => prev.map(category => ({
+      ...category,
+      permissions: category.permissions.map(p =>
+        p.id === permissionId ? { ...p, enabled: !p.enabled } : p
+      )
+    })));
   };
 
   const validateForm = (): boolean => {
@@ -512,12 +882,27 @@ export default function AdminDetailPage() {
         first_name: formData.first_name.trim(),
         last_name: formData.last_name.trim(),
         role: formData.role,
+        status: formData.status,
       };
       if (formData.password) payload.password = formData.password;
 
       await axios.post('/api/admin/update', payload);
+      
+      // Save permissions if edit mode permissions exist
+      if (editModePermissions.length > 0) {
+        const enabledPermissions = editModePermissions
+          .flatMap(cat => cat.permissions)
+          .filter(p => p.enabled)
+          .map(p => p.id);
+        await axios.post('/api/admin/permissions', {
+          token,
+          user_id: admin.id,
+          permissions: enabledPermissions
+        });
+      }
+
       showToast(lang === 'zh' ? '管理员更新成功' : 'Admin updated successfully', 'success');
-      closeEditModal();
+      setIsEditing(false);
       fetchAdmin();
     } catch (error: any) {
       const msg = error?.response?.data?.message || error?.response?.data?.status_msg;
@@ -593,6 +978,11 @@ export default function AdminDetailPage() {
     );
   }
 
+  if (!myProfile?.permissions?.includes('manage_admins')) {
+    router.push('/admin');
+    return null;
+  }
+
   return (
     <MainLayout>
       <Container>
@@ -604,31 +994,113 @@ export default function AdminDetailPage() {
 
           {/* Actions */}
           <ActionsBar>
-            <ActionButton onClick={openEditModal}>
-              <EditIcon /> {lang === 'zh' ? '编辑' : 'Edit'}
-            </ActionButton>
-            <DangerButton onClick={() => setShowDeleteModal(true)}>
-              <DeleteIcon /> {lang === 'zh' ? '删除' : 'Delete'}
-            </DangerButton>
+            {isEditing ? (
+              <>
+                <SaveButton onClick={handleUpdate} disabled={saving}>
+                  {saving ? (lang === 'zh' ? '保存中...' : 'Saving...') : (lang === 'zh' ? '保存' : 'Save')}
+                </SaveButton>
+                <CancelButton onClick={cancelEditMode}>
+                  {lang === 'zh' ? '取消' : 'Cancel'}
+                </CancelButton>
+              </>
+            ) : (
+              <>
+                <ActionButton onClick={enterEditMode}>
+                  <EditIcon /> {lang === 'zh' ? '编辑' : 'Edit'}
+                </ActionButton>
+                <DangerButton onClick={() => setShowDeleteModal(true)}>
+                  <DeleteIcon /> {lang === 'zh' ? '删除' : 'Delete'}
+                </DangerButton>
+              </>
+            )}
           </ActionsBar>
 
           {/* Details Card */}
           <Card>
             <CardTitle>
-              {admin.first_name} {admin.last_name}
+              {isEditing
+                ? (lang === 'zh' ? '编辑管理员' : 'Edit Admin')
+                : `${admin.first_name} ${admin.last_name}`}
             </CardTitle>
             <DetailGrid>
               <DetailItem>
                 <DetailLabel>{lang === 'zh' ? '邮箱' : 'Email'}</DetailLabel>
-                <DetailValue>{admin.email}</DetailValue>
+                {isEditing ? (
+                  <FormInput value={formData.email} disabled />
+                ) : (
+                  <DetailValue>{admin.email}</DetailValue>
+                )}
               </DetailItem>
               <DetailItem>
-                <DetailLabel>{lang === 'zh' ? '角色' : 'Role'}</DetailLabel>
-                <DetailValue>
-                  <RoleBadge $role={admin.role}>
-                    {ROLE_LABELS[admin.role]?.[lang] || admin.role}
-                  </RoleBadge>
-                </DetailValue>
+                <DetailLabel>{lang === 'zh' ? '名字' : 'First Name'} {isEditing && '*'}</DetailLabel>
+                {isEditing ? (
+                  <>
+                    <FormInput
+                      placeholder={lang === 'zh' ? '输入名字' : 'Enter first name'}
+                      value={formData.first_name}
+                      onChange={e => handleInputChange('first_name', e.target.value)}
+                    />
+                    {formErrors.first_name && <ErrorText>{formErrors.first_name}</ErrorText>}
+                  </>
+                ) : (
+                  <DetailValue>{admin.first_name}</DetailValue>
+                )}
+              </DetailItem>
+              <DetailItem>
+                <DetailLabel>{lang === 'zh' ? '姓氏' : 'Last Name'} {isEditing && '*'}</DetailLabel>
+                {isEditing ? (
+                  <>
+                    <FormInput
+                      placeholder={lang === 'zh' ? '输入姓氏' : 'Enter last name'}
+                      value={formData.last_name}
+                      onChange={e => handleInputChange('last_name', e.target.value)}
+                    />
+                    {formErrors.last_name && <ErrorText>{formErrors.last_name}</ErrorText>}
+                  </>
+                ) : (
+                  <DetailValue>{admin.last_name}</DetailValue>
+                )}
+              </DetailItem>
+              <DetailItem>
+                <DetailLabel>{lang === 'zh' ? '角色' : 'Role'} {isEditing && '*'}</DetailLabel>
+                {isEditing ? (
+                  <>
+                    <FormSelect
+                      value={formData.role}
+                      onChange={e => handleInputChange('role', e.target.value)}
+                    >
+                      <option value="admin">{lang === 'zh' ? '管理员' : 'Admin'}</option>
+                      <option value="super_admin">{lang === 'zh' ? '超级管理员' : 'Super Admin'}</option>
+                    </FormSelect>
+                    {formErrors.role && <ErrorText>{formErrors.role}</ErrorText>}
+                  </>
+                ) : (
+                  <DetailValue>
+                    <RoleBadge $role={admin.role}>
+                      {ROLE_LABELS[admin.role]?.[lang] || admin.role}
+                    </RoleBadge>
+                  </DetailValue>
+                )}
+              </DetailItem>
+              <DetailItem>
+                <DetailLabel>{lang === 'zh' ? '状态' : 'Status'}</DetailLabel>
+                {isEditing ? (
+                  <FormSelect
+                    value={formData.status}
+                    onChange={e => handleInputChange('status', e.target.value)}
+                  >
+                    <option value="active">{lang === 'zh' ? '活跃' : 'Active'}</option>
+                    <option value="suspended">{lang === 'zh' ? '挂起' : 'Suspended'}</option>
+                  </FormSelect>
+                ) : (
+                  <DetailValue>
+                    <StatusBadge $status={admin.status || 'active'}>
+                      {lang === 'zh' 
+                        ? (admin.status === 'active' ? '活跃' : admin.status === 'inactive' ? '隐闭' : admin.status === 'suspended' ? '挂起' : admin.status || 'Active')
+                        : (admin.status ? admin.status.charAt(0).toUpperCase() + admin.status.slice(1) : 'Active')}
+                    </StatusBadge>
+                  </DetailValue>
+                )}
               </DetailItem>
               <DetailItem>
                 <DetailLabel>{lang === 'zh' ? '创建时间' : 'Created At'}</DetailLabel>
@@ -646,65 +1118,15 @@ export default function AdminDetailPage() {
                 <DetailLabel>{lang === 'zh' ? '用户ID' : 'User ID'}</DetailLabel>
                 <DetailValue>{admin.id}</DetailValue>
               </DetailItem>
-            </DetailGrid>
-          </Card>
-
-          {/* ─── Edit Modal ─── */}
-          {showEditModal && (
-            <ModalOverlay onClick={closeEditModal}>
-              <ModalContent onClick={e => e.stopPropagation()}>
-                <ModalHeader>
-                  <ModalTitle>{lang === 'zh' ? '编辑管理员' : 'Edit Admin'}</ModalTitle>
-                  <ModalCloseButton onClick={closeEditModal}>&times;</ModalCloseButton>
-                </ModalHeader>
-                <ModalBody>
-                  <FormGroup>
-                    <FormLabel>{lang === 'zh' ? '邮箱' : 'Email'} *</FormLabel>
-                    <FormInput
-                      type="email"
-                      placeholder={lang === 'zh' ? '输入邮箱地址' : 'Enter email address'}
-                      value={formData.email}
-                      onChange={e => handleInputChange('email', e.target.value)}
-                      disabled
-                    />
-                    {formErrors.email && <ErrorText>{formErrors.email}</ErrorText>}
-                  </FormGroup>
-                  <FormGroup>
-                    <FormLabel>{lang === 'zh' ? '名字' : 'First Name'} *</FormLabel>
-                    <FormInput
-                      placeholder={lang === 'zh' ? '输入名字' : 'Enter first name'}
-                      value={formData.first_name}
-                      onChange={e => handleInputChange('first_name', e.target.value)}
-                    />
-                    {formErrors.first_name && <ErrorText>{formErrors.first_name}</ErrorText>}
-                  </FormGroup>
-                  <FormGroup>
-                    <FormLabel>{lang === 'zh' ? '姓氏' : 'Last Name'} *</FormLabel>
-                    <FormInput
-                      placeholder={lang === 'zh' ? '输入姓氏' : 'Enter last name'}
-                      value={formData.last_name}
-                      onChange={e => handleInputChange('last_name', e.target.value)}
-                    />
-                    {formErrors.last_name && <ErrorText>{formErrors.last_name}</ErrorText>}
-                  </FormGroup>
-                  <FormGroup>
-                    <FormLabel>{lang === 'zh' ? '角色' : 'Role'} *</FormLabel>
-                    <FormSelect
-                      value={formData.role}
-                      onChange={e => handleInputChange('role', e.target.value)}
-                    >
-                      <option value="admin">{lang === 'zh' ? '管理员' : 'Admin'}</option>
-                      <option value="super_admin">{lang === 'zh' ? '超级管理员' : 'Super Admin'}</option>
-                    </FormSelect>
-                    {formErrors.role && <ErrorText>{formErrors.role}</ErrorText>}
-                  </FormGroup>
-                  <FormGroup>
-                    <FormLabel>
+              {isEditing && (
+                <>
+                  <DetailItem>
+                    <DetailLabel>
                       {lang === 'zh' ? '密码' : 'Password'}
-                      <span style={{ fontWeight: 400, color: '#9ca3af', marginLeft: '0.5rem' }}>
+                      <span style={{ fontWeight: 400, color: '#9ca3af', marginLeft: '0.5rem', textTransform: 'none', letterSpacing: 0 }}>
                         ({lang === 'zh' ? '留空则不修改' : 'Leave blank to keep unchanged'})
                       </span>
-                    </FormLabel>
+                    </DetailLabel>
                     <PasswordWrapper>
                       <FormInput
                         type={showPassword ? 'text' : 'password'}
@@ -717,10 +1139,10 @@ export default function AdminDetailPage() {
                       </PasswordToggle>
                     </PasswordWrapper>
                     {formErrors.password && <ErrorText>{formErrors.password}</ErrorText>}
-                  </FormGroup>
+                  </DetailItem>
                   {formData.password && (
-                    <FormGroup>
-                      <FormLabel>{lang === 'zh' ? '确认密码' : 'Confirm Password'} *</FormLabel>
+                    <DetailItem>
+                      <DetailLabel>{lang === 'zh' ? '确认密码' : 'Confirm Password'} *</DetailLabel>
                       <PasswordWrapper>
                         <FormInput
                           type={showConfirmPassword ? 'text' : 'password'}
@@ -733,20 +1155,90 @@ export default function AdminDetailPage() {
                         </PasswordToggle>
                       </PasswordWrapper>
                       {formErrors.confirm_password && <ErrorText>{formErrors.confirm_password}</ErrorText>}
-                    </FormGroup>
+                    </DetailItem>
                   )}
-                </ModalBody>
-                <ModalFooter>
-                  <CancelButton onClick={closeEditModal}>
-                    {lang === 'zh' ? '取消' : 'Cancel'}
-                  </CancelButton>
-                  <SaveButton onClick={handleUpdate} disabled={saving}>
-                    {saving ? (lang === 'zh' ? '保存中...' : 'Saving...') : (lang === 'zh' ? '保存' : 'Save')}
-                  </SaveButton>
-                </ModalFooter>
-              </ModalContent>
-            </ModalOverlay>
-          )}
+                </>
+              )}
+            </DetailGrid>
+          </Card>
+
+          {/* Permission Management Card */}
+          <Card>
+            <CardTitle>
+              {lang === 'zh' ? '权限管理' : 'Permission Management'}
+            </CardTitle>
+            {(isEditing ? editModePermissions : permissionCategories).map((category, catIdx) => (
+              <PermissionSection key={catIdx}>
+                <PermissionSubtitle>
+                  {lang === 'zh' ? category.category_zh : category.category_en}
+                </PermissionSubtitle>
+                <PermissionGrid>
+                  {category.permissions.map(perm => (
+                    <PermissionCheckboxItem key={perm.id}>
+                      <PermissionCheckbox
+                        type="checkbox"
+                        id={`perm-${perm.id}`}
+                        checked={perm.enabled}
+                        onChange={() => isEditing ? handleEditModePermissionToggle(perm.id) : undefined}
+                        disabled={!isEditing}
+                      />
+                      <PermissionLabel htmlFor={`perm-${perm.id}`} $disabled={!isEditing}>
+                        {lang === 'zh' ? perm.name_zh : perm.name_en}
+                      </PermissionLabel>
+                    </PermissionCheckboxItem>
+                  ))}
+                </PermissionGrid>
+              </PermissionSection>
+            ))}
+          </Card>
+
+          {/* Audit Logs Section */}
+          <Card>
+            <AuditLogSection>
+              <AuditLogTitle>
+                {lang === 'zh' ? '活动历史' : 'Activity History'}
+              </AuditLogTitle>
+              
+              {loadingAuditLogs ? (
+                <div style={{ textAlign: 'center', padding: '2rem', color: '#9ca3af' }}>
+                  {lang === 'zh' ? '加载中...' : 'Loading...'}
+                </div>
+              ) : auditLogs.length === 0 ? (
+                <AuditEmpty>
+                  {lang === 'zh' ? '暂无活动记录' : 'No activity recorded'}
+                </AuditEmpty>
+              ) : (
+                <AuditTable>
+                  <AuditThead>
+                    <tr>
+                      <AuditTh>{lang === 'zh' ? '时间' : 'Timestamp'}</AuditTh>
+                      <AuditTh>{lang === 'zh' ? '操作' : 'Action'}</AuditTh>
+                      <AuditTh>{lang === 'zh' ? '操作者' : 'Actor'}</AuditTh>
+                      <AuditTh>{lang === 'zh' ? '详情' : 'Details'}</AuditTh>
+                    </tr>
+                  </AuditThead>
+                  <AuditTbody>
+                    {auditLogs.map((log, idx) => (
+                      <AuditTr key={idx}>
+                        <AuditTd style={{ fontSize: '0.8125rem' }}>
+                          {new Date(log.timestamp).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
+                        </AuditTd>
+                        <AuditTd>
+                          <ActionBadge $action={log.action}>{log.action}</ActionBadge>
+                        </AuditTd>
+                        <AuditTd style={{ fontSize: '0.8125rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {log.actor_email}
+                        </AuditTd>
+                        <AuditTd style={{ fontSize: '0.8125rem', maxWidth: '300px' }}>
+                          {log.details}
+                        </AuditTd>
+                      </AuditTr>
+                    ))}
+                  </AuditTbody>
+                </AuditTable>
+              )}
+            </AuditLogSection>
+          </Card>
 
           {/* ─── Delete Confirmation Modal ─── */}
           {showDeleteModal && (

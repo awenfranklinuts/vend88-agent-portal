@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import https from 'https';
+import { getBackendBaseUrl } from '@/config/server';
 
 // Create an axios instance that ignores SSL certificate errors (for development only)
 const httpsAgent = new https.Agent({
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
     console.log('[Registration Generate API] Body:', body);
 
     // Use development backend URL
-    const backendUrl = 'https://dev.vend88.com/registration/generate';
+    const backendUrl = `${getBackendBaseUrl()}/registration/generate`;
     
     console.log(`[Registration Generate API] Calling: ${backendUrl}`);
 

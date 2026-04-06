@@ -12,7 +12,7 @@ export default function Home() {
     if (!isLoading) {
       if (token && role) {
         // Redirect to appropriate dashboard based on role
-        router.push(role === "admin" ? "/admin" : "/agent");
+        router.push(role === "admin" || role === "super_admin" ? "/admin" : "/agent");
       } else {
         router.push("/login");
       }

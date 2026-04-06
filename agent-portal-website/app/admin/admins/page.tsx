@@ -466,7 +466,7 @@ const ROLE_LABELS: Record<string, { en: string; zh: string }> = {
 
 export default function AdminManagementPage() {
   const router = useRouter();
-  const { token, role, isLoading } = useAuth();
+  const { token, role, isLoading, adminProfile } = useAuth();
   const { lang } = useLanguage();
   const { showToast } = useToast();
 
@@ -796,6 +796,11 @@ export default function AdminManagementPage() {
   }
 
   if (!token || role !== "admin") return null;
+
+  if (!adminProfile?.permissions?.includes('manage_admins')) {
+    router.push('/admin');
+    return null;
+  }
 
   /* ─── Main render ─── */
   return (

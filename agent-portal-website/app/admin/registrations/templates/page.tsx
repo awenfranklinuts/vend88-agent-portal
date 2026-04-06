@@ -494,7 +494,7 @@ const ROLE_OPTIONS = [
 
 export default function FormTemplatesPage() {
   const router = useRouter();
-  const { token, role, isLoading: authLoading } = useAuth();
+  const { token, role, isLoading: authLoading, adminProfile } = useAuth();
   const { lang } = useLanguage();
   const { showToast } = useToast();
 
@@ -723,6 +723,11 @@ export default function FormTemplatesPage() {
         </Container>
       </MainLayout>
     );
+  }
+
+  if (!adminProfile?.permissions?.includes('manage_form_templates')) {
+    router.push('/admin');
+    return null;
   }
 
   return (

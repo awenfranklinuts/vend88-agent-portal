@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styled from "styled-components";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, isAdminRole } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../components/layout/AdminSidebar";
@@ -56,14 +56,14 @@ const LoadingText = styled.div`
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { token, role, isLoading } = useAuth();
+  const { token, role, isLoading, adminProfile } = useAuth();
   const { lang } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !token) {
       router.push("/login");
-    } else if (!isLoading && token && role !== "admin") {
+    } else if (!isLoading && token && !isAdminRole(role)) {
       router.push("/agent");
     }
   }, [token, role, isLoading, router]);
@@ -76,20 +76,25 @@ export default function SettingsPage() {
     );
   }
 
-  if (!token || role !== "admin") {
+  if (!token || !isAdminRole(role)) {
+    return null;
+  }
+
+  if (!adminProfile?.permissions?.includes('manage_system_settings')) {
+    router.push('/admin');
     return null;
   }
 
   return (
-    <MainLayout currentPage={lang === "zh" ? "系统设置" : "System Settings"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
+    <MainLayout currentPage={lang === "zh" ? "ç³»ç»Ÿè®¾ç½®" : "System Settings"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
       <Container>
         <AdminSidebar mobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
         <MainContent>
           <ContentHeader>
-            <PageTitle>{lang === "zh" ? "系统设置" : "System Settings"}</PageTitle>
+            <PageTitle>{lang === "zh" ? "ç³»ç»Ÿè®¾ç½®" : "System Settings"}</PageTitle>
             <PageDescription>
               {lang === "zh"
-                ? "配置系统设置、用户权限和应用程序偏好。"
+                ? "é…ç½®ç³»ç»Ÿè®¾ç½®ã€ç”¨æˆ·æƒé™å’Œåº”ç”¨ç¨‹åºåå¥½ã€‚"
                 : "Configure system settings, user permissions, and application preferences."}
             </PageDescription>
           </ContentHeader>

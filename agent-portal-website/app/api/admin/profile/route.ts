@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import https from 'https';
+import { getBackendBaseUrl } from '@/config/server';
 
 // Create an axios instance that ignores SSL certificate errors (for development only)
 const httpsAgent = new https.Agent({
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
     // Try to forward request to backend
     try {
       const response = await axios.post(
-        'https://dev.vend88.com/admin/profile',
+        `${getBackendBaseUrl()}/portal/admin/profile`,
         { token },
         {
           headers: {

@@ -326,10 +326,11 @@ const CardDescription = styled.p`
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const { token, role, isLoading } = useAuth();
+  const { token, role, isLoading, adminProfile } = useAuth();
   const { lang } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const hasPerm = (perm: string) => adminProfile?.permissions?.includes(perm);
   const t = (key: keyof typeof dict) => dict[key][lang];
 
   useEffect(() => {
@@ -389,6 +390,7 @@ export default function AdminDashboard() {
           </ContentHeader>
 
           <Grid>
+            {hasPerm('manage_businesses') && (
             <Card onClick={() => router.push("/admin/businesses")}>
               <CardIcon><BusinessIcon /></CardIcon>
               <CardTitle>{t("businessManagement")}</CardTitle>
@@ -398,7 +400,9 @@ export default function AdminDashboard() {
                   : "Manage all businesses and locations. View, add, edit, and monitor business information."}
               </CardDescription>
             </Card>
+            )}
 
+            {(hasPerm('manage_registration_forms') || hasPerm('manage_form_templates')) && (
             <Card onClick={() => router.push("/admin/registrations")}>
               <CardIcon><RegistrationIcon /></CardIcon>
               <CardTitle>
@@ -410,7 +414,9 @@ export default function AdminDashboard() {
                   : "Review, generate, and manage one-time registration links and registrations."}
               </CardDescription>
             </Card>
+            )}
 
+            {hasPerm('manage_admins') && (
             <Card onClick={() => router.push("/admin/admins")}>
               <CardIcon><AdminsIcon /></CardIcon>
               <CardTitle>
@@ -422,7 +428,9 @@ export default function AdminDashboard() {
                   : "Manage system administrator accounts and permissions."}
               </CardDescription>
             </Card>
+            )}
 
+            {hasPerm('manage_customers') && (
             <Card onClick={() => router.push("/admin/customers")}>
               <CardIcon><CustomersIcon /></CardIcon>
               <CardTitle>{t("customerManagement")}</CardTitle>
@@ -432,7 +440,9 @@ export default function AdminDashboard() {
                   : "Manage all POS customers. View, add, edit, and monitor customer information."}
               </CardDescription>
             </Card>
+            )}
 
+            {hasPerm('manage_agents') && (
             <Card onClick={() => router.push("/admin/agents")}>
               <CardIcon><AgentIcon /></CardIcon>
               <CardTitle>
@@ -444,7 +454,9 @@ export default function AdminDashboard() {
                   : "Manage agent accounts and permissions. Assign business access rights."}
               </CardDescription>
             </Card>
+            )}
 
+            {hasPerm('view_reports') && (
             <Card onClick={() => router.push("/admin/reports")}>
               <CardIcon><ReportsIcon /></CardIcon>
               <CardTitle>
@@ -456,7 +468,9 @@ export default function AdminDashboard() {
                   : "View detailed reports, analytics, and insights across all customers and businesses."}
               </CardDescription>
             </Card>
+            )}
 
+            {hasPerm('manage_system_settings') && (
             <Card onClick={() => router.push("/admin/settings")}>
               <CardIcon><SettingsIcon /></CardIcon>
               <CardTitle>
@@ -468,6 +482,7 @@ export default function AdminDashboard() {
                   : "Configure system settings, user permissions, and application preferences."}
               </CardDescription>
             </Card>
+            )}
           </Grid>
         </MainContent>
       </Container>

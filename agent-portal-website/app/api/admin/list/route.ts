@@ -1,34 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
+import https from 'https';
+import { getBackendBaseUrl } from '@/config/server';
 
-// Mock admin user IDs
-const mockUserIDs = [
-  'admin_001',
-  'admin_002',
-  'admin_003',
-  'admin_004',
-  'admin_005',
-];
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { token } = body;
+    const fullUrl = `${getBackendBaseUrl()}/portal/admin/list`;
+    console.log('[Admin List API] Forwarding to:', fullUrl);
 
-    if (!token) {
-      return NextResponse.json(
-        { message: 'Token is required', status_code: 400 },
-        { status: 400 }
-      );
-    }
-
-    console.log('[Admin List API] Returning mock admin list');
-    return NextResponse.json({
-      status_code: 200,
-      status_msg: 'success',
-      user_IDs: mockUserIDs,
+    const response = await axios.post(fullUrl, body, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 15000,
+      httpsAgent,
     });
+
+    return NextResponse.json(response.data, { status: response.status });
   } catch (error: any) {
-    console.error('[Admin List API] Error:', error.message);
+    console.error('[Admin List API] Error:', error.response?.data || error.message);
+    if (error.response) {
+      return NextResponse.json(error.response.data, { status: error.response.status });
+    }
     return NextResponse.json(
       { message: 'Internal server error', status_code: 500 },
       { status: 500 }

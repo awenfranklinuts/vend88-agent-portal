@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styled from "styled-components";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, isAdminRole } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../components/layout/AdminSidebar";
@@ -56,14 +56,14 @@ const LoadingText = styled.div`
 
 export default function ReportsPage() {
   const router = useRouter();
-  const { token, role, isLoading } = useAuth();
+  const { token, role, isLoading, adminProfile } = useAuth();
   const { lang } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !token) {
       router.push("/login");
-    } else if (!isLoading && token && role !== "admin") {
+    } else if (!isLoading && token && !isAdminRole(role)) {
       router.push("/agent");
     }
   }, [token, role, isLoading, router]);
@@ -76,20 +76,25 @@ export default function ReportsPage() {
     );
   }
 
-  if (!token || role !== "admin") {
+  if (!token || !isAdminRole(role)) {
+    return null;
+  }
+
+  if (!adminProfile?.permissions?.includes('view_reports')) {
+    router.push('/admin');
     return null;
   }
 
   return (
-    <MainLayout currentPage={lang === "zh" ? "报告与分析" : "Reports & Analytics"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
+    <MainLayout currentPage={lang === "zh" ? "æŠ¥å‘Šä¸Žåˆ†æž" : "Reports & Analytics"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
       <Container>
         <AdminSidebar mobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
         <MainContent>
           <ContentHeader>
-            <PageTitle>{lang === "zh" ? "报告与分析" : "Reports & Analytics"}</PageTitle>
+            <PageTitle>{lang === "zh" ? "æŠ¥å‘Šä¸Žåˆ†æž" : "Reports & Analytics"}</PageTitle>
             <PageDescription>
               {lang === "zh"
-                ? "查看详细报告、分析和所有客户和业务的洞察。"
+                ? "æŸ¥çœ‹è¯¦ç»†æŠ¥å‘Šã€åˆ†æžå’Œæ‰€æœ‰å®¢æˆ·å’Œä¸šåŠ¡çš„æ´žå¯Ÿã€‚"
                 : "View detailed reports, analytics, and insights across all customers and businesses."}
             </PageDescription>
           </ContentHeader>

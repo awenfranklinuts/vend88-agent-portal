@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import https from 'https';
+import { getBackendBaseUrl } from '@/config/server';
 
 // Create an axios instance that ignores SSL certificate errors (for development only)
 const httpsAgent = new https.Agent({
@@ -14,12 +15,10 @@ export async function POST(request: NextRequest) {
     console.log('[API Proxy] Forwarding login request to backend...');
     console.log('[API Proxy] Request body:', body);
     
-    // Try multiple possible login endpoints
+    // Try the new portal auth endpoint first, then fall back to legacy
     const loginEndpoints = [
-      '/admin/login',  // Original endpoint
-      '/login',        // Alternative without /admin prefix
-      '/auth/login',   // Alternative with /auth prefix
-      '/user/login',   // Alternative with /user prefix
+      '/portal/auth/login',    // New role-based endpoint
+      '/admin/login',          // Legacy fallback
     ];
 
     let lastError: any = null;
@@ -27,7 +26,7 @@ export async function POST(request: NextRequest) {
     // Try each endpoint until one works
     for (const endpoint of loginEndpoints) {
       try {
-        const fullUrl = `https://dev.vend88.com${endpoint}`;
+        const fullUrl = `${getBackendBaseUrl()}${endpoint}`;
         console.log(`[API Proxy] Trying login endpoint: ${fullUrl}`);
         
         // Forward the request to the actual backend with SSL verification disabled
