@@ -2243,7 +2243,7 @@ export default function RegistrationsPage() {
               ) : filteredRegistrations.length === 0 ? (
                 <EmptyState>
                   <EmptyIcon>
-                    {searchQuery || filterState !== 'all' ? 'ðŸ”' : activeTab === 'submitted' ? 'âœ…' : activeTab === 'pending' ? 'ðŸ“' : 'ðŸ“‹'}
+                    {searchQuery || filterState !== 'all' ? '🔍' : activeTab === 'submitted' ? '✅' : activeTab === 'pending' ? '📋' : '📋'}
                   </EmptyIcon>
                   <EmptyText>
                     {searchQuery || filterState !== 'all' 
@@ -2349,7 +2349,7 @@ export default function RegistrationsPage() {
                         >
                           {lang === "zh" ? "ä¸šåŠ¡åç§°" : "Business Name"}
                           <SortIcon $direction={sortField === 'businessName' ? sortDirection : undefined}>
-                            {sortField === 'businessName' && sortDirection === 'asc' ? 'â†‘' : 'â†“'}
+                            {sortField === 'businessName' && sortDirection === 'asc' ? '↑' : '↓'}
                           </SortIcon>
                         </SortableHeader>
                         <SortableHeader 
@@ -2358,7 +2358,7 @@ export default function RegistrationsPage() {
                         >
                           {lang === "zh" ? "è”ç³»é‚®ç®±" : "Contact Email"}
                           <SortIcon $direction={sortField === 'contactEmail' ? sortDirection : undefined}>
-                            {sortField === 'contactEmail' && sortDirection === 'asc' ? 'â†‘' : 'â†“'}
+                            {sortField === 'contactEmail' && sortDirection === 'asc' ? '↑' : '↓'}
                           </SortIcon>
                         </SortableHeader>
                         <SortableHeader 
@@ -2367,7 +2367,7 @@ export default function RegistrationsPage() {
                         >
                           {lang === "zh" ? "ç”Ÿæˆæ—¶é—´" : "Generated"}
                           <SortIcon $direction={sortField === 'submittedAt' ? sortDirection : undefined}>
-                            {sortField === 'submittedAt' && sortDirection === 'asc' ? 'â†‘' : 'â†“'}
+                            {sortField === 'submittedAt' && sortDirection === 'asc' ? '↑' : '↓'}
                           </SortIcon>
                         </SortableHeader>
                         <SortableHeader 
@@ -2376,7 +2376,7 @@ export default function RegistrationsPage() {
                         >
                           {lang === "zh" ? "çŠ¶æ€" : "Status"}
                           <SortIcon $direction={sortField === 'status' ? sortDirection : undefined}>
-                            {sortField === 'status' && sortDirection === 'asc' ? 'â†‘' : 'â†“'}
+                            {sortField === 'status' && sortDirection === 'asc' ? '↑' : '↓'}
                           </SortIcon>
                         </SortableHeader>
                         <Th>{lang === "zh" ? "æ“ä½œ" : "Actions"}</Th>
