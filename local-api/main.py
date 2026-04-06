@@ -109,6 +109,9 @@ AUDIT_LOG: list[dict] = []
 # Registration links (tracking generated links)
 REGISTRATION_LINKS: dict[str, dict] = {}
 
+# Registrations (submitted registration forms)
+REGISTRATIONS: dict[str, dict] = {}
+
 
 # ── Schemas ──────────────────────────────────────────────────────
 class PortalLoginRequest(BaseModel):
@@ -168,6 +171,55 @@ class AdminPermissionsRequest(BaseModel):
     token: str
     user_id: str
     permissions: list[str]
+
+
+# ── Registration Management Schemas ──────────────────────────────
+class RegistrationSubmitRequest(BaseModel):
+    token: str  # Registration token from generated link
+    contact_email: str
+    contact_name: str
+    contact_phone: Optional[str] = None
+    messaging_app_type: Optional[str] = None
+    messaging_app_id: Optional[str] = None
+    quote_number: Optional[str] = None
+    business_name: str
+    abn: Optional[str] = None
+    registered_address: Optional[str] = None
+    registered_suburb: Optional[str] = None
+    registered_postcode: Optional[str] = None
+    registered_state: Optional[str] = None
+    registered_country: Optional[str] = None
+    eftpos_integration: Optional[str] = None
+    alipay_option: Optional[str] = None
+    alipay_other: Optional[str] = None
+    ready_by: Optional[str] = None
+    heard_about: Optional[str] = None
+    heard_other: Optional[str] = None
+    menu_files: Optional[list] = None
+    menu_send_later: Optional[bool] = False
+    notes: Optional[str] = None
+    form_fields: Optional[list] = None
+
+
+class RegistrationRejectRequest(BaseModel):
+    token: str
+    reason: Optional[str] = None
+
+
+class RegistrationRevokeRequest(BaseModel):
+    token: str
+    reason: Optional[str] = None
+
+
+class RegistrationApproveRequest(BaseModel):
+    token: str
+    approval_notes: Optional[str] = None
+
+
+class LinkCustomerRequest(BaseModel):
+    customer_id: Optional[str] = None
+    create_new: Optional[bool] = False
+    customer_data: Optional[dict] = None
 
 
 # ── Routes ───────────────────────────────────────────────────────
@@ -585,6 +637,304 @@ def registration_generate(body: RegistrationGenerateRequest):
             "expires_at": (datetime.now(timezone.utc).replace(day=datetime.now(timezone.utc).day + 7)).isoformat(),
         },
         "message": "Registration link generated successfully",
+    }
+
+
+@app.get("/registration/list")
+def registration_list(token: str):
+    """List all registration forms (admin only)."""
+    email = _require_token(token)
+    user = USERS.get(email)
+    if not user or user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    registrations_list = list(REGISTRATIONS.values())
+    
+    return {
+        "status_code": 200,
+        "success": True,
+        "data": registrations_list,
+        "total": len(registrations_list),
+    }
+
+
+@app.get("/registration/validate-token/{token}")
+def validate_registration_token(token: str):
+    """Validate a registration token without authentication (public endpoint)."""
+    if token not in REGISTRATION_LINKS:
+        raise HTTPException(
+            status_code=404,
+            detail={"status_code": 404, "message": "Invalid or expired token"},
+        )
+    
+    link_info = REGISTRATION_LINKS[token]
+    
+    return {
+        "status_code": 200,
+        "success": True,
+        "valid": True,
+        "form_id": link_info["form_id"],
+        "template_id": link_info.get("template_id"),
+        "expires_at": link_info.get("expires_at"),
+    }
+
+
+@app.post("/registration/submit")
+def registration_submit(body: RegistrationSubmitRequest):
+    """Submit a registration form (public endpoint - requires token)."""
+    if body.token not in REGISTRATION_LINKS:
+        raise HTTPException(
+            status_code=401,
+            detail={"status_code": 401, "message": "Invalid or expired token"},
+        )
+    
+    link_info = REGISTRATION_LINKS[body.token]
+    
+    # Create registration record
+    registration_id = f"REG-{secrets.token_hex(4).upper()}"
+    form_id = link_info["form_id"]
+    
+    registration = {
+        "id": registration_id,
+        "form_id": form_id,
+        "status": "submitted",
+        "contact_email": body.contact_email,
+        "contact_name": body.contact_name,
+        "contact_phone": body.contact_phone,
+        "messaging_app_type": body.messaging_app_type,
+        "messaging_app_id": body.messaging_app_id,
+        "quote_number": body.quote_number,
+        "business_name": body.business_name,
+        "abn": body.abn,
+        "registered_address": body.registered_address,
+        "registered_suburb": body.registered_suburb,
+        "registered_postcode": body.registered_postcode,
+        "registered_state": body.registered_state,
+        "registered_country": body.registered_country,
+        "eftpos_integration": body.eftpos_integration,
+        "alipay_option": body.alipay_option,
+        "alipay_other": body.alipay_other,
+        "ready_by": body.ready_by,
+        "heard_about": body.heard_about,
+        "heard_other": body.heard_other,
+        "menu_files": body.menu_files,
+        "menu_send_later": body.menu_send_later,
+        "notes": body.notes,
+        "generated_by": link_info["admin_email"],
+        "generated_at": link_info["created_at"],
+        "submitted_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    
+    REGISTRATIONS[registration_id] = registration
+    
+    # Mark token as used
+    link_info["used"] = True
+    link_info["used_at"] = datetime.now(timezone.utc).isoformat()
+    
+    return {
+        "status_code": 200,
+        "success": True,
+        "message": "Registration submitted successfully",
+        "data": {
+            "registration_id": registration_id,
+            "form_id": form_id,
+            "status": "submitted",
+        },
+    }
+
+
+@app.get("/registration/{registration_id}")
+def get_registration(registration_id: str, token: str):
+    """Get registration details (admin only)."""
+    email = _require_token(token)
+    user = USERS.get(email)
+    if not user or user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    if registration_id not in REGISTRATIONS:
+        raise HTTPException(
+            status_code=404,
+            detail={"status_code": 404, "message": "Registration not found"},
+        )
+    
+    registration = REGISTRATIONS[registration_id]
+    
+    return {
+        "status_code": 200,
+        "success": True,
+        "data": registration,
+    }
+
+
+@app.post("/registration/{registration_id}")
+def update_registration(registration_id: str, body: dict, token: str):
+    """Update registration details (admin only)."""
+    email = _require_token(token)
+    user = USERS.get(email)
+    if not user or user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    if registration_id not in REGISTRATIONS:
+        raise HTTPException(
+            status_code=404,
+            detail={"status_code": 404, "message": "Registration not found"},
+        )
+    
+    registration = REGISTRATIONS[registration_id]
+    
+    # Update only provided fields
+    for key, value in body.items():
+        if key not in ["id", "created_at", "submitted_at", "status"]:
+            registration[key] = value
+    
+    registration["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    return {
+        "status_code": 200,
+        "success": True,
+        "message": "Registration updated successfully",
+        "data": registration,
+    }
+
+
+@app.put("/registration/{registration_id}/link-customer")
+def link_customer(registration_id: str, body: LinkCustomerRequest, token: str):
+    """Link or create a customer for this registration (admin only)."""
+    email = _require_token(token)
+    user = USERS.get(email)
+    if not user or user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    if registration_id not in REGISTRATIONS:
+        raise HTTPException(
+            status_code=404,
+            detail={"status_code": 404, "message": "Registration not found"},
+        )
+    
+    registration = REGISTRATIONS[registration_id]
+    
+    if body.customer_id:
+        registration["linked_customer_id"] = body.customer_id
+    elif body.create_new and body.customer_data:
+        # Create new customer (simplified)
+        customer_id = f"CUST-{secrets.token_hex(4).upper()}"
+        registration["linked_customer_id"] = customer_id
+    
+    registration["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    return {
+        "status_code": 200,
+        "success": True,
+        "message": "Customer linked successfully",
+        "data": registration,
+    }
+
+
+@app.post("/registration/approve/{registration_id}")
+def approve_registration(registration_id: str, body: RegistrationApproveRequest):
+    """Approve a submitted registration (admin only)."""
+    email = _require_token(body.token)
+    user = USERS.get(email)
+    if not user or user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    if registration_id not in REGISTRATIONS:
+        raise HTTPException(
+            status_code=404,
+            detail={"status_code": 404, "message": "Registration not found"},
+        )
+    
+    registration = REGISTRATIONS[registration_id]
+    registration["status"] = "approved"
+    registration["approved_at"] = datetime.now(timezone.utc).isoformat()
+    registration["approved_by"] = email
+    registration["approval_notes"] = body.approval_notes
+    registration["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    _log_audit(
+        "REGISTRATION_APPROVED",
+        registration["contact_email"],
+        email,
+        f"Approved registration {registration_id}",
+    )
+    
+    return {
+        "status_code": 200,
+        "success": True,
+        "message": "Registration approved successfully",
+        "data": registration,
+    }
+
+
+@app.post("/registration/reject/{registration_id}")
+def reject_registration(registration_id: str, body: RegistrationRejectRequest):
+    """Reject a submitted registration (admin only)."""
+    email = _require_token(body.token)
+    user = USERS.get(email)
+    if not user or user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    if registration_id not in REGISTRATIONS:
+        raise HTTPException(
+            status_code=404,
+            detail={"status_code": 404, "message": "Registration not found"},
+        )
+    
+    registration = REGISTRATIONS[registration_id]
+    registration["status"] = "rejected"
+    registration["rejected_at"] = datetime.now(timezone.utc).isoformat()
+    registration["rejected_by"] = email
+    registration["rejection_reason"] = body.reason
+    registration["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    _log_audit(
+        "REGISTRATION_REJECTED",
+        registration["contact_email"],
+        email,
+        f"Rejected registration {registration_id}: {body.reason}",
+    )
+    
+    return {
+        "status_code": 200,
+        "success": True,
+        "message": "Registration rejected successfully",
+        "data": registration,
+    }
+
+
+@app.post("/registration/revoke/{registration_id}")
+def revoke_registration(registration_id: str, body: RegistrationRevokeRequest):
+    """Revoke a pending registration link (admin only)."""
+    email = _require_token(body.token)
+    user = USERS.get(email)
+    if not user or user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    if registration_id not in REGISTRATIONS:
+        raise HTTPException(
+            status_code=404,
+            detail={"status_code": 404, "message": "Registration not found"},
+        )
+    
+    registration = REGISTRATIONS[registration_id]
+    registration["status"] = "cancelled"
+    registration["cancelled_at"] = datetime.now(timezone.utc).isoformat()
+    registration["cancelled_by"] = email
+    registration["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    _log_audit(
+        "REGISTRATION_REVOKED",
+        registration.get("contact_email", "pending"),
+        email,
+        f"Revoked registration link {registration_id}",
+    )
+    
+    return {
+        "status_code": 200,
+        "success": True,
+        "message": "Registration link revoked successfully",
+        "data": registration,
     }
 
 
