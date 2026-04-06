@@ -311,27 +311,17 @@ def _log_audit(action: str, target_email: str, actor_email: str, details: str = 
 def admin_list(body: TokenRequest):
     _require_admin_access(body.token)
     
-    # Get all admin and super_admin users with their details
-    admins = []
-    for email, user in USERS.items():
-        if user["role"] in ("admin", "super_admin"):
-            admins.append({
-                "user_id": user["_id"],
-                "email": email,
-                "first_name": user["first_name"],
-                "last_name": user["last_name"],
-                "role": user["role"],
-                "status": user.get("status", "active"),
-                "created_at": user.get("created_at", "2024-01-01T00:00:00Z"),
-                "updated_at": user.get("updated_at"),
-                "last_login": user.get("last_login"),
-            })
+    # Return user IDs (matching the real backend format)
+    user_ids = [
+        user["_id"]
+        for email, user in USERS.items()
+        if user["role"] in ("admin", "super_admin")
+    ]
     
     return {
         "status_code": 200,
         "status_msg": "success",
-        "admins": admins,
-        "total": len(admins),
+        "user_IDs": user_ids,
     }
 
 
