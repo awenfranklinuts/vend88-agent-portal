@@ -1494,7 +1494,7 @@ export default function RegistrationsPage() {
     const customerIdToLink = customerId || selectedCustomerId;
     
     if (!customerIdToLink) {
-      alert(lang === 'zh' ? 'è¯·é€‰æ‹©ä¸€ä¸ªå®¢æˆ·' : 'Please select a customer');
+      alert(lang === 'zh' ? '请选择一个客户' : 'Please select a customer');
       return;
     }
     
@@ -1685,7 +1685,7 @@ export default function RegistrationsPage() {
   const handleApprove = (id: string) => {
     // Check if customer is linked when approving from details modal (only when viewing in modal)
     if (selectedRegistration?.id === id && showDetailsModal && !selectedCustomerId) {
-      setApproveError(lang === 'zh' ? 'è¯·å…ˆå…³è”å®¢æˆ·åŽå†æ‰¹å‡†' : 'Please link a customer before approving');
+      setApproveError(lang === 'zh' ? '请先关联客户后再批准' : 'Please link a customer before approving');
       return;
     }
     
@@ -2158,7 +2158,7 @@ export default function RegistrationsPage() {
           <SearchFilterContainer>
             <SearchInput
               type="text"
-              placeholder={lang === "zh" ? "æœç´¢ä¸šåŠ¡åç§°ã€é‚®ç®±ã€è”ç³»äººã€ç”µè¯æˆ–ABN..." : "Search business name, email, contact, phone or ABN..."}
+              placeholder={lang === "zh" ? "搜索业务名称、邮箱、联系人、电话或ABN..." : "Search business name, email, contact, phone or ABN..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -2204,7 +2204,7 @@ export default function RegistrationsPage() {
                   <Thead>
                     <Tr>
                       <CheckboxTh />
-                      <Th>{lang === "zh" ? "ä¸šåŠ¡åç§°" : "Business Name"}</Th>
+                      <Th>{lang === "zh" ? "业务名称" : "Business Name"}</Th>
                       <Th>{lang === "zh" ? "è”ç³»é‚®ç®±" : "Contact Email"}</Th>
                       <Th>{lang === "zh" ? "ç”Ÿæˆæ—¶é—´" : "Generated"}</Th>
                       <Th>{lang === "zh" ? "çŠ¶æ€" : "Status"}</Th>
@@ -2263,7 +2263,7 @@ export default function RegistrationsPage() {
                         ? (lang === "zh" ? "ç›®å‰æ²¡æœ‰éœ€è¦å®¡æ‰¹çš„æ³¨å†Œç”³è¯·" : "There are currently no registrations awaiting approval")
                         : activeTab === 'pending'
                           ? (lang === "zh" ? "æ‰€æœ‰ç”Ÿæˆçš„è¡¨å•éƒ½å·²å¡«å†™å®Œæˆ" : "All generated forms have been completed")
-                          : (lang === "zh" ? "ç‚¹å‡»ä¸Šæ–¹æŒ‰é’®ç”Ÿæˆæ–°çš„æ³¨å†Œè¡¨å•" : "Click the button above to generate a new registration form")}
+                          : (lang === "zh" ? "点击上方按钮生成新的注册表单" : "Click the button above to generate a new registration form")}
                   </EmptySubtext>
                 </EmptyState>
               ) : (
@@ -2347,7 +2347,7 @@ export default function RegistrationsPage() {
                           $active={sortField === 'businessName'}
                           onClick={() => handleSort('businessName')}
                         >
-                          {lang === "zh" ? "ä¸šåŠ¡åç§°" : "Business Name"}
+                          {lang === "zh" ? "业务名称" : "Business Name"}
                           <SortIcon $direction={sortField === 'businessName' ? sortDirection : undefined}>
                             {sortField === 'businessName' && sortDirection === 'asc' ? '↑' : '↓'}
                           </SortIcon>
@@ -2421,7 +2421,7 @@ export default function RegistrationsPage() {
                           {reg.status === 'pending' && (
                             <>
                               <ActionButton $variant="view">
-                                {lang === "zh" ? "å¤åˆ¶é“¾æŽ¥" : "Copy Link"}
+                                {lang === "zh" ? "复制链接" : "Copy Link"}
                               </ActionButton>
                               <ActionButton $variant="reject" onClick={() => handleRevoke(reg.id)}>
                                 {lang === "zh" ? "æ’¤é”€é“¾æŽ¥" : "Revoke Link"}
@@ -2458,7 +2458,7 @@ export default function RegistrationsPage() {
                         $disabled={currentPage === 1}
                         disabled={currentPage === 1}
                       >
-                        {lang === "zh" ? "ä¸Šä¸€é¡µ" : "Previous"}
+                        {lang === "zh" ? "上一页" : "Previous"}
                       </PageButton>
                       
                       {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
@@ -2488,7 +2488,7 @@ export default function RegistrationsPage() {
                         $disabled={currentPage === totalPages}
                         disabled={currentPage === totalPages}
                       >
-                        {lang === "zh" ? "ä¸‹ä¸€é¡µ" : "Next"}
+                        {lang === "zh" ? "下一页" : "Next"}
                       </PageButton>
                     </PaginationControls>
                   </PaginationContainer>
@@ -2504,9 +2504,7 @@ export default function RegistrationsPage() {
         <ModalContent onClick={e => e.stopPropagation()}>
           <ModalTitle>{lang === "zh" ? "è¡¨å•ç”ŸæˆæˆåŠŸ" : "Form Generated Successfully"}</ModalTitle>
           <ModalText>
-            {lang === "zh" 
-              ? "è¯·å°†ä»¥ä¸‹é“¾æŽ¥å‘é€ç»™å®¢æˆ·ã€‚æ­¤é“¾æŽ¥ä»…å¯ä½¿ç”¨ä¸€æ¬¡ã€‚"
-              : "Send the following link to your customer. This link can only be used once."}
+            {lang === "zh" ? "请将以下链接发送给客户。此链接仅可使用一次。" : "Send the following link to your customer. This link can only be used once."}
           </ModalText>
           <LinkBox>{generatedLink}</LinkBox>
           <ModalActions>
@@ -2517,7 +2515,7 @@ export default function RegistrationsPage() {
               {isLinkCopied ? <SaveIcon /> : <CopyIcon />}
               {isLinkCopied 
                 ? (lang === "zh" ? "å·²å¤åˆ¶!" : "Copied!") 
-                : (lang === "zh" ? "å¤åˆ¶é“¾æŽ¥" : "Copy Link")}
+                : (lang === "zh" ? "复制链接" : "Copy Link")}
             </ModalButton>
           </ModalActions>
         </ModalContent>
@@ -2899,7 +2897,7 @@ export default function RegistrationsPage() {
                           </FileInfo>
                           <DownloadButton>
                             <DownloadIcon />
-                            {lang === "zh" ? "ä¸‹è½½" : "Download"}
+                            {lang === "zh" ? "下载" : "Download"}
                           </DownloadButton>
                         </FileDownloadLink>
                       );

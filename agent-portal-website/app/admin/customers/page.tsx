@@ -1101,7 +1101,7 @@ export default function CustomerManagementPage() {
     } catch (error) {
       console.error("Failed to fetch customers:", error);
       showToast(
-        lang === "zh" ? "åŠ è½½å®¢æˆ·å¤±è´¥" : "Failed to load customers",
+        lang === "zh" ? "加载客户失败" : "Failed to load customers",
         'error'
       );
     } finally {
@@ -1160,7 +1160,7 @@ export default function CustomerManagementPage() {
       
       if (result.status_code === 201 || result.status_code === 200) {
         showToast(
-          lang === 'zh' ? 'å®¢æˆ·åˆ›å»ºæˆåŠŸ' : 'Customer created successfully',
+          lang === 'zh' ? '客户创建成功' : 'Customer created successfully',
           'success'
         );
         
@@ -1223,7 +1223,7 @@ export default function CustomerManagementPage() {
     document.body.removeChild(link);
     
     showToast(
-      lang === 'zh' ? 'å¯¼å‡ºæˆåŠŸ' : 'Export successful',
+      lang === 'zh' ? '导出成功' : 'Export successful',
       'success'
     );
   };
@@ -1299,18 +1299,18 @@ export default function CustomerManagementPage() {
                 <line x1="12" y1="5" x2="12" y2="19"/>
                 <line x1="5" y1="12" x2="19" y2="12"/>
               </svg>
-              {lang === 'zh' ? 'æ–°å»ºå®¢æˆ·' : 'Create Customer'}
+              {lang === 'zh' ? '创建客户' : 'Create Customer'}
             </ExportButton>
           </ContentHeader>
 
           <StatsGrid>
             <StatCard>
               <StatValue>{stats.total}</StatValue>
-              <StatLabel>{lang === 'zh' ? 'æ€»å®¢æˆ·æ•°' : 'Total Customers'}</StatLabel>
+              <StatLabel>{lang === 'zh' ? '总客户数' : 'Total Customers'}</StatLabel>
             </StatCard>
             <StatCard>
               <StatValue>{stats.totalBusinesses}</StatValue>
-              <StatLabel>{lang === 'zh' ? 'æ€»ä¸šåŠ¡æ•°' : 'Total Businesses'}</StatLabel>
+              <StatLabel>{lang === 'zh' ? '总业务数' : 'Total Businesses'}</StatLabel>
             </StatCard>
             <StatCard>
               <StatValue>{stats.recentAdditions}</StatValue>
@@ -1322,7 +1322,7 @@ export default function CustomerManagementPage() {
             <SearchRow>
               <SearchInput
                 type="text"
-                placeholder={lang === "zh" ? "æœç´¢å®¢æˆ·å§“åã€é‚®ç®±ã€ç”µè¯æˆ–ä¸šåŠ¡..." : "Search by customer name, email, phone, or business..."}
+                placeholder={lang === "zh" ? "搜索客户名、邮箱、电话或业务..." : "Search by customer name, email, phone, or business..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -1351,14 +1351,14 @@ export default function CustomerManagementPage() {
           <ControlBar>
             <ControlGroup>
               <Select value={filterOption} onChange={(e) => setFilterOption(e.target.value as any)}>
-                <option value="all">{lang === 'zh' ? 'æ‰€æœ‰å®¢æˆ·' : 'All Customers'}</option>
-                <option value="withBusiness">{lang === 'zh' ? 'æœ‰ä¸šåŠ¡' : 'With Businesses'}</option>
-                <option value="withoutBusiness">{lang === 'zh' ? 'æ— ä¸šåŠ¡' : 'Without Businesses'}</option>
+                <option value="all">{lang === 'zh' ? '所有客户' : 'All Customers'}</option>
+                <option value="withBusiness">{lang === 'zh' ? '有业务' : 'With Businesses'}</option>
+                <option value="withoutBusiness">{lang === 'zh' ? '无业务' : 'Without Businesses'}</option>
               </Select>
               <Select value={sortField} onChange={(e) => setSortField(e.target.value as any)}>
                 <option value="name">{lang === 'zh' ? 'æŒ‰åç§°æŽ’åº' : 'Sort by Name'}</option>
-                <option value="created_at">{lang === 'zh' ? 'æŒ‰æ—¥æœŸæŽ’åº' : 'Sort by Date'}</option>
-                <option value="businessCount">{lang === 'zh' ? 'æŒ‰ä¸šåŠ¡æ•°æŽ’åº' : 'Sort by Business Count'}</option>
+                <option value="created_at">{lang === 'zh' ? '按日期排序' : 'Sort by Date'}</option>
+                <option value="businessCount">{lang === 'zh' ? '按业务数排序' : 'Sort by Business Count'}</option>
               </Select>
               <Select value={sortDirection} onChange={(e) => setSortDirection(e.target.value as any)}>
                 <option value="asc">{lang === 'zh' ? 'å‡åº' : 'Ascending'}</option>
@@ -1398,8 +1398,8 @@ export default function CustomerManagementPage() {
               <EmptyIcon><UsersIcon /></EmptyIcon>
               <EmptyText>
                 {searchQuery || searchByABN || searchByAddress
-                  ? (lang === "zh" ? "æœªæ‰¾åˆ°å®¢æˆ·" : "No customers found")
-                  : (lang === "zh" ? "æš‚æ— å®¢æˆ·" : "No customers yet")}
+                  ? (lang === "zh" ? "未找到客户" : "No customers found")
+                  : (lang === "zh" ? "暂无客户" : "No customers yet")}
               </EmptyText>
             </EmptyState>
           ) : viewMode === 'table' ? (
@@ -1413,7 +1413,7 @@ export default function CustomerManagementPage() {
                     <Th>{lang === 'zh' ? 'é‚®ç®±' : 'Email'}</Th>
                     <Th>{lang === 'zh' ? 'ç”µè¯' : 'Phone'}</Th>
                     <Th onClick={() => handleSort('businessCount')}>
-                      {lang === 'zh' ? 'ä¸šåŠ¡æ•°' : 'Businesses'} <SortIcon />
+                      {lang === 'zh' ? '业务' : 'Businesses'} <SortIcon />
                     </Th>
                     <Th onClick={() => handleSort('created_at')}>
                       {lang === 'zh' ? 'åˆ›å»ºæ—¥æœŸ' : 'Created'} <SortIcon />
@@ -1469,7 +1469,7 @@ export default function CustomerManagementPage() {
                   
                   <BusinessSection>
                     <BusinessTitle>
-                      {lang === "zh" ? "ä¸šåŠ¡" : "Businesses"} ({customer.businesses.length})
+                      {lang === "zh" ? "业务" : "Businesses"} ({customer.businesses.length})
                     </BusinessTitle>
                     {customer.businesses.length > 0 ? (
                       <BusinessList>
@@ -1513,7 +1513,7 @@ export default function CustomerManagementPage() {
                   $disabled={currentPage === 1}
                   disabled={currentPage === 1}
                 >
-                  {lang === 'zh' ? 'ä¸Šä¸€é¡µ' : 'Previous'}
+                  {lang === 'zh' ? '上一页' : 'Previous'}
                 </PageButton>
                 {Array.from({ length: totalPages }, (_, i) => i + 1)
                   .filter(page => {
@@ -1544,7 +1544,7 @@ export default function CustomerManagementPage() {
                   $disabled={currentPage === totalPages}
                   disabled={currentPage === totalPages}
                 >
-                  {lang === 'zh' ? 'ä¸‹ä¸€é¡µ' : 'Next'}
+                  {lang === 'zh' ? '下一页' : 'Next'}
                 </PageButton>
               </PaginationControls>
             </PaginationContainer>
@@ -1556,7 +1556,7 @@ export default function CustomerManagementPage() {
       <Modal $show={showCreateModal} onClick={() => setShowCreateModal(false)}>
         <ModalContent onClick={(e) => e.stopPropagation()}>
           <ModalHeader>
-            <ModalTitle>{lang === 'zh' ? 'åˆ›å»ºæ–°å®¢æˆ·' : 'Create New Customer'}</ModalTitle>
+            <ModalTitle>{lang === 'zh' ? '创建新客户' : 'Create New Customer'}</ModalTitle>
             <CloseButton onClick={() => setShowCreateModal(false)}>Ã—</CloseButton>
           </ModalHeader>
           
@@ -1566,7 +1566,7 @@ export default function CustomerManagementPage() {
               type="text"
               value={newCustomer.name}
               onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-              placeholder={lang === "zh" ? "è¾“å…¥å®¢æˆ·å§“å" : "Enter customer name"}
+              placeholder={lang === "zh" ? "输入客户名" : "Enter customer name"}
             />
           </Section>
 
@@ -1620,7 +1620,7 @@ export default function CustomerManagementPage() {
               {lang === 'zh' ? 'å–æ¶ˆ' : 'Cancel'}
             </ActionButton>
             <ActionButton $variant="primary" onClick={handleCreateCustomer}>
-              <SaveIcon /> {lang === 'zh' ? 'åˆ›å»ºå®¢æˆ·' : 'Create Customer'}
+              <SaveIcon /> {lang === 'zh' ? '创建客户' : 'Create Customer'}
             </ActionButton>
           </ModalActions>
         </ModalContent>

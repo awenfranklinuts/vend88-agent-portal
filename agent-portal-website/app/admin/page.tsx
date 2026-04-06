@@ -342,7 +342,7 @@ export default function AdminDashboard() {
     }
   }, [token, role, isLoading, router]);
 
-  if (isLoading) {
+  if (isLoading || (!adminProfile && token && isAdminRole(role))) {
     return (
       <MainLayout currentPage={lang === "zh" ? "首页" : "Home"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
         <Container>

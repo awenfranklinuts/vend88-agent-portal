@@ -1300,7 +1300,7 @@ export default function BusinessManagementPage() {
 
           <StatsContainer>
             <StatCard>
-              <StatLabel>{lang === "zh" ? "æ€»ä¸šåŠ¡æ•°" : "Total Businesses"}</StatLabel>
+              <StatLabel>{lang === "zh" ? "总业务数" : "Total Businesses"}</StatLabel>
               <StatValue>{stats.total}</StatValue>
             </StatCard>
             <StatCard>
@@ -1321,7 +1321,7 @@ export default function BusinessManagementPage() {
             <SearchRow>
               <SearchInput
                 type="text"
-                placeholder={lang === "zh" ? "æœç´¢ä¸šåŠ¡åç§°ã€IDã€é‚®ç®±..." : "Search business name, ID, email..."}
+                placeholder={lang === "zh" ? "搜索业务名称、ID、邮箱..." : "Search business name, ID, email..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -1396,7 +1396,7 @@ export default function BusinessManagementPage() {
             <ControlGroup>
               <Select value={sortField} onChange={(e) => setSortField(e.target.value as any)}>
                 <option value="name">{lang === 'zh' ? 'æŒ‰åç§°æŽ’åº' : 'Sort by Name'}</option>
-                <option value="createdAt">{lang === 'zh' ? 'æŒ‰æ—¥æœŸæŽ’åº' : 'Sort by Date'}</option>
+                <option value="createdAt">{lang === 'zh' ? '按日期排序' : 'Sort by Date'}</option>
                 <option value="status">{lang === 'zh' ? 'æŒ‰çŠ¶æ€æŽ’åº' : 'Sort by Status'}</option>
               </Select>
               <Select value={sortDirection} onChange={(e) => setSortDirection(e.target.value as any)}>
@@ -1434,9 +1434,9 @@ export default function BusinessManagementPage() {
           ) : businesses.length === 0 ? (
             <EmptyState>
               <EmptyIcon>ðŸ¢</EmptyIcon>
-              <EmptyText>{lang === "zh" ? "æš‚æ— ä¸šåŠ¡" : "No businesses found"}</EmptyText>
+              <EmptyText>{lang === "zh" ? "未找到业务" : "No businesses found"}</EmptyText>
               <EmptySubtext>
-                {lang === "zh" ? "æ‰¹å‡†æ³¨å†Œè¡¨å•åŽï¼Œä¸šåŠ¡å°†è‡ªåŠ¨åˆ›å»ºã€‚" : "Businesses will be created automatically when registrations are approved."}
+                {lang === "zh" ? "批准注册表单后，业务将自动创建。" : "Businesses will be created automatically when registrations are approved."}
               </EmptySubtext>
             </EmptyState>
           ) : viewMode === 'table' ? (
@@ -1466,7 +1466,7 @@ export default function BusinessManagementPage() {
                       />
                     </CheckboxTh>
                     <Th onClick={() => handleSort('name')}>
-                      {lang === 'zh' ? 'ä¸šåŠ¡åç§°' : 'Business Name'} <SortIcon />
+                      {lang === 'zh' ? '业务名称' : 'Business Name'} <SortIcon />
                     </Th>
                     <Th>{lang === 'zh' ? 'æ‰€æœ‰è€…' : 'Owner'}</Th>
                     <Th onClick={() => handleSort('status')}>
@@ -1583,7 +1583,7 @@ export default function BusinessManagementPage() {
                   $disabled={currentPage === 1}
                   disabled={currentPage === 1}
                 >
-                  {lang === 'zh' ? 'ä¸Šä¸€é¡µ' : 'Previous'}
+                  {lang === 'zh' ? '上一页' : 'Previous'}
                 </PageButton>
                 {Array.from({ length: totalPages }, (_, i) => i + 1)
                   .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
@@ -1607,7 +1607,7 @@ export default function BusinessManagementPage() {
                   $disabled={currentPage === totalPages}
                   disabled={currentPage === totalPages}
                 >
-                  {lang === 'zh' ? 'ä¸‹ä¸€é¡µ' : 'Next'}
+                  {lang === 'zh' ? '下一页' : 'Next'}
                 </PageButton>
               </PaginationControls>
             </PaginationContainer>
@@ -1625,7 +1625,7 @@ export default function BusinessManagementPage() {
           
           <DetailGrid>
             <DetailItem>
-              <DetailLabel>{lang === 'zh' ? 'ä¸šåŠ¡ ID' : 'Business ID'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? '业务ID' : 'Business ID'}</DetailLabel>
               <DetailValue>{selectedBusiness?._id}</DetailValue>
             </DetailItem>
             <DetailItem>
@@ -1713,7 +1713,7 @@ export default function BusinessManagementPage() {
                 handleCloseModal();
               }
             }}>
-              <EditIcon /> {lang === 'zh' ? 'ç¼–è¾‘ä¸šåŠ¡' : 'Edit Business'}
+              <EditIcon /> {lang === 'zh' ? '编辑业务' : 'Edit Business'}
             </ActionButton>
           </ModalActions>
         </ModalContent>

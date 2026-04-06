@@ -86,12 +86,12 @@ export default function AgentManagementPage() {
   }
 
   return (
-    <MainLayout currentPage={lang === "zh" ? "ä»£ç†ç®¡ç†" : "Agent Management"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
+    <MainLayout currentPage={lang === "zh" ? "代理管理" : "Agent Management"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
       <Container>
         <AdminSidebar mobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
         <MainContent>
           <ContentHeader>
-            <PageTitle>{lang === "zh" ? "ä»£ç†ç®¡ç†" : "Agent Management"}</PageTitle>
+            <PageTitle>{lang === "zh" ? "代理管理" : "Agent Management"}</PageTitle>
             <PageDescription>
               {lang === "zh"
                 ? "ç®¡ç†ä»£ç†è´¦æˆ·å’Œæƒé™ã€‚åˆ†é…ä¸šåŠ¡è®¿é—®æƒé™ã€‚"
