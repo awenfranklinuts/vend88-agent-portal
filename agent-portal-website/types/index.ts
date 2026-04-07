@@ -17,8 +17,27 @@ export interface Business {
   owner_id: string;
   name: string;
   location?: string;
-  status: "active" | "inactive";
+  status: "active" | "inactive" | "setup" | "suspended";
   created_at?: string;
+  createdAt?: string;
+  updated_at?: string;
+  updatedAt?: string;
+  contact_email?: string;
+  contactEmail?: string;
+  contact_phone?: string;
+  contactPhone?: string;
+  owner_name?: string;
+  owner_email?: string;
+  abn?: string;
+  address?: string;
+  suburb?: string;
+  postcode?: string;
+  state?: string;
+  country?: string;
+  eftposIntegration?: string;
+  alipayOption?: string;
+  alipayOther?: string;
+  registrationId?: string;
 }
 
 export interface Agent {

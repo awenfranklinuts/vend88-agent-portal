@@ -977,8 +977,6 @@ const StatusBadge = styled.span<{ $status: string }>`
 
       case 'setup':
 
-      case 'in_setup':
-
         return 'background: #dbeafe; color: #1e40af;';
 
       case 'inactive':
@@ -1765,19 +1763,33 @@ interface Business {
 
   country?: string;
 
+  contact_email?: string;
+
   contactEmail?: string;
+
+  contact_phone?: string;
 
   contactPhone?: string;
 
+  owner_name?: string;
+
+  owner_email?: string;
+
   status: 'active' | 'inactive' | 'setup' | 'suspended';
+
+  created_at?: string;
+
+  createdAt: string;
+
+  updated_at?: string;
+
+  updatedAt: string;
 
   eftposIntegration?: string;
 
   alipayOption?: string;
 
-  createdAt: string;
-
-  updatedAt: string;
+  alipayOther?: string;
 
   registrationId?: string;
 
@@ -2474,7 +2486,7 @@ export default function BusinessManagementPage() {
 
     active: allBusinesses.filter(b => b.status === 'active').length,
 
-    setup: allBusinesses.filter(b => b.status === 'setup' || b.status === 'in_setup').length,
+    setup: allBusinesses.filter(b => b.status === 'setup').length,
 
     inactive: allBusinesses.filter(b => b.status === 'inactive').length,
 
@@ -3320,7 +3332,7 @@ export default function BusinessManagementPage() {
 
                 <StatusBadge $status={selectedBusiness?.status || 'inactive'}>
 
-                  {formatStatus(selectedBusiness?.status)}
+                  {formatStatus(selectedBusiness?.status || 'inactive')}
 
                 </StatusBadge>
 
