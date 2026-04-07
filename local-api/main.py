@@ -149,6 +149,59 @@ CUSTOMERS: dict[str, dict] = {
     },
 }
 
+FORM_TEMPLATES: dict[str, dict] = {
+    "tpl_001": {
+        "id": "tpl_001",
+        "name": "Standard Onboarding",
+        "description": "Full onboarding form with all required business details",
+        "fields": [
+            {"id": "contact_email", "label": "Email Address", "type": "email", "required": True, "order": 1},
+            {"id": "contact_name", "label": "Contact Name", "type": "text", "required": True, "order": 2},
+            {"id": "contact_phone", "label": "Phone Number", "type": "phone", "required": True, "order": 3},
+            {"id": "business_name", "label": "Business Name", "type": "text", "required": True, "order": 4},
+        ],
+        "version": 1,
+        "visibility": "all",
+        "visible_roles": [],
+        "status": "active",
+        "created_by": "superadmin@vend88.com",
+        "created_at": "2026-04-01T09:00:00Z",
+        "updated_at": "2026-04-01T09:00:00Z",
+        "version_history": [
+            {
+                "version": 1,
+                "updated_at": "2026-04-01T09:00:00Z",
+                "updated_by": "superadmin@vend88.com",
+                "change_note": "Initial version",
+            }
+        ],
+    },
+    "tpl_002": {
+        "id": "tpl_002",
+        "name": "Quick Registration",
+        "description": "Minimal form for fast signups",
+        "fields": [
+            {"id": "contact_email", "label": "Email Address", "type": "email", "required": True, "order": 1},
+            {"id": "business_name", "label": "Business Name", "type": "text", "required": True, "order": 2},
+        ],
+        "version": 1,
+        "visibility": "all",
+        "visible_roles": [],
+        "status": "active",
+        "created_by": "admin@vend88.com",
+        "created_at": "2026-04-02T11:30:00Z",
+        "updated_at": "2026-04-02T11:30:00Z",
+        "version_history": [
+            {
+                "version": 1,
+                "updated_at": "2026-04-02T11:30:00Z",
+                "updated_by": "admin@vend88.com",
+                "change_note": "Initial version",
+            }
+        ],
+    },
+}
+
 
 # ── Schemas ──────────────────────────────────────────────────────
 class PortalLoginRequest(BaseModel):
@@ -202,6 +255,40 @@ class RegistrationGenerateRequest(BaseModel):
     admin_email: str
     form_fields: Optional[list] = None
     template_id: Optional[str] = None
+
+
+class FormTemplateDetailRequest(BaseModel):
+    id: str
+    token: Optional[str] = None
+
+
+class FormTemplateCreateRequest(BaseModel):
+    token: Optional[str] = None
+    name: str
+    description: Optional[str] = None
+    fields: list[dict[str, Any]]
+    visibility: Optional[Literal["all", "admin_only", "specific_roles"]] = "all"
+    visible_roles: Optional[list[str]] = None
+    status: Optional[Literal["active", "draft", "archived"]] = "active"
+    admin_email: Optional[str] = None
+
+
+class FormTemplateUpdateRequest(BaseModel):
+    token: Optional[str] = None
+    id: str
+    name: Optional[str] = None
+    description: Optional[str] = None
+    fields: Optional[list[dict[str, Any]]] = None
+    visibility: Optional[Literal["all", "admin_only", "specific_roles"]] = None
+    visible_roles: Optional[list[str]] = None
+    status: Optional[Literal["active", "draft", "archived"]] = None
+    current_version: Optional[int] = None
+    admin_email: Optional[str] = None
+
+
+class FormTemplateDeleteRequest(BaseModel):
+    token: Optional[str] = None
+    id: str
 
 
 class AdminPermissionsRequest(BaseModel):
@@ -460,32 +547,65 @@ def _find_registration_by_identifier(identifier: str) -> Optional[dict]:
     return None
 
 
-def _serialize_link(link: dict) -> dict[str, Any]:
+def _serialize_record(item: dict, is_link: bool = False) -> dict[str, Any]:
+    """Return a unified registration record matching the official API shape."""
+    if is_link:
+        status = "cancelled" if item.get("revoked") else "pending"
+        cancelled_at = item.get("revoked_at") if item.get("revoked") else None
+        cancelled_by = item.get("revoked_by") if item.get("revoked") else None
+    else:
+        status = item.get("status") or "pending"
+        cancelled_at = item.get("cancelled_at")
+        cancelled_by = item.get("cancelled_by")
+
     return {
-        "id": link.get("id"),
-        "form_id": link["form_id"],
-        "token": link["token"],
-        "status": "cancelled" if link.get("revoked") else "pending",
-        "generated_by": link.get("generated_by") or link["admin_email"],
-        "generated_at": link.get("generated_at") or link["created_at"],
-        "created_at": link["created_at"],
-        "expires_at": link.get("expires_at"),
-        "template_id": link.get("template_id"),
-        "form_fields": link.get("form_fields") or [],
-        "fields_count": link.get("fields_count", 0),
-        "link": _build_link_url(link["token"]),
-        "cancelled_at": link.get("revoked_at"),
-        "cancelled_by": link.get("revoked_by"),
-        "updated_at": link.get("updated_at"),
+        "_id": item.get("_id") or item.get("id") or item.get("form_id"),
+        "abn": item.get("abn"),
+        "alipay_option": item.get("alipay_option"),
+        "alipay_other": item.get("alipay_other"),
+        "approved_at": item.get("approved_at"),
+        "approved_by": item.get("approved_by"),
+        "business_name": item.get("business_name"),
+        "cancelled_at": cancelled_at,
+        "cancelled_by": cancelled_by,
+        "contact_email": item.get("contact_email"),
+        "contact_phone": item.get("contact_phone"),
+        "eftpos_integration": item.get("eftpos_integration"),
+        "expires_at": item.get("expires_at"),
+        "form_id": item.get("form_id"),
+        "generated_at": item.get("generated_at") or (item.get("created_at") if is_link else None),
+        "generated_by": item.get("generated_by") or (item.get("admin_email") if is_link else None),
+        "heard_about": item.get("heard_about"),
+        "heard_other": item.get("heard_other"),
+        "linked_customer_id": item.get("linked_customer_id"),
+        "menu_files": item.get("menu_files") or [],
+        "menu_send_later": item.get("menu_send_later", False),
+        "messaging_app_id": item.get("messaging_app_id"),
+        "messaging_app_type": item.get("messaging_app_type"),
+        "notes": item.get("notes"),
+        "owner_name": item.get("owner_name"),
+        "quote_number": item.get("quote_number"),
+        "ready_by": item.get("ready_by"),
+        "registered_address": item.get("registered_address"),
+        "registered_country": item.get("registered_country"),
+        "registered_postcode": item.get("registered_postcode"),
+        "registered_state": item.get("registered_state"),
+        "registered_suburb": item.get("registered_suburb"),
+        "rejected_at": item.get("rejected_at"),
+        "rejected_by": item.get("rejected_by"),
+        "rejection_reason": item.get("rejection_reason"),
+        "status": status,
+        "submitted_at": item.get("submitted_at"),
+        "token": item.get("token"),
     }
 
 
+def _serialize_link(link: dict) -> dict[str, Any]:
+    return _serialize_record(link, is_link=True)
+
+
 def _serialize_registration(registration: dict) -> dict[str, Any]:
-    payload = dict(registration)
-    payload.setdefault("id", registration.get("id") or registration.get("form_id"))
-    payload.setdefault("form_id", registration.get("form_id") or registration.get("id"))
-    payload.setdefault("status", "pending")
-    return payload
+    return _serialize_record(registration, is_link=False)
 
 
 def _list_registration_records(form_id: Optional[str] = None) -> list[dict[str, Any]]:
@@ -522,6 +642,40 @@ def _registration_not_found() -> HTTPException:
         status_code=404,
         detail={"status_code": 404, "message": "Registration not found"},
     )
+
+
+def _validate_template_fields(fields: list[dict[str, Any]]) -> None:
+    if not fields:
+        raise HTTPException(status_code=400, detail={"status_code": 400, "message": "At least one field is required"})
+    has_email = any((field.get("id") == "contact_email") or (field.get("type") == "email") for field in fields)
+    if not has_email:
+        raise HTTPException(status_code=400, detail={"status_code": 400, "message": "Email field is mandatory for all form templates"})
+
+
+def _get_template_usage_count(template_id: str) -> int:
+    reg_count = sum(1 for reg in REGISTRATIONS.values() if reg.get("template_id") == template_id)
+    link_count = sum(1 for link in REGISTRATION_LINKS.values() if link.get("template_id") == template_id)
+    return reg_count + link_count
+
+
+def _serialize_template(template: dict, include_details: bool = False) -> dict[str, Any]:
+    payload = {
+        "id": template["id"],
+        "name": template["name"],
+        "description": template.get("description") or "",
+        "version": template.get("version", 1),
+        "visibility": template.get("visibility", "all"),
+        "visible_roles": template.get("visible_roles", []),
+        "status": template.get("status", "active"),
+        "created_by": template.get("created_by"),
+        "created_at": template.get("created_at"),
+        "updated_at": template.get("updated_at"),
+        "fields": template.get("fields", []),
+    }
+    if include_details:
+        payload["usage_count"] = _get_template_usage_count(template["id"])
+        payload["version_history"] = template.get("version_history", [])
+    return payload
 
 
 # ── Admin management CRUD ────────────────────────────────────────
@@ -763,6 +917,144 @@ def update_admin_permissions(body: AdminPermissionsRequest):
 
 
 # ── Registration management ──────────────────────────────────────
+@app.get("/registration/form-templates/list", tags=["Registration"])
+def registration_form_templates_list(status: Optional[str] = None):
+    templates = list(FORM_TEMPLATES.values())
+    if status and status != "all":
+        templates = [template for template in templates if template.get("status") == status]
+    return {
+        "status_code": 200,
+        "status_msg": "success",
+        "data": [_serialize_template(template) for template in templates],
+    }
+
+
+@app.post("/registration/form-templates/detail", tags=["Registration"])
+def registration_form_templates_detail(body: FormTemplateDetailRequest):
+    template = FORM_TEMPLATES.get(body.id)
+    if not template:
+        raise HTTPException(status_code=404, detail={"status_code": 404, "message": "Template not found"})
+    return {
+        "status_code": 200,
+        "status_msg": "success",
+        "data": _serialize_template(template, include_details=True),
+    }
+
+
+@app.post("/registration/form-templates/create", tags=["Registration"])
+def registration_form_templates_create(body: FormTemplateCreateRequest):
+    if not body.name.strip():
+        raise HTTPException(status_code=400, detail={"status_code": 400, "message": "Template name is required"})
+    _validate_template_fields(body.fields)
+
+    template_id = f"tpl_{secrets.token_hex(4)}"
+    now = _now_iso()
+    creator = body.admin_email or "admin@vend88.com"
+    template = {
+        "id": template_id,
+        "name": body.name.strip(),
+        "description": (body.description or "").strip(),
+        "fields": body.fields,
+        "version": 1,
+        "visibility": body.visibility or "all",
+        "visible_roles": body.visible_roles or [],
+        "status": body.status or "active",
+        "created_by": creator,
+        "created_at": now,
+        "updated_at": now,
+        "version_history": [
+            {
+                "version": 1,
+                "updated_at": now,
+                "updated_by": creator,
+                "change_note": "Initial version",
+            }
+        ],
+    }
+    FORM_TEMPLATES[template_id] = template
+    return {
+        "status_code": 200,
+        "status_msg": "success",
+        "data": _serialize_template(template),
+    }
+
+
+@app.post("/registration/form-templates/update", tags=["Registration"])
+def registration_form_templates_update(body: FormTemplateUpdateRequest):
+    template = FORM_TEMPLATES.get(body.id)
+    if not template:
+        raise HTTPException(status_code=404, detail={"status_code": 404, "message": "Template not found"})
+
+    current_version = template.get("version", 1)
+    if body.current_version is not None and body.current_version != current_version:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "status_code": 409,
+                "status_msg": "Version conflict. Template was modified by another user.",
+            },
+        )
+
+    if body.name is not None:
+        if not body.name.strip():
+            raise HTTPException(status_code=400, detail={"status_code": 400, "message": "Template name is required"})
+        template["name"] = body.name.strip()
+    if body.description is not None:
+        template["description"] = body.description.strip()
+    if body.fields is not None:
+        _validate_template_fields(body.fields)
+        template["fields"] = body.fields
+    if body.visibility is not None:
+        template["visibility"] = body.visibility
+    if body.visible_roles is not None:
+        template["visible_roles"] = body.visible_roles
+    if body.status is not None:
+        template["status"] = body.status
+
+    updater = body.admin_email or "admin@vend88.com"
+    new_version = current_version + 1
+    now = _now_iso()
+    template["version"] = new_version
+    template["updated_at"] = now
+    history = template.setdefault("version_history", [])
+    history.append(
+        {
+            "version": new_version,
+            "updated_at": now,
+            "updated_by": updater,
+            "change_note": "Template updated",
+        }
+    )
+
+    return {
+        "status_code": 200,
+        "status_msg": "success",
+        "data": _serialize_template(template),
+    }
+
+
+@app.post("/registration/form-templates/delete", tags=["Registration"])
+def registration_form_templates_delete(body: FormTemplateDeleteRequest):
+    template = FORM_TEMPLATES.get(body.id)
+    if not template:
+        raise HTTPException(status_code=404, detail={"status_code": 404, "message": "Template not found"})
+
+    usage_count = _get_template_usage_count(body.id)
+    if usage_count > 0:
+        template["status"] = "archived"
+        template["updated_at"] = _now_iso()
+        message = "Template archived because it is already used by registrations"
+    else:
+        del FORM_TEMPLATES[body.id]
+        message = "Template deleted successfully"
+
+    return {
+        "status_code": 200,
+        "status_msg": "success",
+        "message": message,
+    }
+
+
 @app.post("/registration/generate", tags=["Registration"])
 def registration_generate(body: RegistrationGenerateRequest):
     """Generate a new registration link using the current official API shape."""
@@ -771,6 +1063,11 @@ def registration_generate(body: RegistrationGenerateRequest):
     created_at = _now_iso()
     generated_at = _now_formatted(FORM_TIMEZONE)
     expires_at = _format_datetime(datetime.now(timezone.utc) + timedelta(days=30))
+
+    selected_template = FORM_TEMPLATES.get(body.template_id) if body.template_id else None
+    selected_fields = body.form_fields
+    if not selected_fields and selected_template:
+        selected_fields = selected_template.get("fields", [])
 
     registration_link = {
         "id": None,
@@ -783,15 +1080,15 @@ def registration_generate(body: RegistrationGenerateRequest):
         "updated_at": created_at,
         "expires_at": expires_at,
         "template_id": body.template_id,
-        "form_fields": body.form_fields or [],
-        "fields_count": len(body.form_fields) if body.form_fields else 0,
+        "form_fields": selected_fields or [],
+        "fields_count": len(selected_fields) if selected_fields else 0,
         "status": "pending",
         "used": False,
         "revoked": False,
     }
     REGISTRATION_LINKS[token] = registration_link
 
-    field_info = f"{len(body.form_fields)} fields" if body.form_fields else "default fields"
+    field_info = f"{len(selected_fields)} fields" if selected_fields else "default fields"
     _log_audit(
         "REGISTRATION_LINK_GENERATED",
         body.admin_email,
@@ -826,14 +1123,7 @@ def registration_list(
     _require_registration_access(token=token, authorization=authorization)
     registrations_list = _list_registration_records(form_id=form_id)
 
-    return {
-        "status_code": 200,
-        "success": True,
-        "status_msg": "success",
-        "data": registrations_list,
-        "registrations": registrations_list,
-        "total": len(registrations_list),
-    }
+    return {"data": registrations_list}
 
 
 @app.get("/registration/validate-token/{token}", tags=["Registration"])

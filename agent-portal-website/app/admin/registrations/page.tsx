@@ -1286,6 +1286,7 @@ export default function RegistrationsPage() {
   const [availableTemplates, setAvailableTemplates] = useState<any[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [templateInitialFields, setTemplateInitialFields] = useState<FormField[] | undefined>(undefined);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>(undefined);
   
   // Table enhancements state
   const [sortField, setSortField] = useState<string>('submittedAt');
@@ -1398,8 +1399,8 @@ export default function RegistrationsPage() {
       console.log('[Fetch] Response status:', response.status);
       console.log('[Fetch] Response data:', response.data);
 
-      if (response.data.status_code === 200 || response.data.success) {
-        const registrations = response.data.registrations || response.data.data || [];
+      const registrations = response.data.data || response.data.registrations || [];
+      if (response.data.status_code === 200 || response.data.success || Array.isArray(registrations)) {
         
         console.log('[Fetch] Raw registrations array:', registrations);
         console.log('[Fetch] Array length:', registrations.length);
@@ -1589,12 +1590,14 @@ export default function RegistrationsPage() {
   const handlePickTemplate = (template: any) => {
     // Use the template's fields as initial fields in the FormFieldSelector
     setTemplateInitialFields(template.fields);
+    setSelectedTemplateId(template.id);
     setShowTemplatePicker(false);
     setShowFormFieldSelector(true);
   };
 
   const handleCreateFromScratch = () => {
     setTemplateInitialFields(undefined);
+    setSelectedTemplateId(undefined);
     setShowTemplatePicker(false);
     setShowFormFieldSelector(true);
   };
@@ -1618,6 +1621,7 @@ export default function RegistrationsPage() {
         apiUrl,
         { 
           admin_email: adminEmail,
+          template_id: selectedTemplateId || null,
           form_fields: selectedFields.map(f => ({
             id: f.id,
             label: f.label,
@@ -1641,6 +1645,7 @@ export default function RegistrationsPage() {
         // Remove /register path to use root URL which doesn't have redirect issues
         const link = response.data.data.link.replace('/register?', '?');
         setGeneratedLink(link);
+        setSelectedTemplateId(undefined);
         setShowFormFieldSelector(false);
         setShowGenerateModal(true);
         console.log('âœ… Registration form generated successfully');
