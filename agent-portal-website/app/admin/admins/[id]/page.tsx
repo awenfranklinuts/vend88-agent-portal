@@ -598,8 +598,12 @@ const SkeletonLine = styled(SkeletonBlock)<{ width?: string }>`
 
 const PermissionGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const PermissionCheckboxItem = styled.div`
@@ -635,7 +639,17 @@ const PermissionLabel = styled.label<{ $disabled?: boolean }>`
 `;
 
 const PermissionSection = styled.div`
-  margin-bottom: 1.5rem;
+  min-width: 0;
+`;
+
+const PermissionSectionsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const PermissionSubtitle = styled.h4`
@@ -1167,29 +1181,31 @@ export default function AdminDetailPage() {
             <CardTitle>
               {lang === 'zh' ? '权限管理' : 'Permission Management'}
             </CardTitle>
-            {(isEditing ? editModePermissions : permissionCategories).map((category, catIdx) => (
-              <PermissionSection key={catIdx}>
-                <PermissionSubtitle>
-                  {lang === 'zh' ? category.category_zh : category.category_en}
-                </PermissionSubtitle>
-                <PermissionGrid>
-                  {category.permissions.map(perm => (
-                    <PermissionCheckboxItem key={perm.id}>
-                      <PermissionCheckbox
-                        type="checkbox"
-                        id={`perm-${perm.id}`}
-                        checked={perm.enabled}
-                        onChange={() => isEditing ? handleEditModePermissionToggle(perm.id) : undefined}
-                        disabled={!isEditing}
-                      />
-                      <PermissionLabel htmlFor={`perm-${perm.id}`} $disabled={!isEditing}>
-                        {lang === 'zh' ? perm.name_zh : perm.name_en}
-                      </PermissionLabel>
-                    </PermissionCheckboxItem>
-                  ))}
-                </PermissionGrid>
-              </PermissionSection>
-            ))}
+            <PermissionSectionsGrid>
+              {(isEditing ? editModePermissions : permissionCategories).map((category, catIdx) => (
+                <PermissionSection key={catIdx}>
+                  <PermissionSubtitle>
+                    {lang === 'zh' ? category.category_zh : category.category_en}
+                  </PermissionSubtitle>
+                  <PermissionGrid>
+                    {category.permissions.map(perm => (
+                      <PermissionCheckboxItem key={perm.id}>
+                        <PermissionCheckbox
+                          type="checkbox"
+                          id={`perm-${perm.id}`}
+                          checked={perm.enabled}
+                          onChange={() => isEditing ? handleEditModePermissionToggle(perm.id) : undefined}
+                          disabled={!isEditing}
+                        />
+                        <PermissionLabel htmlFor={`perm-${perm.id}`} $disabled={!isEditing}>
+                          {lang === 'zh' ? perm.name_zh : perm.name_en}
+                        </PermissionLabel>
+                      </PermissionCheckboxItem>
+                    ))}
+                  </PermissionGrid>
+                </PermissionSection>
+              ))}
+            </PermissionSectionsGrid>
           </Card>
 
           {/* Audit Logs Section */}

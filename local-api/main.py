@@ -1,8 +1,10 @@
 import secrets
-from datetime import datetime, timezone
-from typing import Literal, Optional
+import string
+from datetime import datetime, timedelta, timezone
+from typing import Any, Literal, Optional
+from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -15,6 +17,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+FORM_BASE_URL = "https://form.vend88.com/register"
+FORM_TIMEZONE = ZoneInfo("Australia/Sydney")
+TOKEN_ALPHABET = string.ascii_letters + string.digits
 
 # ── Role → permissions mapping ───────────────────────────────────
 ROLE_PERMISSIONS: dict[str, list[str]] = {
@@ -112,6 +118,37 @@ REGISTRATION_LINKS: dict[str, dict] = {}
 # Registrations (submitted registration forms)
 REGISTRATIONS: dict[str, dict] = {}
 
+# Customers (used by registration approval flow)
+CUSTOMERS: dict[str, dict] = {
+    "cust_001": {
+        "_id": "cust_001",
+        "name": "John Smith",
+        "email": "john.smith@coffeeshop.com",
+        "phone": "+61412345678",
+        "messagingAppType": "whatsapp",
+        "messagingAppId": "+61412345678",
+        "registration_id": "V88-REG-001",
+        "created_at": "2024-01-15T10:30:00Z",
+    },
+    "cust_002": {
+        "_id": "cust_002",
+        "name": "Jane Doe",
+        "email": "jane.doe@restaurant.com",
+        "phone": "+61498765432",
+        "messagingAppType": "wechat",
+        "messagingAppId": "janedoe_wechat",
+        "registration_id": "V88-REG-002",
+        "created_at": "2024-02-20T14:15:00Z",
+    },
+    "cust_003": {
+        "_id": "cust_003",
+        "name": "Michael Chen",
+        "email": "michael.chen@bakery.com",
+        "phone": "+61455123789",
+        "created_at": "2024-03-10T09:00:00Z",
+    },
+}
+
 
 # ── Schemas ──────────────────────────────────────────────────────
 class PortalLoginRequest(BaseModel):
@@ -202,21 +239,22 @@ class RegistrationSubmitRequest(BaseModel):
 
 
 class RegistrationRejectRequest(BaseModel):
-    token: str
+    token: Optional[str] = None
     reason: Optional[str] = None
 
 
 class RegistrationRevokeRequest(BaseModel):
-    token: str
+    token: Optional[str] = None
     reason: Optional[str] = None
 
 
 class RegistrationApproveRequest(BaseModel):
-    token: str
+    token: Optional[str] = None
     approval_notes: Optional[str] = None
 
 
 class LinkCustomerRequest(BaseModel):
+    token: Optional[str] = None
     customer_id: Optional[str] = None
     create_new: Optional[bool] = False
     customer_data: Optional[dict] = None
@@ -336,6 +374,32 @@ def _require_admin_access(token: str) -> str:
     return email
 
 
+def _extract_bearer_token(authorization: Optional[str]) -> Optional[str]:
+    if not authorization:
+        return None
+    scheme, _, value = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not value:
+        return None
+    return value.strip()
+
+
+def _resolve_email(token: Optional[str] = None, authorization: Optional[str] = None) -> str:
+    resolved_token = token or _extract_bearer_token(authorization)
+    if not resolved_token:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    return _require_token(resolved_token)
+
+
+def _require_registration_access(
+    token: Optional[str] = None, authorization: Optional[str] = None
+) -> str:
+    email = _resolve_email(token=token, authorization=authorization)
+    user = USERS[email]
+    if user["role"] not in {"admin", "super_admin"}:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return email
+
+
 def _user_by_id(user_id: str) -> tuple[str, dict]:
     """Find a user by _id. Returns (email, user_dict) or raises 404."""
     for email, u in USERS.items():
@@ -356,6 +420,108 @@ def _log_audit(action: str, target_email: str, actor_email: str, details: str = 
         "actor_email": actor_email,
         "details": details,
     })
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _format_datetime(value: datetime) -> str:
+    return value.strftime("%Y-%m-%d %H:%M:%S %z")
+
+
+def _now_formatted(tz: Any) -> str:
+    return _format_datetime(datetime.now(tz))
+
+
+def _generate_registration_token(length: int = 32) -> str:
+    return "".join(secrets.choice(TOKEN_ALPHABET) for _ in range(length))
+
+
+def _build_link_url(token: str) -> str:
+    return f"{FORM_BASE_URL}?token={token}"
+
+
+def _find_link_by_identifier(identifier: str) -> Optional[dict]:
+    if identifier in REGISTRATION_LINKS:
+        return REGISTRATION_LINKS[identifier]
+    for link in REGISTRATION_LINKS.values():
+        if link.get("form_id") == identifier:
+            return link
+    return None
+
+
+def _find_registration_by_identifier(identifier: str) -> Optional[dict]:
+    if identifier in REGISTRATIONS:
+        return REGISTRATIONS[identifier]
+    for registration in REGISTRATIONS.values():
+        if registration.get("form_id") == identifier or registration.get("id") == identifier:
+            return registration
+    return None
+
+
+def _serialize_link(link: dict) -> dict[str, Any]:
+    return {
+        "id": link.get("id"),
+        "form_id": link["form_id"],
+        "token": link["token"],
+        "status": "cancelled" if link.get("revoked") else "pending",
+        "generated_by": link.get("generated_by") or link["admin_email"],
+        "generated_at": link.get("generated_at") or link["created_at"],
+        "created_at": link["created_at"],
+        "expires_at": link.get("expires_at"),
+        "template_id": link.get("template_id"),
+        "form_fields": link.get("form_fields") or [],
+        "fields_count": link.get("fields_count", 0),
+        "link": _build_link_url(link["token"]),
+        "cancelled_at": link.get("revoked_at"),
+        "cancelled_by": link.get("revoked_by"),
+        "updated_at": link.get("updated_at"),
+    }
+
+
+def _serialize_registration(registration: dict) -> dict[str, Any]:
+    payload = dict(registration)
+    payload.setdefault("id", registration.get("id") or registration.get("form_id"))
+    payload.setdefault("form_id", registration.get("form_id") or registration.get("id"))
+    payload.setdefault("status", "pending")
+    return payload
+
+
+def _list_registration_records(form_id: Optional[str] = None) -> list[dict[str, Any]]:
+    submitted: list[dict[str, Any]] = []
+    submitted_form_ids: set[str] = set()
+    for registration in REGISTRATIONS.values():
+        if form_id and registration.get("form_id") != form_id and registration.get("id") != form_id:
+            continue
+        serialized = _serialize_registration(registration)
+        submitted.append(serialized)
+        submitted_form_ids.add(serialized["form_id"])
+
+    pending: list[dict[str, Any]] = []
+    for link in REGISTRATION_LINKS.values():
+        link_form_id = link["form_id"]
+        if form_id and link_form_id != form_id:
+            continue
+        if link_form_id in submitted_form_ids:
+            continue
+        if link.get("used"):
+            continue
+        pending.append(_serialize_link(link))
+
+    combined = pending + submitted
+    combined.sort(
+        key=lambda item: item.get("submitted_at") or item.get("generated_at") or item.get("created_at") or "",
+        reverse=True,
+    )
+    return combined
+
+
+def _registration_not_found() -> HTTPException:
+    return HTTPException(
+        status_code=404,
+        detail={"status_code": 404, "message": "Registration not found"},
+    )
 
 
 # ── Admin management CRUD ────────────────────────────────────────
@@ -597,68 +763,80 @@ def update_admin_permissions(body: AdminPermissionsRequest):
 
 
 # ── Registration management ──────────────────────────────────────
-@app.post("/registration/generate")
+@app.post("/registration/generate", tags=["Registration"])
 def registration_generate(body: RegistrationGenerateRequest):
-    """Generate a new registration link and log it to audit trail."""
-    # Generate unique IDs for this registration
-    form_id = f"V88-REG-{secrets.token_hex(4).upper()}"
-    token = secrets.token_hex(16)
-    
-    # Store registration link info
+    """Generate a new registration link using the current official API shape."""
+    form_id = f"V88-REG-{secrets.randbelow(900) + 100:03d}"
+    token = _generate_registration_token()
+    created_at = _now_iso()
+    generated_at = _now_formatted(FORM_TIMEZONE)
+    expires_at = _format_datetime(datetime.now(timezone.utc) + timedelta(days=30))
+
     registration_link = {
+        "id": None,
         "form_id": form_id,
         "token": token,
         "admin_email": body.admin_email,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "generated_by": body.admin_email,
+        "generated_at": generated_at,
+        "created_at": created_at,
+        "updated_at": created_at,
+        "expires_at": expires_at,
         "template_id": body.template_id,
+        "form_fields": body.form_fields or [],
         "fields_count": len(body.form_fields) if body.form_fields else 0,
+        "status": "pending",
+        "used": False,
+        "revoked": False,
     }
     REGISTRATION_LINKS[token] = registration_link
-    
-    # Log this as an audit entry
+
     field_info = f"{len(body.form_fields)} fields" if body.form_fields else "default fields"
     _log_audit(
         "REGISTRATION_LINK_GENERATED",
-        body.admin_email,  # Target is the admin who generated it
-        body.admin_email,  # Actor is the admin who did it
-        f"Generated registration link with {field_info}"
+        body.admin_email,
+        body.admin_email,
+        f"Generated registration link {form_id} with {field_info}",
     )
-    
-    # Return registration link details
-    registration_link_url = f"http://vend88.local/register?token={token}"
-    
+
     return {
         "status_code": 200,
         "success": True,
+        "message": "Registration token generated successfully",
         "data": {
+            "id": None,
             "form_id": form_id,
             "token": token,
-            "link": registration_link_url,
-            "expires_at": (datetime.now(timezone.utc).replace(day=datetime.now(timezone.utc).day + 7)).isoformat(),
+            "link": _build_link_url(token),
+            "generated_by": body.admin_email,
+            "generated_at": generated_at,
+            "expires_at": expires_at,
+            "status": "pending",
         },
-        "message": "Registration link generated successfully",
     }
 
 
-@app.get("/registration/list")
-def registration_list(token: str):
+@app.get("/registration/list", tags=["Registration"])
+def registration_list(
+    token: Optional[str] = None,
+    form_id: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+):
     """List all registration forms (admin only)."""
-    email = _require_token(token)
-    user = USERS.get(email)
-    if not user or user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    registrations_list = list(REGISTRATIONS.values())
-    
+    _require_registration_access(token=token, authorization=authorization)
+    registrations_list = _list_registration_records(form_id=form_id)
+
     return {
         "status_code": 200,
         "success": True,
+        "status_msg": "success",
         "data": registrations_list,
+        "registrations": registrations_list,
         "total": len(registrations_list),
     }
 
 
-@app.get("/registration/validate-token/{token}")
+@app.get("/registration/validate-token/{token}", tags=["Registration"])
 def validate_registration_token(token: str):
     """Validate a registration token without authentication (public endpoint)."""
     if token not in REGISTRATION_LINKS:
@@ -666,8 +844,20 @@ def validate_registration_token(token: str):
             status_code=404,
             detail={"status_code": 404, "message": "Invalid or expired token"},
         )
-    
+
     link_info = REGISTRATION_LINKS[token]
+
+    if link_info.get("revoked"):
+        raise HTTPException(
+            status_code=410,
+            detail={"status_code": 410, "message": "Registration link has been revoked"},
+        )
+
+    if link_info.get("used"):
+        raise HTTPException(
+            status_code=410,
+            detail={"status_code": 410, "message": "Registration link has already been used"},
+        )
     
     return {
         "status_code": 200,
@@ -679,7 +869,7 @@ def validate_registration_token(token: str):
     }
 
 
-@app.post("/registration/submit")
+@app.post("/registration/submit", tags=["Registration"])
 def registration_submit(body: RegistrationSubmitRequest):
     """Submit a registration form (public endpoint - requires token)."""
     if body.token not in REGISTRATION_LINKS:
@@ -687,19 +877,32 @@ def registration_submit(body: RegistrationSubmitRequest):
             status_code=401,
             detail={"status_code": 401, "message": "Invalid or expired token"},
         )
-    
     link_info = REGISTRATION_LINKS[body.token]
-    
-    # Create registration record
+
+    if link_info.get("revoked"):
+        raise HTTPException(
+            status_code=410,
+            detail={"status_code": 410, "message": "Registration link has been revoked"},
+        )
+
+    if link_info.get("used"):
+        raise HTTPException(
+            status_code=409,
+            detail={"status_code": 409, "message": "Registration link has already been used"},
+        )
+
     registration_id = f"REG-{secrets.token_hex(4).upper()}"
     form_id = link_info["form_id"]
-    
+    now = _now_iso()
+
     registration = {
         "id": registration_id,
         "form_id": form_id,
+        "token": body.token,
         "status": "submitted",
         "contact_email": body.contact_email,
         "contact_name": body.contact_name,
+        "owner_name": body.contact_name,
         "contact_phone": body.contact_phone,
         "messaging_app_type": body.messaging_app_type,
         "messaging_app_id": body.messaging_app_id,
@@ -722,16 +925,19 @@ def registration_submit(body: RegistrationSubmitRequest):
         "notes": body.notes,
         "generated_by": link_info["admin_email"],
         "generated_at": link_info["created_at"],
-        "submitted_at": datetime.now(timezone.utc).isoformat(),
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "template_id": link_info.get("template_id"),
+        "form_fields": body.form_fields or link_info.get("form_fields") or [],
+        "submitted_at": now,
+        "created_at": now,
+        "updated_at": now,
     }
-    
+
     REGISTRATIONS[registration_id] = registration
-    
-    # Mark token as used
+
     link_info["used"] = True
-    link_info["used_at"] = datetime.now(timezone.utc).isoformat()
-    
+    link_info["used_at"] = now
+    link_info["updated_at"] = now
+
     return {
         "status_code": 200,
         "success": True,
@@ -744,197 +950,237 @@ def registration_submit(body: RegistrationSubmitRequest):
     }
 
 
-@app.get("/registration/{registration_id}")
-def get_registration(registration_id: str, token: str):
+@app.get("/registration/{registration_id}", tags=["Registration"])
+def get_registration(
+    registration_id: str,
+    token: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+):
     """Get registration details (admin only)."""
-    email = _require_token(token)
-    user = USERS.get(email)
-    if not user or user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    if registration_id not in REGISTRATIONS:
-        raise HTTPException(
-            status_code=404,
-            detail={"status_code": 404, "message": "Registration not found"},
-        )
-    
-    registration = REGISTRATIONS[registration_id]
-    
+    _require_registration_access(token=token, authorization=authorization)
+
+    registration = _find_registration_by_identifier(registration_id)
+    if registration:
+        payload = _serialize_registration(registration)
+    else:
+        link = _find_link_by_identifier(registration_id)
+        if not link:
+            raise _registration_not_found()
+        payload = _serialize_link(link)
+
     return {
         "status_code": 200,
         "success": True,
-        "data": registration,
+        "data": payload,
+        "registration": payload,
     }
 
 
-@app.post("/registration/{registration_id}")
-def update_registration(registration_id: str, body: dict, token: str):
+@app.post("/registration/{registration_id}", tags=["Registration"])
+async def update_registration(
+    registration_id: str,
+    request: Request,
+    authorization: Optional[str] = Header(None),
+):
     """Update registration details (admin only)."""
-    email = _require_token(token)
-    user = USERS.get(email)
-    if not user or user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    if registration_id not in REGISTRATIONS:
-        raise HTTPException(
-            status_code=404,
-            detail={"status_code": 404, "message": "Registration not found"},
-        )
-    
-    registration = REGISTRATIONS[registration_id]
-    
-    # Update only provided fields
+    _require_registration_access(authorization=authorization)
+    body = await request.json()
+
+    registration = _find_registration_by_identifier(registration_id)
+    if registration is None:
+        link = _find_link_by_identifier(registration_id)
+        if not link:
+            raise _registration_not_found()
+        for key, value in body.items():
+            if key not in {"id", "form_id", "token", "created_at", "status"}:
+                link[key] = value
+        link["updated_at"] = _now_iso()
+        payload = _serialize_link(link)
+        return {
+            "status_code": 200,
+            "success": True,
+            "message": "Registration updated successfully",
+            "data": payload,
+        }
+
     for key, value in body.items():
         if key not in ["id", "created_at", "submitted_at", "status"]:
             registration[key] = value
-    
-    registration["updated_at"] = datetime.now(timezone.utc).isoformat()
-    
+
+    registration["updated_at"] = _now_iso()
+    payload = _serialize_registration(registration)
+
     return {
         "status_code": 200,
         "success": True,
         "message": "Registration updated successfully",
-        "data": registration,
+        "data": payload,
     }
 
 
-@app.put("/registration/{registration_id}/link-customer")
-def link_customer(registration_id: str, body: LinkCustomerRequest, token: str):
+@app.put("/registration/{registration_id}/link-customer", tags=["Registration"])
+@app.post("/registration/{registration_id}/link-customer", tags=["Registration"])
+def link_customer(
+    registration_id: str,
+    body: LinkCustomerRequest,
+    authorization: Optional[str] = Header(None),
+):
     """Link or create a customer for this registration (admin only)."""
-    email = _require_token(token)
-    user = USERS.get(email)
-    if not user or user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    if registration_id not in REGISTRATIONS:
-        raise HTTPException(
-            status_code=404,
-            detail={"status_code": 404, "message": "Registration not found"},
-        )
-    
-    registration = REGISTRATIONS[registration_id]
-    
+    _require_registration_access(token=body.token, authorization=authorization)
+
+    registration = _find_registration_by_identifier(registration_id)
+    if registration is None:
+        raise _registration_not_found()
+
+    customer = None
     if body.customer_id:
         registration["linked_customer_id"] = body.customer_id
+        customer = CUSTOMERS.get(body.customer_id)
     elif body.create_new and body.customer_data:
-        # Create new customer (simplified)
         customer_id = f"CUST-{secrets.token_hex(4).upper()}"
+        customer = {
+            "_id": customer_id,
+            "name": body.customer_data.get("name") or "New Customer",
+            "email": body.customer_data.get("email") or "",
+            "phone": body.customer_data.get("phone") or "",
+            "registration_id": registration.get("form_id") or registration.get("id"),
+            "created_at": _now_iso(),
+        }
+        CUSTOMERS[customer_id] = customer
         registration["linked_customer_id"] = customer_id
-    
-    registration["updated_at"] = datetime.now(timezone.utc).isoformat()
-    
+
+    registration["updated_at"] = _now_iso()
+    payload = _serialize_registration(registration)
+
     return {
         "status_code": 200,
         "success": True,
         "message": "Customer linked successfully",
-        "data": registration,
+        "data": payload,
+        "customer": customer,
     }
 
 
-@app.post("/registration/approve/{registration_id}")
-def approve_registration(registration_id: str, body: RegistrationApproveRequest):
+@app.post("/registration/approve/{registration_id}", tags=["Registration"])
+def approve_registration(
+    registration_id: str,
+    body: RegistrationApproveRequest,
+    authorization: Optional[str] = Header(None),
+):
     """Approve a submitted registration (admin only)."""
-    email = _require_token(body.token)
-    user = USERS.get(email)
-    if not user or user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    if registration_id not in REGISTRATIONS:
-        raise HTTPException(
-            status_code=404,
-            detail={"status_code": 404, "message": "Registration not found"},
-        )
-    
-    registration = REGISTRATIONS[registration_id]
+    email = _require_registration_access(token=body.token, authorization=authorization)
+    registration = _find_registration_by_identifier(registration_id)
+    if registration is None:
+        raise _registration_not_found()
+
     registration["status"] = "approved"
-    registration["approved_at"] = datetime.now(timezone.utc).isoformat()
+    registration["approved_at"] = _now_iso()
     registration["approved_by"] = email
     registration["approval_notes"] = body.approval_notes
-    registration["updated_at"] = datetime.now(timezone.utc).isoformat()
-    
+    registration["updated_at"] = _now_iso()
+    payload = _serialize_registration(registration)
+
     _log_audit(
         "REGISTRATION_APPROVED",
-        registration["contact_email"],
+        registration.get("contact_email", registration.get("form_id", registration_id)),
         email,
         f"Approved registration {registration_id}",
     )
-    
+
     return {
         "status_code": 200,
         "success": True,
         "message": "Registration approved successfully",
-        "data": registration,
+        "data": payload,
     }
 
 
-@app.post("/registration/reject/{registration_id}")
-def reject_registration(registration_id: str, body: RegistrationRejectRequest):
+@app.post("/registration/reject/{registration_id}", tags=["Registration"])
+def reject_registration(
+    registration_id: str,
+    body: RegistrationRejectRequest,
+    authorization: Optional[str] = Header(None),
+):
     """Reject a submitted registration (admin only)."""
-    email = _require_token(body.token)
-    user = USERS.get(email)
-    if not user or user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    if registration_id not in REGISTRATIONS:
-        raise HTTPException(
-            status_code=404,
-            detail={"status_code": 404, "message": "Registration not found"},
-        )
-    
-    registration = REGISTRATIONS[registration_id]
+    email = _require_registration_access(token=body.token, authorization=authorization)
+    registration = _find_registration_by_identifier(registration_id)
+    if registration is None:
+        raise _registration_not_found()
+
     registration["status"] = "rejected"
-    registration["rejected_at"] = datetime.now(timezone.utc).isoformat()
+    registration["rejected_at"] = _now_iso()
     registration["rejected_by"] = email
     registration["rejection_reason"] = body.reason
-    registration["updated_at"] = datetime.now(timezone.utc).isoformat()
-    
+    registration["updated_at"] = _now_iso()
+    payload = _serialize_registration(registration)
+
     _log_audit(
         "REGISTRATION_REJECTED",
-        registration["contact_email"],
+        registration.get("contact_email", registration.get("form_id", registration_id)),
         email,
         f"Rejected registration {registration_id}: {body.reason}",
     )
-    
+
     return {
         "status_code": 200,
         "success": True,
         "message": "Registration rejected successfully",
-        "data": registration,
+        "data": payload,
     }
 
 
-@app.post("/registration/revoke/{registration_id}")
-def revoke_registration(registration_id: str, body: RegistrationRevokeRequest):
+@app.post("/registration/revoke/{registration_id}", tags=["Registration"])
+def revoke_registration(
+    registration_id: str,
+    body: RegistrationRevokeRequest,
+    authorization: Optional[str] = Header(None),
+):
     """Revoke a pending registration link (admin only)."""
-    email = _require_token(body.token)
-    user = USERS.get(email)
-    if not user or user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    if registration_id not in REGISTRATIONS:
-        raise HTTPException(
-            status_code=404,
-            detail={"status_code": 404, "message": "Registration not found"},
-        )
-    
-    registration = REGISTRATIONS[registration_id]
-    registration["status"] = "cancelled"
-    registration["cancelled_at"] = datetime.now(timezone.utc).isoformat()
-    registration["cancelled_by"] = email
-    registration["updated_at"] = datetime.now(timezone.utc).isoformat()
-    
+    email = _require_registration_access(token=body.token, authorization=authorization)
+
+    registration = _find_registration_by_identifier(registration_id)
+    if registration is not None:
+        registration["status"] = "cancelled"
+        registration["cancelled_at"] = _now_iso()
+        registration["cancelled_by"] = email
+        registration["updated_at"] = _now_iso()
+        payload = _serialize_registration(registration)
+    else:
+        link = _find_link_by_identifier(registration_id)
+        if not link:
+            raise _registration_not_found()
+        link["revoked"] = True
+        link["revoked_at"] = _now_iso()
+        link["revoked_by"] = email
+        link["updated_at"] = _now_iso()
+        payload = _serialize_link(link)
+
     _log_audit(
         "REGISTRATION_REVOKED",
-        registration.get("contact_email", "pending"),
+        payload.get("contact_email", payload.get("form_id", registration_id)),
         email,
         f"Revoked registration link {registration_id}",
     )
-    
+
     return {
         "status_code": 200,
         "success": True,
         "message": "Registration link revoked successfully",
-        "data": registration,
+        "data": payload,
+    }
+
+
+@app.post("/customers/list")
+@app.post("/customer/list")
+def customer_list(body: dict, authorization: Optional[str] = Header(None)):
+    """List customers for registration linking flows."""
+    _require_registration_access(token=body.get("token"), authorization=authorization)
+    customers = list(CUSTOMERS.values())
+    return {
+        "status_code": 200,
+        "status_msg": "success",
+        "customers": customers,
+        "total": len(customers),
     }
 
 
