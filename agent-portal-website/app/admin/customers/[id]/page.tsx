@@ -212,6 +212,7 @@ const BusinessDetailCard = styled.div`
   border: 1px solid #e0e7ef;
   margin-bottom: 1rem;
   transition: all 0.2s ease;
+  cursor: pointer;
   
   &:hover {
     border-color: #3b82f6;
@@ -426,10 +427,10 @@ export default function CustomerDetailPage() {
 
       const customersData = await customersResponse.json();
 
-      // Fetch businesses
+      // Fetch businesses from real API
       const businessesResponse = await axios.post(
-        '/api/search/business',
-        { detail: true },
+        '/api/businesses/list',
+        { token },
         {
           headers: {
             "Content-Type": "application/json",
@@ -439,8 +440,8 @@ export default function CustomerDetailPage() {
       );
 
       if (customersData.status_code === 200 && businessesResponse.data.status_code === 200) {
-        const customersList = customersData.customers || [];
-        const businessesList = businessesResponse.data.business || [];
+        const customersList = customersData.customers || customersData.data || [];
+        const businessesList = businessesResponse.data.data || businessesResponse.data.business || [];
 
         // Find the customer
         const foundCustomer = customersList.find((c: any) => c._id === customerId);
@@ -448,7 +449,9 @@ export default function CustomerDetailPage() {
         if (foundCustomer) {
           const customerWithBusinesses = {
             ...foundCustomer,
-            businesses: businessesList.filter((business: any) => business.owner_id === foundCustomer._id)
+            businesses: businessesList.filter((business: any) => 
+              business.customer_id === foundCustomer._id || business.owner_id === foundCustomer._id
+            )
           };
           setCustomer(customerWithBusinesses);
           setEditedCustomer(customerWithBusinesses);
@@ -532,6 +535,10 @@ export default function CustomerDetailPage() {
     if (customer?.email) {
       window.location.href = `mailto:${customer.email}`;
     }
+  };
+
+  const handleBusinessClick = (businessId: string) => {
+    router.push(`/admin/businesses/${businessId}`);
   };
 
   if (isLoading) {
@@ -704,7 +711,7 @@ export default function CustomerDetailPage() {
             </SectionTitle>
             {customer.businesses.length > 0 ? (
               customer.businesses.map((business) => (
-                <BusinessDetailCard key={business._id}>
+                <BusinessDetailCard key={business._id} onClick={() => handleBusinessClick(business._id)}>
                   <BusinessHeader>
                     <BusinessDetailName>{business.name}</BusinessDetailName>
                     <BusinessStatus $status={business.status}>

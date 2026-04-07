@@ -1073,10 +1073,10 @@ export default function CustomerManagementPage() {
 
       const customersData = await customersResponse.json();
 
-      // Fetch all businesses
+      // Fetch businesses from real API
       const businessesResponse = await axios.post(
-        '/api/search/business',
-        { detail: true },
+        '/api/businesses/list',
+        { token },
         {
           headers: {
             "Content-Type": "application/json",
@@ -1087,12 +1087,14 @@ export default function CustomerManagementPage() {
 
       if (customersData.status_code === 200 && businessesResponse.data.status_code === 200) {
         const customersList = customersData.customers || customersData.data || [];
-        const businessesList = businessesResponse.data.business || [];
+        const businessesList = businessesResponse.data.data || businessesResponse.data.business || [];
 
-        // Map businesses to their owners
+        // Map businesses to their owners using customer_id (for new businesses) or owner_id (for old ones)
         const customersWithBusinesses = customersList.map((customer: any) => ({
           ...customer,
-          businesses: businessesList.filter((business: any) => business.owner_id === customer._id)
+          businesses: businessesList.filter((business: any) => 
+            business.customer_id === customer._id || business.owner_id === customer._id
+          )
         }));
 
         setCustomers(customersWithBusinesses);

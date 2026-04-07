@@ -1126,6 +1126,11 @@ export default function RegistrationDetailsPage() {
             suburb: registration?.registeredSuburb || "",
             state: registration?.registeredState || "",
             postcode: registration?.registeredPostcode || "",
+            abn: registration?.abn || "",
+            owner_name: getContactName(registration),
+            owner_email: getContactEmail(registration),
+            contact_email: getContactEmail(registration),
+            contact_phone: getContactPhone(registration),
             registration_id: registration?.id,
           }),
         });

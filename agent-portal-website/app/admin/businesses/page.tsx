@@ -944,6 +944,13 @@ const InfoValue = styled.span`
 
 
 
+const formatStatus = (status: string) => {
+  if (!status) return 'N/A';
+  return status
+    .replace(/_/g, ' ')
+    .toUpperCase();
+};
+
 const StatusBadge = styled.span<{ $status: string }>`
 
   display: inline-block;
@@ -969,6 +976,8 @@ const StatusBadge = styled.span<{ $status: string }>`
         return 'background: #d1fae5; color: #065f46;';
 
       case 'setup':
+
+      case 'in_setup':
 
         return 'background: #dbeafe; color: #1e40af;';
 
@@ -2417,6 +2426,44 @@ export default function BusinessManagementPage() {
 
   };
 
+  
+
+  const getBusinessOwnerName = (business: any) => {
+
+    // Check owner_name first (set when creating new business)
+
+    if (business.owner_name) return business.owner_name;
+
+    // Fall back to looking up by owner_id
+
+    if (business.owner_id) return getOwnerName(business.owner_id);
+
+    return '';
+
+  };
+
+  
+
+  const formatDate = (dateString: string | null | undefined) => {
+
+    if (!dateString) return 'N/A';
+
+    try {
+
+      const date = new Date(dateString);
+
+      if (isNaN(date.getTime())) return 'N/A';
+
+      return date.toLocaleDateString();
+
+    } catch {
+
+      return 'N/A';
+
+    }
+
+  };
+
 
 
   // Calculate stats
@@ -2427,7 +2474,7 @@ export default function BusinessManagementPage() {
 
     active: allBusinesses.filter(b => b.status === 'active').length,
 
-    setup: allBusinesses.filter(b => b.status === 'setup').length,
+    setup: allBusinesses.filter(b => b.status === 'setup' || b.status === 'in_setup').length,
 
     inactive: allBusinesses.filter(b => b.status === 'inactive').length,
 
@@ -2977,7 +3024,7 @@ export default function BusinessManagementPage() {
 
                         <StatusBadge $status={business.status}>
 
-                          {business.status}
+                          {formatStatus(business.status)}
 
                         </StatusBadge>
 
@@ -3057,7 +3104,7 @@ export default function BusinessManagementPage() {
 
                     <StatusBadge $status={business.status}>
 
-                      {business.status}
+                      {formatStatus(business.status)}
 
                     </StatusBadge>
 
@@ -3069,7 +3116,7 @@ export default function BusinessManagementPage() {
 
                       <InfoLabel>{lang === "zh" ? "所有者:" : "Owner:"}</InfoLabel>
 
-                      <InfoValue>{getOwnerName(business.owner_id)}</InfoValue>
+                      <InfoValue>{getBusinessOwnerName(business)}</InfoValue>
 
                     </InfoRow>
 
@@ -3101,7 +3148,7 @@ export default function BusinessManagementPage() {
 
                       <InfoLabel>{lang === "zh" ? "创建:" : "Created:"}</InfoLabel>
 
-                      <InfoValue>{new Date(business.createdAt).toLocaleDateString()}</InfoValue>
+                      <InfoValue>{formatDate(business.created_at)}</InfoValue>
 
                     </InfoRow>
 
@@ -3253,7 +3300,7 @@ export default function BusinessManagementPage() {
 
               <DetailLabel>{lang === 'zh' ? '所有者' : 'Owner'}</DetailLabel>
 
-              <DetailValue>{selectedBusiness ? getOwnerName(selectedBusiness.owner_id) : 'N/A'}</DetailValue>
+              <DetailValue>{selectedBusiness?.owner_name || (selectedBusiness ? getOwnerName(selectedBusiness.owner_id) : 'N/A') || 'N/A'}</DetailValue>
 
             </DetailItem>
 
@@ -3261,7 +3308,7 @@ export default function BusinessManagementPage() {
 
               <DetailLabel>{lang === 'zh' ? '所有者邮箱' : 'Owner Email'}</DetailLabel>
 
-              <DetailValue>{selectedBusiness ? getOwnerEmail(selectedBusiness.owner_id) || 'N/A' : 'N/A'}</DetailValue>
+              <DetailValue>{selectedBusiness?.owner_email || (selectedBusiness ? getOwnerEmail(selectedBusiness.owner_id) : 'N/A') || 'N/A'}</DetailValue>
 
             </DetailItem>
 
@@ -3273,7 +3320,7 @@ export default function BusinessManagementPage() {
 
                 <StatusBadge $status={selectedBusiness?.status || 'inactive'}>
 
-                  {selectedBusiness?.status}
+                  {formatStatus(selectedBusiness?.status)}
 
                 </StatusBadge>
 
@@ -3325,7 +3372,7 @@ export default function BusinessManagementPage() {
 
               <DetailLabel>{lang === 'zh' ? '联系邮箱' : 'Contact Email'}</DetailLabel>
 
-              <DetailValue>{selectedBusiness?.contactEmail || 'N/A'}</DetailValue>
+              <DetailValue>{selectedBusiness?.contact_email || selectedBusiness?.contactEmail || 'N/A'}</DetailValue>
 
             </DetailItem>
 
@@ -3333,23 +3380,7 @@ export default function BusinessManagementPage() {
 
               <DetailLabel>{lang === 'zh' ? '联系电话' : 'Contact Phone'}</DetailLabel>
 
-              <DetailValue>{selectedBusiness?.contactPhone || 'N/A'}</DetailValue>
-
-            </DetailItem>
-
-            <DetailItem>
-
-              <DetailLabel>{lang === 'zh' ? 'EFTPOS 集成' : 'EFTPOS Integration'}</DetailLabel>
-
-              <DetailValue>{selectedBusiness?.eftposIntegration || 'N/A'}</DetailValue>
-
-            </DetailItem>
-
-            <DetailItem>
-
-              <DetailLabel>{lang === 'zh' ? '支付宝选项' : 'Alipay Option'}</DetailLabel>
-
-              <DetailValue>{selectedBusiness?.alipayOption || 'N/A'}</DetailValue>
+              <DetailValue>{selectedBusiness?.contact_phone || selectedBusiness?.contactPhone || 'N/A'}</DetailValue>
 
             </DetailItem>
 
@@ -3359,11 +3390,7 @@ export default function BusinessManagementPage() {
 
               <DetailValue>
 
-                {selectedBusiness?.createdAt 
-
-                  ? new Date(selectedBusiness.createdAt).toLocaleDateString()
-
-                  : 'N/A'}
+                {formatDate(selectedBusiness?.created_at || selectedBusiness?.createdAt)}
 
               </DetailValue>
 
@@ -3375,11 +3402,7 @@ export default function BusinessManagementPage() {
 
               <DetailValue>
 
-                {selectedBusiness?.updatedAt 
-
-                  ? new Date(selectedBusiness.updatedAt).toLocaleDateString()
-
-                  : 'N/A'}
+                {formatDate(selectedBusiness?.updated_at || selectedBusiness?.updatedAt)}
 
               </DetailValue>
 
