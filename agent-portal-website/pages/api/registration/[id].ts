@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
 import https from 'https';
-import { API_CONFIG } from '@/config/api';
+import { getBackendBaseUrl } from '@/config/server';
 
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false,
@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Call the real registration API
     try {
-      const url = `${API_CONFIG.REGISTRATION_BASE_URL}/registration/${registrationId}`;
+      const url = `${getBackendBaseUrl()}/registration/${registrationId}`;
       
       if (req.method === 'GET') {
         const response = await axios.get(url, {

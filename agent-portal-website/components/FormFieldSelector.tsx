@@ -2003,79 +2003,103 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
                 <PreviewFields>
                   {(() => {
                     const previewFields = getPreviewFields();
-                    const renderedGroups = new Set<string>();
+                    const fieldIds = new Set(previewFields.map((f) => f.id));
+                    const processedIds = new Set<string>();
+                    const renderedSpecial = new Set<string>();
+                    const ADDRESS_IDS = ["registered_address", "registered_suburb", "registered_postcode", "registered_state", "registered_country"];
+                    const elements: React.ReactNode[] = [];
 
-                    return previewFields.map((field) => {
-                      if (field.group) {
-                        if (renderedGroups.has(field.group)) {
-                          return null;
+                    for (const field of previewFields) {
+                      if (processedIds.has(field.id)) continue;
+                      processedIds.add(field.id);
+                      const req = field.required;
+
+                      // Address section hint (shown once before first address field)
+                      if (ADDRESS_IDS.includes(field.id) && !renderedSpecial.has("addr_hint")) {
+                        renderedSpecial.add("addr_hint");
+                        elements.push(
+                          <div key="addr_hint" style={{ fontSize: "12px", color: "#567", marginBottom: "8px" }}>
+                            {lang === "zh"
+                              ? "请提供 POS 终端安装地址。"
+                              : "Please provide the address where the POS terminal will be installed."}
+                          </div>
+                        );
+                      }
+
+                      // Postcode + State rendered as side-by-side grid (matching actual form)
+                      if (field.id === "registered_postcode" || field.id === "registered_state") {
+                        if (!renderedSpecial.has("pcs")) {
+                          renderedSpecial.add("pcs");
+                          processedIds.add("registered_postcode");
+                          processedIds.add("registered_state");
+                          const pf = previewFields.find((f) => f.id === "registered_postcode");
+                          const sf = previewFields.find((f) => f.id === "registered_state");
+                          elements.push(
+                            <div key="postcodeState" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                              {pf && (
+                                <PreviewField>
+                                  <PreviewLabel>Postcode{pf.required && <RequiredMark>*</RequiredMark>}</PreviewLabel>
+                                  <PreviewInput disabled placeholder="e.g., 2000" />
+                                </PreviewField>
+                              )}
+                              {sf && (
+                                <PreviewField>
+                                  <PreviewLabel>State{sf.required && <RequiredMark>*</RequiredMark>}</PreviewLabel>
+                                  <PreviewSelect disabled>
+                                    <option>Select state...</option>
+                                    {["NSW","VIC","QLD","WA","SA","TAS","ACT","NT"].map((s) => <option key={s}>{s}</option>)}
+                                  </PreviewSelect>
+                                </PreviewField>
+                              )}
+                            </div>
+                          );
                         }
+                        continue;
+                      }
 
-                        renderedGroups.add(field.group);
-                        const groupFields = previewFields.filter((item) => item.group === field.group);
-
-                        if (field.group === "Menu Files") {
-                          const menuRequired = groupFields.some((f) => f.required);
-
-                          return (
-                            <PreviewMenuSection key={field.group}>
+                      // Menu upload section (menu_files + menu_send_later together)
+                      if (field.id === "menu_files" || field.id === "menu_send_later") {
+                        if (!renderedSpecial.has("menu")) {
+                          renderedSpecial.add("menu");
+                          processedIds.add("menu_files");
+                          processedIds.add("menu_send_later");
+                          const mfRequired = previewFields.find((f) => f.id === "menu_files")?.required;
+                          elements.push(
+                            <PreviewMenuSection key="menu_section">
                               <PreviewMenuLabel>
                                 {lang === "zh" ? "菜单或产品清单上传" : "Menu or Product List Upload"}
-                                {menuRequired && <RequiredMark>*</RequiredMark>}
+                                {mfRequired && <RequiredMark>*</RequiredMark>}
                               </PreviewMenuLabel>
                               <PreviewMenuDesc>
                                 {lang === "zh"
                                   ? "如果您的菜单或产品清单已准备好，请上传 PDF、Word 或 Excel 文件。"
                                   : "If your menu or product list is ready, please upload it in PDF, Word, or Excel format."}
                               </PreviewMenuDesc>
-
                               <PreviewUploadButton
                                 type="button"
                                 $disabled={previewSendMenuLater}
-                                onClick={() => {
-                                  if (previewSendMenuLater) return;
-                                  setPreviewMenuFiles((prev) => [...prev, `menu-${prev.length + 1}.pdf`]);
-                                }}
+                                onClick={() => { if (previewSendMenuLater) return; setPreviewMenuFiles((prev) => [...prev, `menu-${prev.length + 1}.pdf`]); }}
                               >
                                 <span>⇪</span>
                                 {lang === "zh" ? "选择文件" : "Choose Files"}
                               </PreviewUploadButton>
-
                               <PreviewMenuHelper>
                                 {lang === "zh" ? "注意：您可以上传多个文件" : "Note: You can upload multiple files"}
                               </PreviewMenuHelper>
-
                               {previewMenuFiles.length > 0 && (
                                 <PreviewMenuFileList>
                                   {previewMenuFiles.map((fileName, idx) => (
                                     <PreviewMenuFileItem key={`${fileName}-${idx}`}>
                                       <span>{fileName}</span>
-                                      <PreviewMenuRemoveButton
-                                        type="button"
-                                        onClick={() => setPreviewMenuFiles((prev) => prev.filter((_, i) => i !== idx))}
-                                      >
-                                        ✕
-                                      </PreviewMenuRemoveButton>
+                                      <PreviewMenuRemoveButton type="button" onClick={() => setPreviewMenuFiles((prev) => prev.filter((_, i) => i !== idx))}>✕</PreviewMenuRemoveButton>
                                     </PreviewMenuFileItem>
                                   ))}
                                 </PreviewMenuFileList>
                               )}
-
                               <PreviewMenuCheckboxRow>
-                                <input
-                                  type="checkbox"
-                                  checked={previewSendMenuLater}
-                                  onChange={(e) => {
-                                    const checked = e.target.checked;
-                                    setPreviewSendMenuLater(checked);
-                                    if (checked) {
-                                      setPreviewMenuFiles([]);
-                                    }
-                                  }}
-                                />
+                                <input type="checkbox" checked={previewSendMenuLater} onChange={(e) => { const c = e.target.checked; setPreviewSendMenuLater(c); if (c) setPreviewMenuFiles([]); }} />
                                 <span>{lang === "zh" ? "我稍后发送" : "I will send it later"}</span>
                               </PreviewMenuCheckboxRow>
-
                               <PreviewMenuFooter>
                                 {lang === "zh"
                                   ? "如果您尚未准备好也没关系。准备好后，请至少在 POS 终端部署前 1-2 周提供。"
@@ -2084,40 +2108,204 @@ export const FormFieldSelector: React.FC<FormFieldSelectorProps> = ({
                             </PreviewMenuSection>
                           );
                         }
-
-                        return (
-                          <PreviewGroup key={field.group}>
-                            <PreviewGroupTitle>{getGroupTranslation(field.group).label}</PreviewGroupTitle>
-                            {groupFields.map((groupField) => {
-                              const translatedLabel = groupField.custom
-                                ? groupField.label
-                                : getFieldTranslation(groupField.id).label;
-
-                              return (
-                                <PreviewField key={groupField.id}>
-                                  <PreviewLabel>
-                                    {translatedLabel}
-                                    {groupField.required && <RequiredMark>*</RequiredMark>}
-                                  </PreviewLabel>
-                                  {renderPreviewControl(groupField)}
-                                </PreviewField>
-                              );
-                            })}
-                          </PreviewGroup>
-                        );
+                        continue;
                       }
 
-                      const translatedLabel = field.custom ? field.label : getFieldTranslation(field.id).label;
-                      return (
-                        <PreviewField key={field.id}>
-                          <PreviewLabel>
-                            {translatedLabel}
-                            {field.required && <RequiredMark>*</RequiredMark>}
-                          </PreviewLabel>
-                          {renderPreviewControl(field)}
-                        </PreviewField>
-                      );
-                    });
+                      // Field-specific rendering matching actual OnboardingForm.tsx exactly
+                      let fieldElement: React.ReactNode;
+                      switch (field.id) {
+                        case "contact_email":
+                          fieldElement = (
+                            <PreviewField key={field.id}>
+                              <PreviewLabel>Email Address{req && <RequiredMark>*</RequiredMark>}</PreviewLabel>
+                              <PreviewInput disabled type="email" placeholder="e.g., john@example.com" />
+                            </PreviewField>
+                          );
+                          break;
+                        case "contact_name":
+                          fieldElement = (
+                            <PreviewField key={field.id}>
+                              <PreviewLabel>Full Name{req && <RequiredMark>*</RequiredMark>}</PreviewLabel>
+                              <PreviewInput disabled placeholder="Enter your full name" />
+                            </PreviewField>
+                          );
+                          break;
+                        case "contact_phone":
+                          fieldElement = (
+                            <PreviewField key={field.id}>
+                              <PreviewLabel>Best Contact Phone Number{req && <RequiredMark>*</RequiredMark>}</PreviewLabel>
+                              <PreviewInput disabled type="tel" placeholder="+61..." />
+                              <div style={{ fontSize: 11, color: "#789", marginTop: 4 }}>
+                                Australian mobile: 04XX XXX XXX or +61 4XX XXX XXX
+                              </div>
+                            </PreviewField>
+                          );
+                          break;
+                        case "messaging_app_type":
+                          fieldElement = (
+                            <PreviewField key={field.id}>
+                              <PreviewLabel>Messaging App Contact (Optional)</PreviewLabel>
+                              <PreviewSelect disabled>
+                                <option>-- Select app --</option>
+                                <option>WeChat ID</option>
+                                <option>WhatsApp Number</option>
+                              </PreviewSelect>
+                              <div style={{ fontSize: 11, color: "#789", marginTop: 4 }}>
+                                Provide an alternative way for us to reach you
+                              </div>
+                            </PreviewField>
+                          );
+                          break;
+                        case "quote_number":
+                          fieldElement = (
+                            <PreviewField key={field.id}>
+                              <PreviewLabel>Quote / Invoice Number{req && <RequiredMark>*</RequiredMark>}</PreviewLabel>
+                              <PreviewInput disabled placeholder="e.g., Q-1234" />
+                            </PreviewField>
+                          );
+                          break;
+                        case "business_name":
+                          fieldElement = (
+                            <PreviewField key={field.id}>
+                              <PreviewLabel>Business Trading Name{req && <RequiredMark>*</RequiredMark>}</PreviewLabel>
+                              <PreviewInput disabled placeholder="e.g., Joe's Cafe" />
+                              <div style={{ fontSize: 12, color: "#567", marginTop: 6 }}>
+                                This will be used to register your account and will appear on receipts generated from the POS terminal.
+                              </div>
+                            </PreviewField>
+                          );
+                          break;
+                        case "abn":
+                          fieldElement = (
+                            <PreviewField key={field.id}>
+                              <PreviewLabel>ABN (Australian Business Number){req && <RequiredMark>*</RequiredMark>}</PreviewLabel>
+                              <PreviewInput disabled placeholder="e.g., 12 345 678 901" />
+                              <div style={{ fontSize: 11, color: "#789", marginTop: 4 }}>11-digit number</div>
+                            </PreviewField>
+                          );
+                          break;
+                        case "registered_address":
+                          fieldElement = (
+                            <PreviewField key={field.id}>
+                              <PreviewLabel>Street Address{req && <RequiredMark>*</RequiredMark>}</PreviewLabel>
+                              <PreviewInput disabled placeholder="e.g., 123 Main Street" />
+                            </PreviewField>
+                          );
+                          break;
+                        case "registered_suburb":
+                          fieldElement = (
+                            <PreviewField key={field.id}>
+                              <PreviewLabel>City / Suburb{req && <RequiredMark>*</RequiredMark>}</PreviewLabel>
+                              <PreviewInput disabled placeholder="e.g., Sydney" />
+                            </PreviewField>
+                          );
+                          break;
+                        case "registered_country":
+                          fieldElement = (
+                            <PreviewField key={field.id}>
+                              <PreviewLabel>Country{req && <RequiredMark>*</RequiredMark>}</PreviewLabel>
+                              <PreviewSelect disabled><option>Australia</option></PreviewSelect>
+                            </PreviewField>
+                          );
+                          break;
+                        case "eftpos_integration":
+                          fieldElement = (
+                            <PreviewField key={field.id}>
+                              <PreviewLabel>Do You Want EFTPOS Integration?{req && <RequiredMark>*</RequiredMark>}</PreviewLabel>
+                              <div style={{ display: "flex", gap: 12, marginTop: 6, paddingLeft: 4 }}>
+                                <label style={{ display: "flex", alignItems: "center", gap: 4, color: "#3c5a78", fontSize: "0.9rem" }}>
+                                  <input type="radio" disabled /> Yes
+                                </label>
+                                <label style={{ display: "flex", alignItems: "center", gap: 4, color: "#3c5a78", fontSize: "0.9rem" }}>
+                                  <input type="radio" disabled /> No
+                                </label>
+                              </div>
+                            </PreviewField>
+                          );
+                          break;
+                        case "alipay_option":
+                          fieldElement = (
+                            <PreviewField key={field.id}>
+                              <PreviewLabel>Alipay / WeChat Pay{req && <RequiredMark>*</RequiredMark>}</PreviewLabel>
+                              <PreviewSelect disabled>
+                                <option>-- select --</option>
+                                <option>Apply for a new account (we'll help you open one)</option>
+                                <option>Not interested</option>
+                                <option>Already have Superpay</option>
+                                <option>Already have Royalpay</option>
+                                <option>Other (specify below)</option>
+                              </PreviewSelect>
+                            </PreviewField>
+                          );
+                          break;
+                        case "ready_by":
+                          fieldElement = (
+                            <PreviewField key={field.id}>
+                              <PreviewLabel>When Do You Need It Ready By?{req && <RequiredMark>*</RequiredMark>}</PreviewLabel>
+                              <PreviewTextarea disabled placeholder="e.g., End of month, 2025-06-01, ASAP" />
+                              <div style={{ fontSize: 12, color: "#567", marginTop: 6 }}>
+                                Expected deployment timeline or date.
+                              </div>
+                            </PreviewField>
+                          );
+                          break;
+                        case "heard_about":
+                          fieldElement = (
+                            <PreviewField key={field.id}>
+                              <PreviewLabel>How Did You Hear About Us?{req && <RequiredMark>*</RequiredMark>}</PreviewLabel>
+                              <PreviewSelect disabled>
+                                <option>-- select --</option>
+                                <option>Friend or colleague</option>
+                                <option>Google</option>
+                                <option>WeChat</option>
+                                <option>I saw your product at a restaurant</option>
+                                <option>Other</option>
+                              </PreviewSelect>
+                            </PreviewField>
+                          );
+                          break;
+                        case "notes":
+                          fieldElement = (
+                            <PreviewField key={field.id}>
+                              <PreviewLabel>Additional Notes</PreviewLabel>
+                              <PreviewTextarea disabled placeholder="Any additional information or special requirements..." />
+                            </PreviewField>
+                          );
+                          break;
+                        default:
+                          // Custom fields — use generic renderer
+                          fieldElement = (
+                            <PreviewField key={field.id}>
+                              <PreviewLabel>
+                                {field.label}
+                                {field.required && <RequiredMark>*</RequiredMark>}
+                              </PreviewLabel>
+                              {renderPreviewControl(field)}
+                            </PreviewField>
+                          );
+                      }
+
+                      if (fieldElement) elements.push(fieldElement);
+                    }
+
+                    // Terms checkbox (always shown, matching actual form)
+                    elements.push(
+                      <PreviewField key="terms">
+                        <label style={{ display: "flex", alignItems: "center", gap: 8, color: "#3c5a78", fontSize: "0.9rem" }}>
+                          <input type="checkbox" disabled />
+                          <span>I agree to the terms and conditions *</span>
+                        </label>
+                      </PreviewField>
+                    );
+
+                    // Submit button (always shown, matching actual form)
+                    elements.push(
+                      <div key="submit" style={{ marginTop: "1rem", padding: "1rem 2rem", borderRadius: "12px", background: "linear-gradient(135deg, #2b7be3 0%, #5ec8ff 100%)", color: "white", fontWeight: 700, fontSize: "1.05rem", textAlign: "center", boxShadow: "0 8px 20px rgba(43,123,227,0.18)", userSelect: "none" }}>
+                        {lang === "zh" ? "提交 →" : "Submit →"}
+                      </div>
+                    );
+
+                    return elements;
                   })()}
                 </PreviewFields>
               </PreviewBody>

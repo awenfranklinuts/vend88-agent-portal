@@ -11,6 +11,38 @@ type LocaleMap = typeof en;
 const locales = { en, zh } as const;
 type LocaleKey = keyof typeof locales;
 
+type DynamicFormField = {
+  id: string;
+  label?: string;
+  type?: "text" | "email" | "phone" | "select" | "multiple_choice" | "textarea" | "number" | "date" | "address";
+  required?: boolean;
+  options?: string[];
+  choiceMode?: "single" | "multiple";
+};
+
+const BUILTIN_FIELD_IDS = new Set<string>([
+  "contact_email",
+  "contact_name",
+  "contact_phone",
+  "messaging_app_type",
+  "quote_number",
+  "business_name",
+  "abn",
+  "registered_address",
+  "registered_suburb",
+  "registered_postcode",
+  "registered_state",
+  "registered_country",
+  "eftpos_integration",
+  "alipay_option",
+  "ready_by",
+  "heard_about",
+  "heard_other",
+  "menu_files",
+  "menu_send_later",
+  "notes",
+]);
+
 const appear = keyframes`
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -934,6 +966,8 @@ const ImageCaption = styled.div`
   font-weight: 600;
 `;
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://dev.vend88.com';
+
 export default function OnboardingForm() {
   const router = useRouter();
   const { token } = router.query;
@@ -952,6 +986,8 @@ export default function OnboardingForm() {
   const [tokenValidating, setTokenValidating] = useState(true);
   const [tokenValid, setTokenValid] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
+  const [formFields, setFormFields] = useState<DynamicFormField[]>([]);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | string[]>>({});
 
   // Immediate redirect if no token - before any rendering
   useEffect(() => {
@@ -968,16 +1004,19 @@ export default function OnboardingForm() {
       }
 
       try {
-        const response = await axios.get(`https://dev.vend88.com/registration/validate-token/${token}`);
+        const response = await axios.get(`${API_BASE_URL}/registration/validate-token/${token}`);
+        // Support both { data: { valid, used, expired } } and flat { valid, used, expired }
+        const result = response.data.data || response.data;
         
-        if (response.data.success && response.data.data.valid && !response.data.data.used && !response.data.data.expired) {
+        if ((response.data.success || result.valid) && result.valid && !result.used && !result.expired) {
           setTokenValid(true);
           setTokenError(null);
+          setFormFields(result.form_fields || []);
         } else {
-          const reason = response.data.data.reason || 
-            (response.data.data.used 
+          const reason = result.reason || 
+            (result.used 
               ? (lang === "zh" ? "此注册表单已提交。每个链接只能使用一次。如需更改，请联系管理员。" : "This registration form has already been submitted. Each link can only be used once. Please contact the admin if you need to make changes.")
-              : response.data.data.expired
+              : result.expired
               ? (lang === "zh" ? "注册令牌已过期。请联系管理员获取新链接。" : "Registration token has expired. Please contact the admin for a new link.")
               : (lang === "zh" ? "无效的注册令牌。" : "Invalid registration token."));
           setTokenError(reason);
@@ -1034,6 +1073,75 @@ export default function OnboardingForm() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   
+  const isFieldEnabled = (fieldId: string) =>
+    formFields.length === 0 || formFields.some((f) => f.id === fieldId);
+
+  const customFields = formFields.filter((f) => !BUILTIN_FIELD_IDS.has(f.id));
+
+  const getCustomFieldErrorKey = (fieldId: string) => `custom_${fieldId}`;
+
+  const handleCustomFieldChange = (fieldId: string, value: string | string[]) => {
+    setCustomFieldValues((prev) => ({ ...prev, [fieldId]: value }));
+    const errorKey = getCustomFieldErrorKey(fieldId);
+    if (fieldErrors[errorKey]) {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next[errorKey];
+        return next;
+      });
+    }
+    if (error) {
+      setError(null);
+    }
+  };
+
+  const getSubmittedFieldValue = (fieldId: string): string | boolean | string[] | null => {
+    switch (fieldId) {
+      case "contact_email":
+        return form.email;
+      case "contact_name":
+        return form.ownerName;
+      case "contact_phone":
+        return form.phone;
+      case "messaging_app_type":
+        return form.messagingAppType || null;
+      case "quote_number":
+        return form.quoteNumber;
+      case "business_name":
+        return form.businessName;
+      case "abn":
+        return form.abn;
+      case "registered_address":
+        return form.registeredAddress;
+      case "registered_suburb":
+        return form.registeredSuburb;
+      case "registered_postcode":
+        return form.registeredPostcode;
+      case "registered_state":
+        return form.registeredState;
+      case "registered_country":
+        return form.registeredCountry;
+      case "eftpos_integration":
+        return eftposIntegration || null;
+      case "alipay_option":
+        return alipayOption || null;
+      case "ready_by":
+        return readyBy || null;
+      case "heard_about":
+        return heardAbout || null;
+      case "heard_other":
+        return heardOther || null;
+      case "menu_files":
+        return menuFiles.map((file) => file.name);
+      case "menu_send_later":
+        return menuSendLater;
+      case "notes":
+        return form.notes || null;
+      default:
+        return customFieldValues[fieldId] ?? null;
+    }
+  };
+
   const validateABN = (abn: string): boolean => {
     const cleanABN = abn.replace(/\s/g, '');
     return /^\d{11}$/.test(cleanABN);
@@ -1207,6 +1315,48 @@ export default function OnboardingForm() {
         : "提交前您必须同意条款和条件";
     }
 
+    // Validate required custom fields
+    customFields.forEach((cf) => {
+      if (cf.required) {
+        const val = customFieldValues[cf.id];
+        const isEmpty = !val || (Array.isArray(val) ? val.length === 0 : val.trim() === '');
+        if (isEmpty) {
+          const label = cf.label || cf.id.replace(/_/g, ' ');
+          errors[cf.id] = lang === "en" ? `${label} is required` : `${label}为必填项`;
+        }
+      }
+    });
+
+    // Remove validation errors for fields not enabled by the form template
+    if (formFields.length > 0) {
+      const fieldIdMap: Record<string, string> = {
+        email: 'contact_email',
+        ownerName: 'contact_name',
+        phone: 'contact_phone',
+        quoteNumber: 'quote_number',
+        businessName: 'business_name',
+        abn: 'abn',
+        registeredAddress: 'registered_address',
+        registeredSuburb: 'registered_suburb',
+        registeredPostcode: 'registered_postcode',
+        registeredState: 'registered_state',
+        registeredCountry: 'registered_country',
+        eftposIntegration: 'eftpos_integration',
+        alipayOption: 'alipay_option',
+        alipayOther: 'alipay_option',
+        readyBy: 'ready_by',
+        heardAbout: 'heard_about',
+        heardOther: 'heard_about',
+        menuUpload: 'menu_files',
+      };
+      Object.keys(errors).forEach(key => {
+        const fieldId = fieldIdMap[key];
+        if (fieldId && !isFieldEnabled(fieldId)) {
+          delete errors[key];
+        }
+      });
+    }
+
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       const errorCount = Object.keys(errors).length;
@@ -1233,7 +1383,7 @@ export default function OnboardingForm() {
       const formData = {
         token: token,
         contact_email: form.email,
-        owner_name: form.ownerName,
+        contact_name: form.ownerName,
         contact_phone: form.phone,
         messaging_app_type: form.messagingAppType || null,
         messaging_app_id: form.messagingAppId || null,
@@ -1258,14 +1408,15 @@ export default function OnboardingForm() {
           mime_type: file.type
         })),
         menu_send_later: menuSendLater,
-        notes: form.notes
+        notes: form.notes,
+        custom_fields: Object.keys(customFieldValues).length > 0 ? customFieldValues : undefined,
       };
 
       console.log('=== SUBMITTING FORM DATA ===');
       console.log('Form Data:', JSON.stringify(formData, null, 2));
       
       const response = await axios.post(
-        'https://dev.vend88.com/registration/submit',
+        `${API_BASE_URL}/registration/submit`,
         formData,
         {
           headers: {
@@ -1484,7 +1635,7 @@ export default function OnboardingForm() {
             <Grid>
               <Form onSubmit={onSubmit}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      <Field>
+                      <Field style={{ display: isFieldEnabled('contact_email') ? undefined : 'none' }}>
                         <Label>{dict.onboarding.email} *</Label>
                         <Input 
                           className={fieldErrors.email ? "error" : ""}
@@ -1502,7 +1653,7 @@ export default function OnboardingForm() {
                         )}
                       </Field>
 
-                      <Field>
+                      <Field style={{ display: isFieldEnabled('contact_name') ? undefined : 'none' }}>
                         <Label>{dict.onboarding.fullName} *</Label>
                         <Input 
                           className={fieldErrors.ownerName ? "error" : ""}
@@ -1519,7 +1670,7 @@ export default function OnboardingForm() {
                         )}
                       </Field>
 
-                      <Field>
+                      <Field style={{ display: isFieldEnabled('contact_phone') ? undefined : 'none' }}>
                         <Label>{dict.onboarding.phone} *</Label>
                         <Input 
                           className={fieldErrors.phone ? "error" : ""}
@@ -1540,7 +1691,7 @@ export default function OnboardingForm() {
                         </div>
                       </Field>
 
-                      <Field>
+                      <Field style={{ display: isFieldEnabled('messaging_app_type') ? undefined : 'none' }}>
                         <Label>{lang === "en" ? "Messaging App Contact (Optional)" : "即时通讯联系方式（可选）"}</Label>
                         <Select 
                           name="messagingAppType"
@@ -1572,7 +1723,7 @@ export default function OnboardingForm() {
                         </div>
                       </Field>
 
-                      <Field>
+                      <Field style={{ display: isFieldEnabled('quote_number') ? undefined : 'none' }}>
                         <Label>{dict.onboarding.quoteNumber} *</Label>
                         <Input 
                           className={fieldErrors.quoteNumber ? "error" : ""}
@@ -1589,7 +1740,7 @@ export default function OnboardingForm() {
                         )}
                       </Field>
 
-                      <Field>
+                      <Field style={{ display: isFieldEnabled('business_name') ? undefined : 'none' }}>
                         <Label>{dict.onboarding.businessName} *</Label>
                         <Input 
                           className={fieldErrors.businessName ? "error" : ""}
@@ -1609,7 +1760,7 @@ export default function OnboardingForm() {
                         </div>
                       </Field>
 
-                      <Field>
+                      <Field style={{ display: isFieldEnabled('abn') ? undefined : 'none' }}>
                         <Label>{dict.onboarding.abn} *</Label>
                         <Input 
                           className={fieldErrors.abn ? "error" : ""}
@@ -1629,11 +1780,11 @@ export default function OnboardingForm() {
                         </div>
                       </Field>
 
-                      <div style={{ fontSize: "12px", color: "#567", marginBottom: "8px" }}>
+                      <div style={{ fontSize: "12px", color: "#567", marginBottom: "8px", display: (isFieldEnabled('registered_address') || isFieldEnabled('registered_suburb') || isFieldEnabled('registered_postcode') || isFieldEnabled('registered_state') || isFieldEnabled('registered_country')) ? undefined : 'none' }}>
                         {dict.onboarding.storeAddressHint}
                       </div>
                       
-                      <Field>
+                      <Field style={{ display: isFieldEnabled('registered_address') ? undefined : 'none' }}>
                         <Label>{lang === "en" ? "Street Address" : "街道地址"} *</Label>
                         <Input 
                           className={fieldErrors.registeredAddress ? "error" : ""}
@@ -1650,7 +1801,7 @@ export default function OnboardingForm() {
                         )}
                       </Field>
 
-                      <Field>
+                      <Field style={{ display: isFieldEnabled('registered_suburb') ? undefined : 'none' }}>
                         <Label>{lang === "en" ? "City / Suburb" : "城市/郊区"} *</Label>
                         <Input 
                           className={fieldErrors.registeredSuburb ? "error" : ""}
@@ -1667,7 +1818,7 @@ export default function OnboardingForm() {
                         )}
                       </Field>
 
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }} className="mobile-stack">
+                      <div style={{ display: (isFieldEnabled('registered_postcode') || isFieldEnabled('registered_state')) ? "grid" : "none", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }} className="mobile-stack">
                         <Field>
                           <Label>{lang === "en" ? "Postcode" : "邮政编码"} *</Label>
                           <Input 
@@ -1713,7 +1864,7 @@ export default function OnboardingForm() {
                         </Field>
                       </div>
 
-                      <Field>
+                      <Field style={{ display: isFieldEnabled('registered_country') ? undefined : 'none' }}>
                         <Label>{dict.onboarding.registeredCountry} *</Label>
                         <Select 
                           className={fieldErrors.registeredCountry ? "error" : ""}
@@ -1731,7 +1882,7 @@ export default function OnboardingForm() {
                         )}
                       </Field>
 
-                      <Field>
+                      <Field style={{ display: isFieldEnabled('eftpos_integration') ? undefined : 'none' }}>
                         {/* Reference Images */}
                         <ReferenceImagesContainer>
                           <ReferenceImageWrapper>
@@ -1813,7 +1964,7 @@ export default function OnboardingForm() {
                         
                       </Field>
                       {/* Alipay/WeChat Payment Reference Images */}
-                      <Field>
+                      <Field style={{ display: isFieldEnabled('alipay_option') ? undefined : 'none' }}>
                         <ReferenceImagesContainer>
                           <ReferenceImageWrapper>
                             <ReferenceImage>
@@ -1845,7 +1996,7 @@ export default function OnboardingForm() {
                         </ReferenceImagesContainer>
                       </Field>
 
-                      <Field>
+                      <Field style={{ display: isFieldEnabled('alipay_option') ? undefined : 'none' }}>
                         <Label>{dict.onboarding.alipayPayment} *</Label>
                         <Select 
                           className={fieldErrors.alipayOption ? "error" : ""}
@@ -1903,7 +2054,7 @@ export default function OnboardingForm() {
                         )}
                       </Field>
 
-                      <Field>
+                      <Field style={{ display: isFieldEnabled('ready_by') ? undefined : 'none' }}>
                         <Label>{dict.onboarding.readyBy} *</Label>
                         <Textarea 
                           className={fieldErrors.readyBy ? "error" : ""}
@@ -1932,7 +2083,7 @@ export default function OnboardingForm() {
                         </div>
                       </Field>
 
-                      <Field>
+                      <Field style={{ display: isFieldEnabled('heard_about') ? undefined : 'none' }}>
                         <Label>{dict.onboarding.heardAbout} *</Label>
                         <Select 
                           className={fieldErrors.heardAbout ? "error" : ""}
@@ -1990,7 +2141,7 @@ export default function OnboardingForm() {
                         )}
                       </Field>
 
-                      <Field>
+                      <Field style={{ display: isFieldEnabled('menu_files') ? undefined : 'none' }}>
                         <Label>{dict.onboarding.menuUpload} *</Label>
                         <div style={{ fontSize: 12, color: "#567", marginBottom: 8 }}>
                           {dict.onboarding.menuUploadHint}
@@ -2056,10 +2207,81 @@ export default function OnboardingForm() {
                         </div>
                       </Field>
 
-                      <Field>
+                      <Field style={{ display: isFieldEnabled('notes') ? undefined : 'none' }}>
                         <Label>{dict.onboarding.notes}</Label>
                         <Textarea name="notes" value={form.notes} onChange={handleChange} placeholder={dict.onboarding.notesPlaceholder} />
                       </Field>
+
+                      {/* Custom Fields */}
+                      {customFields.length > 0 && customFields.map((cf) => {
+                        const fieldId = cf.id;
+                        const label = cf.label || fieldId.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+                        const isRequired = cf.required;
+                        const value = customFieldValues[fieldId] ?? '';
+
+                        return (
+                          <Field key={fieldId}>
+                            <Label>{label}{isRequired ? ' *' : ''}</Label>
+                            {cf.type === 'textarea' ? (
+                              <Textarea
+                                value={typeof value === 'string' ? value : ''}
+                                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleCustomFieldChange(fieldId, e.target.value)}
+                                placeholder={label}
+                              />
+                            ) : cf.type === 'select' && cf.options ? (
+                              <Select
+                                value={typeof value === 'string' ? value : ''}
+                                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleCustomFieldChange(fieldId, e.target.value)}
+                              >
+                                <option value="">{lang === 'zh' ? '请选择...' : 'Please select...'}</option>
+                                {cf.options.map((opt: string) => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                              </Select>
+                            ) : cf.type === 'multiple_choice' && cf.options ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                {cf.options.map((opt: string) => {
+                                  const selected = Array.isArray(value) ? value : [];
+                                  const isMulti = cf.choiceMode === 'multiple';
+                                  return (
+                                    <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                                      <input
+                                        type={isMulti ? 'checkbox' : 'radio'}
+                                        name={fieldId}
+                                        checked={isMulti ? selected.includes(opt) : value === opt}
+                                        onChange={() => {
+                                          if (isMulti) {
+                                            const next = selected.includes(opt)
+                                              ? selected.filter((v: string) => v !== opt)
+                                              : [...selected, opt];
+                                            handleCustomFieldChange(fieldId, next);
+                                          } else {
+                                            handleCustomFieldChange(fieldId, opt);
+                                          }
+                                        }}
+                                      />
+                                      <span>{opt}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <Input
+                                type={cf.type === 'number' ? 'number' : cf.type === 'date' ? 'date' : cf.type === 'email' ? 'email' : 'text'}
+                                value={typeof value === 'string' ? value : ''}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleCustomFieldChange(fieldId, e.target.value)}
+                                placeholder={label}
+                              />
+                            )}
+                            {fieldErrors[fieldId] && (
+                              <ErrorText>
+                                <span>⚠</span>
+                                {fieldErrors[fieldId]}
+                              </ErrorText>
+                            )}
+                          </Field>
+                        );
+                      })}
                 </div>
 
                 {/* Terms and Submit - Outside accordion */}

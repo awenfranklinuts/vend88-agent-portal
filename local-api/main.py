@@ -323,6 +323,7 @@ class RegistrationSubmitRequest(BaseModel):
     menu_send_later: Optional[bool] = False
     notes: Optional[str] = None
     form_fields: Optional[list] = None
+    custom_fields: Optional[dict] = None
 
 
 class RegistrationRejectRequest(BaseModel):
@@ -560,6 +561,7 @@ def _serialize_record(item: dict, is_link: bool = False) -> dict[str, Any]:
 
     return {
         "_id": item.get("_id") or item.get("id") or item.get("form_id"),
+        "id": item.get("_id") or item.get("id") or item.get("form_id"),
         "abn": item.get("abn"),
         "alipay_option": item.get("alipay_option"),
         "alipay_other": item.get("alipay_other"),
@@ -597,6 +599,8 @@ def _serialize_record(item: dict, is_link: bool = False) -> dict[str, Any]:
         "status": status,
         "submitted_at": item.get("submitted_at"),
         "token": item.get("token"),
+        "form_fields": item.get("form_fields") or [],
+        "custom_fields": item.get("custom_fields") or {},
     }
 
 
@@ -1156,6 +1160,7 @@ def validate_registration_token(token: str):
         "form_id": link_info["form_id"],
         "template_id": link_info.get("template_id"),
         "expires_at": link_info.get("expires_at"),
+        "form_fields": link_info.get("form_fields") or [],
     }
 
 
@@ -1217,6 +1222,7 @@ def registration_submit(body: RegistrationSubmitRequest):
         "generated_at": link_info["created_at"],
         "template_id": link_info.get("template_id"),
         "form_fields": body.form_fields or link_info.get("form_fields") or [],
+        "custom_fields": body.custom_fields or {},
         "submitted_at": now,
         "created_at": now,
         "updated_at": now,

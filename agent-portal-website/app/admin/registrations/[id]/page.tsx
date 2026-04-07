@@ -55,6 +55,8 @@ interface Registration {
   notes?: string;
   menuFiles?: (string | { filename: string; url: string; size?: number; uploadedAt?: string })[];
   menuSendLater?: boolean;
+  customFields?: Record<string, any>;
+  formFields?: { id: string; label?: string; type?: string }[];
 }
 
 interface Customer {
@@ -818,6 +820,8 @@ const normalizeRegistration = (r: any): Registration => {
     notes: r.notes || r.notes,
     _id: r._id,
     form_id: r.form_id,
+    customFields: r.customFields || r.custom_fields,
+    formFields: r.formFields || r.form_fields,
   };
 };
 
@@ -1683,44 +1687,75 @@ export default function RegistrationDetailsPage() {
                   )}
                 </Grid>
 
+                {(registration.eftposIntegration || registration.alipayOption) && (
+                  <>
+                    <Divider />
+                    <SectionTitle>{lang === "zh" ? "支付与集成" : "Payment and Integration"}</SectionTitle>
+                    <Grid>
+                      {registration.eftposIntegration && renderField(
+                        lang === "zh" ? "EFTPOS 集成" : "EFTPOS Integration",
+                        "eftposIntegration",
+                        registration.eftposIntegration,
+                        true
+                      )}
+                      {registration.alipayOption && renderField(
+                        lang === "zh" ? "支付宝/微信支付" : "Alipay/WeChat Pay",
+                        "alipayOption",
+                        registration.alipayOption === "other" ? `Other: ${registration.alipayOther || ""}` : registration.alipayOption,
+                        true
+                      )}
+                    </Grid>
+                  </>
+                )}
+
+                {registration.customFields && Object.keys(registration.customFields).length > 0 && (
+                  <>
+                    <Divider />
+                    <SectionTitle>{lang === "zh" ? "自定义字段" : "Custom Fields"}</SectionTitle>
+                    <Grid>
+                      {Object.entries(registration.customFields).map(([key, value]) => {
+                        const fieldMeta = registration.formFields?.find((f: any) => f.id === key);
+                        const label = fieldMeta?.label || key.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+                        const displayValue = Array.isArray(value) ? value.join(', ') : String(value || '-');
+                        return (
+                          <Field key={key}>
+                            <Label>{label}</Label>
+                            <Value>{displayValue}</Value>
+                          </Field>
+                        );
+                      })}
+                    </Grid>
+                  </>
+                )}
+
+                {(registration.readyBy || registration.heardAbout) && (
+                  <>
+                    <Divider />
+                    <SectionTitle>{lang === "zh" ? "附加信息" : "Additional Information"}</SectionTitle>
+                    <Grid>
+                      {registration.readyBy && renderField(
+                        lang === "zh" ? "预期部署时间" : "Expected Deployment",
+                        "readyBy",
+                        registration.readyBy,
+                        true
+                      )}
+                      {registration.heardAbout && renderField(
+                        lang === "zh" ? "如何了解我们" : "How Did You Hear About Us",
+                        "heardAbout",
+                        registration.heardAbout === "other" ? `Other: ${registration.heardOther || ""}` : registration.heardAbout,
+                        true
+                      )}
+                    </Grid>
+                  </>
+                )}
+
                 <Divider />
-
-                <SectionTitle>{lang === "zh" ? "支付与集成" : "Payment and Integration"}</SectionTitle>
+                <SectionTitle>{lang === "zh" ? "时间线" : "Timeline"}</SectionTitle>
                 <Grid>
-                  {renderField(
-                    lang === "zh" ? "EFTPOS 集成" : "EFTPOS Integration",
-                    "eftposIntegration",
-                    registration.eftposIntegration,
-                    true
-                  )}
-                  {renderField(
-                    lang === "zh" ? "支付宝/微信支付" : "Alipay/WeChat Pay",
-                    "alipayOption",
-                    registration.alipayOption === "other" ? `Other: ${registration.alipayOther || ""}` : registration.alipayOption,
-                    true
-                  )}
-                </Grid>
-
-                <Divider />
-
-                <SectionTitle>{lang === "zh" ? "附加信息" : "Additional Information"}</SectionTitle>
-                <Grid>
-                  {renderField(
-                    lang === "zh" ? "预期部署时间" : "Expected Deployment",
-                    "readyBy",
-                    registration.readyBy,
-                    true
-                  )}
-                  {renderField(
-                    lang === "zh" ? "如何了解我们" : "How Did You Hear About Us",
-                    "heardAbout",
-                    registration.heardAbout === "other" ? `Other: ${registration.heardOther || ""}` : registration.heardAbout,
-                    true
-                  )}
-                  {renderField(
+                  {registration.menuSendLater && renderField(
                     lang === "zh" ? "菜单稍后发送" : "Send Menu Later",
                     "menuSendLater",
-                    registration.menuSendLater ? (lang === "zh" ? "是" : "Yes") : (lang === "zh" ? "否" : "No"),
+                    lang === "zh" ? "是" : "Yes",
                     false
                   )}
                   {renderField(
