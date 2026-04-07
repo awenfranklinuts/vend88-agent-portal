@@ -895,10 +895,10 @@ export default function BusinessDetailPage() {
     setError(null);
     
     try {
-      // Fetch business info
+      // Fetch business info by ID
       const businessResponse = await axios.post(
-        '/api/search/business',
-        { detail: true },
+        `/api/businesses/${businessId}`,
+        { token },
         {
           headers: {
             "Content-Type": "application/json",
@@ -908,20 +908,18 @@ export default function BusinessDetailPage() {
       );
 
       if (businessResponse.data.status_code === 200) {
-        const foundBusiness = businessResponse.data.business.find(
-          (b: Business) => b._id === businessId
-        );
+        const foundBusiness = businessResponse.data.data;
         
         if (foundBusiness) {
           setBusiness(foundBusiness);
           setOriginalBusiness(foundBusiness);
           
           // Fetch owner details
-          if (foundBusiness.owner_id) {
+          if (foundBusiness.owner_id || foundBusiness.customer_id) {
             try {
               const customerResponse = await axios.post(
                 '/api/customer/list',
-                {},
+                { token },
                 {
                   headers: {
                     "Content-Type": "application/json",
@@ -931,7 +929,8 @@ export default function BusinessDetailPage() {
               );
               
               if (customerResponse.data.status_code === 200) {
-                const ownerData = customerResponse.data.customers.find(
+                const customersList = customerResponse.data.customers || customerResponse.data.data || [];
+                const ownerData = customersList.find(
                   (c: any) => c._id === foundBusiness.owner_id
                 );
                 setOwner(ownerData || null);
