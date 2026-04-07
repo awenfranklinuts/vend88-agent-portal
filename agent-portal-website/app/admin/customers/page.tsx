@@ -1086,7 +1086,7 @@ export default function CustomerManagementPage() {
       );
 
       if (customersData.status_code === 200 && businessesResponse.data.status_code === 200) {
-        const customersList = customersData.customers || [];
+        const customersList = customersData.customers || customersData.data || [];
         const businessesList = businessesResponse.data.business || [];
 
         // Map businesses to their owners

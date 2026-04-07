@@ -149,6 +149,33 @@ CUSTOMERS: dict[str, dict] = {
     },
 }
 
+# Businesses/Stores (linked to customers)
+BUSINESSES: dict[str, dict] = {
+    "bus_001": {
+        "_id": "bus_001",
+        "customer_id": "cust_001",
+        "name": "Smith's Coffee Shop",
+        "address": "123 Main St",
+        "suburb": "Sydney",
+        "state": "NSW",
+        "postcode": "2000",
+        "abn": "12345678901",
+        "registration_id": "V88-REG-001",
+        "created_at": "2024-01-15T10:30:00Z",
+    },
+    "bus_002": {
+        "_id": "bus_002",
+        "customer_id": "cust_002",
+        "name": "Jane's Restaurant",
+        "address": "456 Park St",
+        "suburb": "Melbourne",
+        "state": "VIC",
+        "postcode": "3000",
+        "registration_id": "V88-REG-002",
+        "created_at": "2024-02-20T14:15:00Z",
+    },
+}
+
 FORM_TEMPLATES: dict[str, dict] = {
     "tpl_001": {
         "id": "tpl_001",
@@ -339,6 +366,9 @@ class RegistrationRevokeRequest(BaseModel):
 class RegistrationApproveRequest(BaseModel):
     token: Optional[str] = None
     approval_notes: Optional[str] = None
+    create_customer: Optional[bool] = False
+    customer_id: Optional[str] = None
+    customer_data: Optional[dict] = None
 
 
 class LinkCustomerRequest(BaseModel):
@@ -1363,7 +1393,7 @@ def approve_registration(
     body: RegistrationApproveRequest,
     authorization: Optional[str] = Header(None),
 ):
-    """Approve a submitted registration (admin only)."""
+    """Approve a submitted registration (admin only). Optionally create/link customer."""
     email = _require_registration_access(token=body.token, authorization=authorization)
     registration = _find_registration_by_identifier(registration_id)
     if registration is None:
@@ -1374,21 +1404,47 @@ def approve_registration(
     registration["approved_by"] = email
     registration["approval_notes"] = body.approval_notes
     registration["updated_at"] = _now_iso()
+
+    # Handle customer creation/linking
+    customer = None
+    if body.customer_id:
+        # Link to existing customer
+        registration["linked_customer_id"] = body.customer_id
+        customer = CUSTOMERS.get(body.customer_id)
+    elif body.create_customer and body.customer_data:
+        # Create new customer from registration data
+        customer_id = f"CUST-{secrets.token_hex(4).upper()}"
+        customer = {
+            "_id": customer_id,
+            "name": body.customer_data.get("name") or registration.get("contact_name") or "New Customer",
+            "email": body.customer_data.get("email") or registration.get("contact_email") or "",
+            "phone": body.customer_data.get("phone") or registration.get("contact_phone") or "",
+            "messagingAppType": registration.get("messaging_app_type"),
+            "messagingAppId": registration.get("messaging_app_id"),
+            "registration_id": registration.get("form_id") or registration.get("id"),
+            "created_at": _now_iso(),
+        }
+        CUSTOMERS[customer_id] = customer
+        registration["linked_customer_id"] = customer_id
+
     payload = _serialize_registration(registration)
 
     _log_audit(
         "REGISTRATION_APPROVED",
         registration.get("contact_email", registration.get("form_id", registration_id)),
         email,
-        f"Approved registration {registration_id}",
+        f"Approved registration {registration_id}" + (f" + created customer {customer['_id']}" if customer else ""),
     )
 
-    return {
+    response = {
         "status_code": 200,
         "success": True,
         "message": "Registration approved successfully",
         "data": payload,
     }
+    if customer:
+        response["customer"] = customer
+    return response
 
 
 @app.post("/registration/reject/{registration_id}", tags=["Registration"])
@@ -1466,17 +1522,279 @@ def revoke_registration(
     }
 
 
-@app.post("/customers/list")
-@app.post("/customer/list")
-def customer_list(body: dict, authorization: Optional[str] = Header(None)):
-    """List customers for registration linking flows."""
+@app.post("/customers/list", tags=["Customer"])
+def customers_list(body: dict, authorization: Optional[str] = Header(None)):
+    """List all customers."""
     _require_registration_access(token=body.get("token"), authorization=authorization)
     customers = list(CUSTOMERS.values())
     return {
         "status_code": 200,
-        "status_msg": "success",
-        "customers": customers,
+        "success": True,
+        "data": customers,
+        "customers": customers,  # For backward compatibility
         "total": len(customers),
+    }
+
+
+@app.post("/customers/create", tags=["Customer"])
+def create_customer(body: dict, authorization: Optional[str] = Header(None)):
+    """Create a new customer."""
+    _require_registration_access(token=body.get("token"), authorization=authorization)
+    
+    customer_id = f"CUST-{secrets.token_hex(4).upper()}"
+    customer = {
+        "_id": customer_id,
+        "name": body.get("name", "New Customer"),
+        "email": body.get("email", ""),
+        "phone": body.get("phone", ""),
+        "messagingAppType": body.get("messagingAppType"),
+        "messagingAppId": body.get("messagingAppId"),
+        "registration_id": body.get("registration_id"),
+        "created_at": _now_iso(),
+    }
+    CUSTOMERS[customer_id] = customer
+    
+    return {
+        "status_code": 200,
+        "success": True,
+        "message": "Customer created successfully",
+        "data": customer,
+    }
+
+
+@app.post("/customers/{customer_id}", tags=["Customer"])
+def get_customer(customer_id: str, body: dict, authorization: Optional[str] = Header(None)):
+    """Get customer details."""
+    _require_registration_access(token=body.get("token"), authorization=authorization)
+    
+    customer = CUSTOMERS.get(customer_id)
+    if not customer:
+        raise HTTPException(
+            status_code=404,
+            detail={"status_code": 404, "message": "Customer not found"},
+        )
+    
+    return {
+        "status_code": 200,
+        "success": True,
+        "data": customer,
+    }
+
+
+@app.post("/customers/update/{customer_id}", tags=["Customer"])
+def update_customer(customer_id: str, body: dict, authorization: Optional[str] = Header(None)):
+    """Update customer details."""
+    _require_registration_access(token=body.get("token"), authorization=authorization)
+    
+    customer = CUSTOMERS.get(customer_id)
+    if not customer:
+        raise HTTPException(
+            status_code=404,
+            detail={"status_code": 404, "message": "Customer not found"},
+        )
+    
+    # Update allowed fields
+    if "name" in body:
+        customer["name"] = body["name"]
+    if "email" in body:
+        customer["email"] = body["email"]
+    if "phone" in body:
+        customer["phone"] = body["phone"]
+    if "messagingAppType" in body:
+        customer["messagingAppType"] = body["messagingAppType"]
+    if "messagingAppId" in body:
+        customer["messagingAppId"] = body["messagingAppId"]
+    
+    customer["updated_at"] = _now_iso()
+    
+    return {
+        "status_code": 200,
+        "success": True,
+        "message": "Customer updated successfully",
+        "data": customer,
+    }
+
+
+@app.post("/customers/delete/{customer_id}", tags=["Customer"])
+def delete_customer(customer_id: str, body: dict, authorization: Optional[str] = Header(None)):
+    """Delete customer (soft delete)."""
+    _require_registration_access(token=body.get("token"), authorization=authorization)
+    
+    customer = CUSTOMERS.get(customer_id)
+    if not customer:
+        raise HTTPException(
+            status_code=404,
+            detail={"status_code": 404, "message": "Customer not found"},
+        )
+    
+    # Soft delete: mark as deleted
+    customer["deleted_at"] = _now_iso()
+    customer["is_deleted"] = True
+    
+    return {
+        "status_code": 200,
+        "success": True,
+        "message": "Customer deleted successfully",
+        "data": customer,
+    }
+
+
+# ── Business Management Endpoints ─────────────────────────────────
+
+@app.post("/businesses/list", tags=["Business"])
+def businesses_list(body: dict, authorization: Optional[str] = Header(None)):
+    """List all businesses."""
+    _require_registration_access(token=body.get("token"), authorization=authorization)
+    businesses = list(BUSINESSES.values())
+    return {
+        "status_code": 200,
+        "success": True,
+        "data": businesses,
+        "total": len(businesses),
+    }
+
+
+@app.post("/businesses/create", tags=["Business"])
+def create_business(body: dict, authorization: Optional[str] = Header(None)):
+    """Create a new business/store for a customer."""
+    _require_registration_access(token=body.get("token"), authorization=authorization)
+    
+    customer_id = body.get("customer_id")
+    if not customer_id:
+        raise HTTPException(
+            status_code=400,
+            detail={"status_code": 400, "message": "customer_id is required"},
+        )
+    
+    # Verify customer exists
+    if customer_id not in CUSTOMERS:
+        raise HTTPException(
+            status_code=404,
+            detail={"status_code": 404, "message": "Customer not found"},
+        )
+    
+    business_id = f"BUS-{secrets.token_hex(4).upper()}"
+    business = {
+        "_id": business_id,
+        "customer_id": customer_id,
+        "name": body.get("name", "New Store"),
+        "address": body.get("address", ""),
+        "suburb": body.get("suburb", ""),
+        "state": body.get("state", ""),
+        "postcode": body.get("postcode", ""),
+        "abn": body.get("abn", ""),
+        "registration_id": body.get("registration_id", ""),
+        "created_at": _now_iso(),
+    }
+    BUSINESSES[business_id] = business
+    
+    return {
+        "status_code": 200,
+        "success": True,
+        "message": "Business created successfully",
+        "data": business,
+    }
+
+
+@app.post("/businesses/{business_id}", tags=["Business"])
+def get_business(business_id: str, body: dict, authorization: Optional[str] = Header(None)):
+    """Get business details."""
+    _require_registration_access(token=body.get("token"), authorization=authorization)
+    
+    business = BUSINESSES.get(business_id)
+    if not business:
+        raise HTTPException(
+            status_code=404,
+            detail={"status_code": 404, "message": "Business not found"},
+        )
+    
+    return {
+        "status_code": 200,
+        "success": True,
+        "data": business,
+    }
+
+
+@app.post("/customers/{customer_id}/businesses", tags=["Business"])
+def get_customer_businesses(customer_id: str, body: dict, authorization: Optional[str] = Header(None)):
+    """Get all businesses for a customer."""
+    _require_registration_access(token=body.get("token"), authorization=authorization)
+    
+    # Verify customer exists
+    if customer_id not in CUSTOMERS:
+        raise HTTPException(
+            status_code=404,
+            detail={"status_code": 404, "message": "Customer not found"},
+        )
+    
+    customer_businesses = [b for b in BUSINESSES.values() if b.get("customer_id") == customer_id]
+    
+    return {
+        "status_code": 200,
+        "success": True,
+        "data": customer_businesses,
+        "businesses": customer_businesses,
+        "total": len(customer_businesses),
+    }
+
+
+@app.post("/businesses/update/{business_id}", tags=["Business"])
+def update_business(business_id: str, body: dict, authorization: Optional[str] = Header(None)):
+    """Update business details."""
+    _require_registration_access(token=body.get("token"), authorization=authorization)
+    
+    business = BUSINESSES.get(business_id)
+    if not business:
+        raise HTTPException(
+            status_code=404,
+            detail={"status_code": 404, "message": "Business not found"},
+        )
+    
+    # Update allowed fields
+    if "name" in body:
+        business["name"] = body["name"]
+    if "address" in body:
+        business["address"] = body["address"]
+    if "suburb" in body:
+        business["suburb"] = body["suburb"]
+    if "state" in body:
+        business["state"] = body["state"]
+    if "postcode" in body:
+        business["postcode"] = body["postcode"]
+    if "abn" in body:
+        business["abn"] = body["abn"]
+    
+    business["updated_at"] = _now_iso()
+    
+    return {
+        "status_code": 200,
+        "success": True,
+        "message": "Business updated successfully",
+        "data": business,
+    }
+
+
+@app.post("/businesses/delete/{business_id}", tags=["Business"])
+def delete_business(business_id: str, body: dict, authorization: Optional[str] = Header(None)):
+    """Delete business (soft delete)."""
+    _require_registration_access(token=body.get("token"), authorization=authorization)
+    
+    business = BUSINESSES.get(business_id)
+    if not business:
+        raise HTTPException(
+            status_code=404,
+            detail={"status_code": 404, "message": "Business not found"},
+        )
+    
+    # Soft delete: mark as deleted
+    business["deleted_at"] = _now_iso()
+    business["is_deleted"] = True
+    
+    return {
+        "status_code": 200,
+        "success": True,
+        "message": "Business deleted successfully",
+        "data": business,
     }
 
 

@@ -920,25 +920,6 @@ export default function RegistrationDetailsPage() {
       if (!token) return;
 
       try {
-        // Mock data for testing
-        const mockCustomers = [
-          {
-            _id: "mock-cust-01",
-            name: "John Smith",
-            email: "johnsmith@gmail.com",
-          },
-          {
-            _id: "mock-cust-02",
-            name: "Jane Doe",
-            email: "jane@example.com",
-          },
-        ];
-
-        setCustomers(mockCustomers);
-        return;
-
-        // Uncomment below when API is ready
-        /*
         const response = await fetch("/api/customer/list", {
           method: "POST",
           headers: {
@@ -955,8 +936,10 @@ export default function RegistrationDetailsPage() {
         const data = await response.json();
         if (data.status_code === 200 && Array.isArray(data.customers)) {
           setCustomers(data.customers);
+        } else if (data.status_code === 200 && Array.isArray(data.data)) {
+          // Handle case where customers are in data array
+          setCustomers(data.data);
         }
-        */
       } catch (err) {
         console.error("Failed to fetch customers", err);
       }
@@ -996,37 +979,22 @@ export default function RegistrationDetailsPage() {
     if (!token) return;
 
     try {
-      // Mock data for testing - John Smith's businesses
-      const mockBusinessesMap: Record<string, Array<{ _id: string; name: string; suburb: string; state: string; postcode: string }>> = {
-        "mock-cust-01": [
-          { _id: "mock-biz-01", name: "John's Coffee Shop", suburb: "Sydney", state: "NSW", postcode: "2000" },
-          { _id: "mock-biz-02", name: "Smith Restaurant & Bar", suburb: "Parramatta", state: "NSW", postcode: "2150" },
-          { _id: "mock-biz-03", name: "John's Catering Service", suburb: "Manly", state: "NSW", postcode: "2095" },
-        ],
-        "mock-cust-02": [
-          { _id: "mock-biz-04", name: "Jane's Boutique", suburb: "Melbourne", state: "VIC", postcode: "3000" },
-        ],
-      };
-
-      setCustomerBusinesses(mockBusinessesMap[customerId] || []);
-      return;
-
-      // Uncomment below when API is ready
-      /*
-      const endpoint = getApiUrl(`/api/search/business?customer_id=${customerId}`);
+      const endpoint = getApiUrl(`/customers/${customerId}/businesses`);
       const response = await fetch(endpoint, {
-        method: "GET",
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({
+          token,
+        }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        setCustomerBusinesses(data.businesses || []);
+        setCustomerBusinesses(data.businesses || data.data || []);
       }
-      */
     } catch (err) {
       console.error("Failed to fetch customer businesses", err);
       setCustomerBusinesses([]);
@@ -1073,12 +1041,15 @@ export default function RegistrationDetailsPage() {
     if (!registration || !token) return;
 
     setIsActing(true);
+    let linkedCustomerId: string | null = null;
+
     try {
       const linkEndpoint = getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_LINK.replace(":id", registration.id));
 
+      // Step 1: Link or create customer
       if (approvalMode === 'existing_customer' && selectedCustomerId) {
-        // Link to existing customer → will add a new store for them
-        console.log("[DEBUG] Approve - Linking to existing customer, adding new store");
+        console.log("[DEBUG] Approve - Linking to existing customer");
+        linkedCustomerId = selectedCustomerId;
 
         const linkResponse = await fetch(linkEndpoint, {
           method: "POST",
@@ -1089,7 +1060,6 @@ export default function RegistrationDetailsPage() {
           body: JSON.stringify({
             token,
             customer_id: selectedCustomerId,
-            create_new_store: true,
           }),
         });
 
@@ -1104,8 +1074,8 @@ export default function RegistrationDetailsPage() {
         const linkResponseData = await linkResponse.json();
         console.log("[DEBUG] Link Response Body:", linkResponseData);
       } else {
-        // Create new customer + new store
-        console.log("[DEBUG] Approve - Creating new customer and store");
+        // Create new customer
+        console.log("[DEBUG] Approve - Creating new customer");
 
         const linkResponse = await fetch(linkEndpoint, {
           method: "POST",
@@ -1133,10 +1103,46 @@ export default function RegistrationDetailsPage() {
         }
 
         const linkResponseData = await linkResponse.json();
+        linkedCustomerId = linkResponseData.customer?._id;
         console.log("[DEBUG] New Customer Response Body:", linkResponseData);
       }
 
-      // Then approve the registration
+      // Step 2: Create business/store for the customer
+      if (linkedCustomerId) {
+        console.log("[DEBUG] Creating business for customer:", linkedCustomerId);
+
+        const businessEndpoint = getApiUrl("/businesses/create");
+        const businessResponse = await fetch(businessEndpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            token,
+            customer_id: linkedCustomerId,
+            name: getBusinessName(registration),
+            address: registration?.registeredAddress || "",
+            suburb: registration?.registeredSuburb || "",
+            state: registration?.registeredState || "",
+            postcode: registration?.registeredPostcode || "",
+            registration_id: registration?.id,
+          }),
+        });
+
+        console.log("[DEBUG] Business Response Status:", businessResponse.status);
+
+        if (!businessResponse.ok) {
+          const errorData = await businessResponse.text();
+          console.error("[DEBUG] Business Error:", errorData);
+          throw new Error("Failed to create business");
+        }
+
+        const businessResponseData = await businessResponse.json();
+        console.log("[DEBUG] Business Response Body:", businessResponseData);
+      }
+
+      // Step 3: Approve the registration
       const approveEndpoint = getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_APPROVE.replace(":id", registration.id));
       
       console.log("[DEBUG] Approve Endpoint:", approveEndpoint);
@@ -2042,7 +2048,7 @@ export default function RegistrationDetailsPage() {
 
       {showApprovalModal && (
         <Modal $show={showApprovalModal} onClick={() => setShowApprovalModal(false)}>
-          <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '800px', padding: '2rem' }}>
+          <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '1000px', padding: '2rem' }}>
             <ModalTitle style={{ marginBottom: '1.5rem' }}>
               {lang === 'zh' ? '审批注册' : 'Approve Registration'}
             </ModalTitle>

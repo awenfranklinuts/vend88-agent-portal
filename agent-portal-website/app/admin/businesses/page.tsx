@@ -1880,13 +1880,12 @@ export default function BusinessManagementPage() {
 
     try {
 
-      // Fetch businesses from API
-
+      // Fetch businesses from real API
       const businessResponse = await axios.post(
 
-        '/api/search/business',
+        '/api/businesses/list',
 
-        { detail: true },
+        { token },
 
         {
 
@@ -1910,7 +1909,7 @@ export default function BusinessManagementPage() {
 
         '/api/customer/list',
 
-        {},
+        { token },
 
         {
 
@@ -1930,39 +1929,31 @@ export default function BusinessManagementPage() {
 
       if (businessResponse.data.status_code === 200) {
 
-        const apiBusinessList = businessResponse.data.business || [];
+        const apiBusinessList = businessResponse.data.data || businessResponse.data.business || [];
 
-        // Combine API data with comprehensive mock data
-
-        // API data first, then mock data for demonstration
-
-        setAllBusinesses([...apiBusinessList, ...mockBusinesses]);
+        setAllBusinesses(apiBusinessList);
 
         
 
         if (customerResponse.data.status_code === 200) {
 
-          const apiCustomers = customerResponse.data.customers || [];
+          const apiCustomers = customerResponse.data.customers || customerResponse.data.data || [];
 
-          // Combine API customers with mock customers
-
-          setCustomers([...apiCustomers, ...mockCustomers]);
+          setCustomers(apiCustomers);
 
         } else {
 
-          // If customer API fails, still use mock customers
-
-          setCustomers(mockCustomers);
+          // If customer API fails, use empty array
+          setCustomers([]);
 
         }
 
       } else {
 
-        // If business API fails, fallback to mock data only
+        // If business API fails, use empty array
+        setAllBusinesses([]);
 
-        setAllBusinesses(mockBusinesses);
-
-        setCustomers(mockCustomers);
+        setCustomers([]);
 
       }
 
