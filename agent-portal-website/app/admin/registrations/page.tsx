@@ -1687,6 +1687,16 @@ export default function RegistrationsPage() {
     }, 2000);
   };
 
+  const handleCopyRegistrationLink = (registration: Registration) => {
+    if (registration.token) {
+      const link = `${window.location.origin}/registration?token=${registration.token}`;
+      navigator.clipboard.writeText(link);
+      showToast(lang === 'zh' ? '链接已复制到剪贴板' : 'Link copied to clipboard', 'success');
+    } else {
+      showToast(lang === 'zh' ? '无法获取链接' : 'Unable to retrieve link', 'error');
+    }
+  };
+
   const handleApprove = (id: string) => {
     // Check if customer is linked when approving from details modal (only when viewing in modal)
     if (selectedRegistration?.id === id && showDetailsModal && !selectedCustomerId) {
@@ -2425,7 +2435,7 @@ export default function RegistrationsPage() {
                           )}
                           {reg.status === 'pending' && (
                             <>
-                              <ActionButton $variant="view">
+                              <ActionButton $variant="view" onClick={() => handleCopyRegistrationLink(reg)}>
                                 {lang === "zh" ? "复制链接" : "Copy Link"}
                               </ActionButton>
                               <ActionButton $variant="reject" onClick={() => handleRevoke(reg.id)}>
