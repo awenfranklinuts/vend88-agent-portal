@@ -969,13 +969,17 @@ const StatusBadge = styled.span<{ $status: string }>`
 
   ${p => {
 
-    switch(p.$status) {
+    const normalizedStatus = p.$status?.toLowerCase().replace(/_/g, ' ').replace(/ /g, '');
+
+    switch(normalizedStatus) {
 
       case 'active':
 
         return 'background: #d1fae5; color: #065f46;';
 
       case 'setup':
+
+      case 'insetup':
 
         return 'background: #dbeafe; color: #1e40af;';
 
@@ -2184,9 +2188,7 @@ export default function BusinessManagementPage() {
 
   const handleViewDetails = (business: Business) => {
 
-    setSelectedBusiness(business);
-
-    setShowDetailsModal(true);
+    router.push(`/admin/businesses/${business._id}`);
 
   };
 
@@ -2484,11 +2486,14 @@ export default function BusinessManagementPage() {
 
     total: allBusinesses.length,
 
-    active: allBusinesses.filter(b => b.status === 'active').length,
+    active: allBusinesses.filter(b => b.status?.toLowerCase() === 'active').length,
 
-    setup: allBusinesses.filter(b => b.status === 'setup').length,
+    setup: allBusinesses.filter(b => {
+      const status = b.status?.toLowerCase().replace(/_/g, ' ').replace(/ /g, '');
+      return status === 'setup' || status === 'insetup';
+    }).length,
 
-    inactive: allBusinesses.filter(b => b.status === 'inactive').length,
+    inactive: allBusinesses.filter(b => b.status?.toLowerCase() === 'inactive').length,
 
   };
 
@@ -3056,12 +3061,6 @@ export default function BusinessManagementPage() {
 
                           </IconButton>
 
-                          <IconButton onClick={() => handleBusinessClick(business._id)} title={lang === 'zh' ? '编辑' : 'Edit'}>
-
-                            <EditIcon />
-
-                          </IconButton>
-
                         </ActionButtons>
 
                       </Td>
@@ -3090,27 +3089,23 @@ export default function BusinessManagementPage() {
 
                       <BusinessName>{business.name || 'N/A'}</BusinessName>
 
-                      {(business.suburb || business.state) && (
+                      <InfoRow style={{ marginBottom: '0.5rem' }}>
 
-                        <InfoRow style={{ marginBottom: '0.5rem' }}>
+                        <span style={{ color: '#5c6b7a', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
 
-                          <span style={{ color: '#5c6b7a', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
 
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
 
-                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                            <circle cx="12" cy="10" r="3"/>
 
-                              <circle cx="12" cy="10" r="3"/>
+                          </svg>
 
-                            </svg>
+                          {(business.suburb || business.state) ? `${business.suburb}${business.state && `, ${business.state}`}` : 'N/A'}
 
-                            {business.suburb}{business.state && `, ${business.state}`}
+                        </span>
 
-                          </span>
-
-                        </InfoRow>
-
-                      )}
+                      </InfoRow>
 
                     </div>
 
@@ -3132,29 +3127,13 @@ export default function BusinessManagementPage() {
 
                     </InfoRow>
 
-                    {business.abn && (
+                    <InfoRow>
 
-                      <InfoRow>
+                      <InfoLabel>{lang === "zh" ? "ABN:" : "ABN:"}</InfoLabel>
 
-                        <InfoLabel>{lang === "zh" ? "ABN:" : "ABN:"}</InfoLabel>
+                      <InfoValue>{business.abn || 'N/A'}</InfoValue>
 
-                        <InfoValue>{business.abn}</InfoValue>
-
-                      </InfoRow>
-
-                    )}
-
-                    {business.contactEmail && (
-
-                      <InfoRow>
-
-                        <InfoLabel>{lang === "zh" ? "邮箱:" : "Email:"}</InfoLabel>
-
-                        <InfoValue>{business.contactEmail}</InfoValue>
-
-                      </InfoRow>
-
-                    )}
+                    </InfoRow>
 
                     <InfoRow>
 
@@ -3171,12 +3150,6 @@ export default function BusinessManagementPage() {
                     <CardButton onClick={() => handleViewDetails(business)}>
 
                       <EyeIcon /> {lang === 'zh' ? '详情' : 'Details'}
-
-                    </CardButton>
-
-                    <CardButton $variant="primary" onClick={() => handleBusinessClick(business._id)}>
-
-                      <EditIcon /> {lang === 'zh' ? '编辑' : 'Edit'}
 
                     </CardButton>
 

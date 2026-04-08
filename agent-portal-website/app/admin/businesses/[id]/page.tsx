@@ -286,10 +286,12 @@ const StatusBadge = styled.span<{ $status: string }>`
   text-transform: uppercase;
   
   ${p => {
-    switch(p.$status) {
+    const normalizedStatus = p.$status?.toLowerCase().replace(/_/g, ' ').replace(/ /g, '');
+    switch(normalizedStatus) {
       case 'active':
         return 'background: #d1fae5; color: #065f46;';
       case 'setup':
+      case 'insetup':
         return 'background: #dbeafe; color: #1e40af;';
       case 'inactive':
         return 'background: #e5e7eb; color: #374151;';
@@ -1353,8 +1355,9 @@ export default function BusinessDetailPage() {
   };
   
   const handleViewRegistration = () => {
-    if (business?.registrationId || business?.registration_id) {
-      router.push(`/admin/registrations`);
+    const registrationId = business?.registrationId || business?.registration_id;
+    if (registrationId) {
+      router.push(`/admin/registrations/${registrationId}`);
     }
   };
   
@@ -1398,6 +1401,13 @@ export default function BusinessDetailPage() {
     // Permissions are now read-only, fetched from API
     showToast(lang === "zh" ? "权限由后端API管理" : "Permissions are managed by backend API", 'info');
     setShowAddModal(false);
+  };
+
+  const formatStatus = (status: string) => {
+    if (!status) return 'N/A';
+    return status
+      .replace(/_/g, ' ')
+      .toUpperCase();
   };
 
   if (authLoading) {
@@ -1464,7 +1474,7 @@ export default function BusinessDetailPage() {
                   <StatLabel>{lang === "zh" ? "状态" : "Status"}</StatLabel>
                   <StatValue>
                     <StatusBadge $status={business.status || 'inactive'}>
-                      {business.status || 'N/A'}
+                      {formatStatus(business.status || 'inactive')}
                     </StatusBadge>
                   </StatValue>
                 </StatCard>
@@ -1483,14 +1493,6 @@ export default function BusinessDetailPage() {
                     {lang === "zh" ? "保存更改" : "Save Changes"}
                   </QuickActionButton>
                 )}
-                <QuickActionButton onClick={handleExportCSV}>
-                  <DownloadIcon />
-                  {lang === "zh" ? "导出 CSV" : "Export CSV"}
-                </QuickActionButton>
-                <QuickActionButton onClick={handleExportPDF}>
-                  <FileIcon />
-                  {lang === "zh" ? "导出 PDF" : "Export PDF"}
-                </QuickActionButton>
                 {owner && (
                   <QuickActionButton onClick={handleEmailOwner}>
                     <MailIcon />
@@ -1580,7 +1582,28 @@ export default function BusinessDetailPage() {
                       <InfoGrid>
                         <InfoItem>
                           <InfoLabel>{lang === "zh" ? "业务 ID" : "Business ID"}</InfoLabel>
-                          <InfoValue>{business._id}</InfoValue>
+                          <InfoValue>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                              <span>{business._id}</span>
+                              {(business.registrationId || business.registration_id) && (
+                                <button
+                                  onClick={handleViewRegistration}
+                                  style={{
+                                    padding: '0.4rem 0.75rem',
+                                    fontSize: '0.75rem',
+                                    background: '#3b82f6',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  📋 {lang === "zh" ? "查看注册表单" : "View Form"}
+                                </button>
+                              )}
+                            </div>
+                          </InfoValue>
                         </InfoItem>
                         <InfoItem>
                           <InfoLabel>{lang === "zh" ? "业务名称" : "Business Name"}</InfoLabel>
@@ -1613,12 +1636,13 @@ export default function BusinessDetailPage() {
                             >
                               <option value="active">Active</option>
                               <option value="setup">Setup</option>
+                              <option value="in_setup">In Setup</option>
                               <option value="inactive">Inactive</option>
                               <option value="suspended">Suspended</option>
                             </Select>
                           ) : (
                             <StatusBadge $status={business.status || 'N/A'}>
-                              {business.status || 'N/A'}
+                              {formatStatus(business.status || 'inactive')}
                             </StatusBadge>
                           )}
                         </InfoItem>
@@ -1768,28 +1792,6 @@ export default function BusinessDetailPage() {
                           <InfoValue>{(business.updatedAt || business.updated_at) ? new Date(business.updatedAt || business.updated_at!).toLocaleDateString() : 'Invalid Date'}</InfoValue>
                         </InfoItem>
                       </InfoGrid>
-
-                      {/* Registration Information Card */}
-                      {(business.registrationId || business.registration_id) && (
-                        <Card style={{ marginTop: '2rem', background: '#eff6ff', borderLeft: '4px solid #3b82f6' }}>
-                          <CardTitle style={{ borderColor: '#bfdbfe' }}>
-                            {lang === "zh" ? "注册表单" : "Registration Form"}
-                          </CardTitle>
-                          <InfoGrid>
-                            <InfoItem>
-                              <InfoLabel>{lang === "zh" ? "注册 ID" : "Registration ID"}</InfoLabel>
-                              <InfoValue>{business.registrationId || business.registration_id}</InfoValue>
-                            </InfoItem>
-                          </InfoGrid>
-                          <QuickActionButton 
-                            $variant="primary" 
-                            onClick={handleViewRegistration}
-                            style={{ marginTop: '1rem', minWidth: 'auto', flex: 'none', padding: '0.75rem 1.5rem' }}
-                          >
-                            📋 {lang === "zh" ? "查看原始注册表单" : "View Original Registration Form"}
-                          </QuickActionButton>
-                        </Card>
-                      )}
 
                       {/* Edit Mode Actions */}
                       {isEditMode && (
