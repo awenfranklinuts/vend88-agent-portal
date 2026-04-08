@@ -241,9 +241,13 @@ const BusinessStatus = styled.span<{ $status?: string }>`
   text-transform: uppercase;
   
   ${p => {
-    switch(p.$status) {
+    const normalizedStatus = p.$status?.toLowerCase().replace(/_/g, ' ').replace(/ /g, '');
+    switch(normalizedStatus) {
       case 'active':
         return 'background: #d1fae5; color: #065f46;';
+      case 'setup':
+      case 'insetup':
+        return 'background: #dbeafe; color: #1e40af;';
       case 'inactive':
         return 'background: #e5e7eb; color: #374151;';
       case 'suspended':
@@ -372,6 +376,10 @@ interface Business {
   status?: string;
   abn?: string;
   address?: string;
+  suburb?: string;
+  state?: string;
+  created_at?: string;
+  createdAt?: string;
 }
 
 export default function CustomerDetailPage() {
@@ -539,6 +547,13 @@ export default function CustomerDetailPage() {
 
   const handleBusinessClick = (businessId: string) => {
     router.push(`/admin/businesses/${businessId}`);
+  };
+
+  const formatStatus = (status: string) => {
+    if (!status) return 'N/A';
+    return status
+      .replace(/_/g, ' ')
+      .toUpperCase();
   };
 
   if (isLoading) {
@@ -715,7 +730,7 @@ export default function CustomerDetailPage() {
                   <BusinessHeader>
                     <BusinessDetailName>{business.name}</BusinessDetailName>
                     <BusinessStatus $status={business.status}>
-                      {business.status || 'N/A'}
+                      {formatStatus(business.status || 'N/A')}
                     </BusinessStatus>
                   </BusinessHeader>
                   <BusinessInfo>
@@ -729,6 +744,22 @@ export default function CustomerDetailPage() {
                       <BusinessInfoItem>
                         <InfoLabel>{lang === "zh" ? "地址" : "Address"}</InfoLabel>
                         <InfoValue>{business.address}</InfoValue>
+                      </BusinessInfoItem>
+                    )}
+                    {(business.suburb || business.state) && (
+                      <BusinessInfoItem>
+                        <InfoLabel>{lang === "zh" ? "位置" : "Location"}</InfoLabel>
+                        <InfoValue>
+                          {business.suburb && business.state ? `${business.suburb}, ${business.state}` : business.suburb || business.state}
+                        </InfoValue>
+                      </BusinessInfoItem>
+                    )}
+                    {(business.created_at || business.createdAt) && (
+                      <BusinessInfoItem>
+                        <InfoLabel>{lang === "zh" ? "创建日期" : "Created Date"}</InfoLabel>
+                        <InfoValue>
+                          {new Date(business.created_at || business.createdAt || '').toLocaleDateString()}
+                        </InfoValue>
                       </BusinessInfoItem>
                     )}
                   </BusinessInfo>

@@ -436,9 +436,13 @@ const BusinessStatus = styled.span<{ $status: string }>`
   text-transform: uppercase;
   
   ${p => {
-    switch(p.$status) {
+    const normalizedStatus = p.$status?.toLowerCase().replace(/_/g, ' ').replace(/ /g, '');
+    switch(normalizedStatus) {
       case 'active':
         return 'background: #d1fae5; color: #065f46;';
+      case 'setup':
+      case 'insetup':
+        return 'background: #dbeafe; color: #1e40af;';
       case 'inactive':
         return 'background: #e5e7eb; color: #374151;';
       case 'suspended':
@@ -1242,6 +1246,13 @@ export default function CustomerManagementPage() {
       setSortDirection('asc');
     }
   };
+
+  const formatStatus = (status: string) => {
+    if (!status) return 'N/A';
+    return status
+      .replace(/_/g, ' ')
+      .toUpperCase();
+  };
   
   // Calculate statistics
   const stats = {
@@ -1479,7 +1490,7 @@ export default function CustomerManagementPage() {
                           <BusinessItem key={business._id}>
                             <BusinessName>{business.name}</BusinessName>
                             <BusinessStatus $status={business.status || 'N/A'}>
-                              {business.status || 'N/A'}
+                              {formatStatus(business.status || 'N/A')}
                             </BusinessStatus>
                           </BusinessItem>
                         ))}
