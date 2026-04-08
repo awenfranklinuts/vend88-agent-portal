@@ -808,16 +808,6 @@ interface Business {
   registration_id?: string;
 }
 
-interface Permission {
-  _id: string;
-  business_id: string;
-  business_name: string;
-  owner_id: string;
-  expire: string;
-  level: string;
-  name: string;
-}
-
 export default function BusinessDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -829,7 +819,7 @@ export default function BusinessDetailPage() {
   const [business, setBusiness] = useState<Business | null>(null);
   const [originalBusiness, setOriginalBusiness] = useState<Business | null>(null);
   const [owner, setOwner] = useState<any>(null);
-  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [permissions, setPermissions] = useState<string[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
   const [notes, setNotes] = useState<any[]>([]);
   const [activityLog, setActivityLog] = useState<any[]>([]);
@@ -847,7 +837,7 @@ export default function BusinessDetailPage() {
   const [showAddDeviceModal, setShowAddDeviceModal] = useState(false);
   const [showEditDeviceModal, setShowEditDeviceModal] = useState(false);
   const [showDeleteDeviceModal, setShowDeleteDeviceModal] = useState(false);
-  const [selectedPermission, setSelectedPermission] = useState<Permission | null>(null);
+  const [selectedPermission, setSelectedPermission] = useState<string | null>(null);
   const [selectedDevice, setSelectedDevice] = useState<any>(null);
   
   // Form states
@@ -1015,19 +1005,16 @@ export default function BusinessDetailPage() {
     }
   };
 
-  const handleEditClick = (permission: Permission) => {
+  const handleEditClick = (permission: string) => {
     setSelectedPermission(permission);
-    setEditForm({
-      level: permission.level,
-      expire: permission.expire ? new Date(permission.expire).toISOString().split('T')[0] : '',
-      unlimited: !permission.expire || permission.expire === '9999-12-31'
-    });
-    setShowEditModal(true);
+    // Permissions are now simple strings, no edit form needed
+    showToast(lang === "zh" ? "权限为只读" : "Permissions are read-only", 'info');
   };
 
-  const handleDeleteClick = (permission: Permission) => {
+  const handleDeleteClick = (permission: string) => {
     setSelectedPermission(permission);
-    setShowDeleteModal(true);
+    // Permissions are now simple strings, no delete needed
+    showToast(lang === "zh" ? "权限无法删除" : "Permissions cannot be deleted", 'info');
   };
 
   const handleAddClick = () => {
@@ -1179,65 +1166,15 @@ export default function BusinessDetailPage() {
   };
 
   const handleEditSubmit = async () => {
-    if (!selectedPermission) return;
-    
-    try {
-      const expireDate = editForm.unlimited ? '9999-12-31' : editForm.expire;
-      
-      const response = await axios.post(
-        '/api/shop/update-permission',
-        {
-          _id: selectedPermission._id,
-          level: editForm.level,
-          expire: expireDate
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.data.status_code === 200) {
-        showToast(lang === "zh" ? "权限已更新" : "Permission updated", 'success');
-        setShowEditModal(false);
-        fetchBusinessDetails();
-      } else {
-        showToast(response.data.status_msg || (lang === "zh" ? "更新失败" : "Update failed"), 'error');
-      }
-    } catch (err) {
-      console.error("Failed to update permission:", err);
-      showToast(lang === "zh" ? "更新失败" : "Update failed", 'error');
-    }
+    // Permissions are read-only, managed by backend API
+    showToast(lang === "zh" ? "权限由后端API管理，无法在此编辑" : "Permissions are managed by backend API and cannot be edited here", 'info');
+    setShowEditModal(false);
   };
 
   const handleDeleteSubmit = async () => {
-    if (!selectedPermission) return;
-    
-    try {
-      const response = await axios.post(
-        '/api/shop/delete-permission',
-        { _id: selectedPermission._id },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.data.status_code === 200) {
-        showToast(lang === "zh" ? "权限已删除" : "Permission deleted", 'success');
-        setShowDeleteModal(false);
-        fetchBusinessDetails();
-      } else {
-        showToast(response.data.status_msg || (lang === "zh" ? "删除失败" : "Delete failed"), 'error');
-      }
-    } catch (err) {
-      console.error("Failed to delete permission:", err);
-      showToast(lang === "zh" ? "删除失败" : "Delete failed", 'error');
-    }
+    // Permissions are read-only, managed by backend API
+    showToast(lang === "zh" ? "权限由后端API管理，无法在此删除" : "Permissions are managed by backend API and cannot be deleted here", 'info');
+    setShowDeleteModal(false);
   };
 
   const handleEditBusiness = () => {
@@ -1458,43 +1395,9 @@ export default function BusinessDetailPage() {
   };
   
   const handleAddSubmit = async () => {
-    if (!business || !addForm.name || !addForm.level) {
-      showToast(lang === "zh" ? "请填写所有必填字段" : "Please fill all required fields", 'error');
-      return;
-    }
-    
-    try {
-      const expireDate = addForm.unlimited ? '9999-12-31' : addForm.expire;
-      
-      const response = await axios.post(
-        '/api/shop/add-permission',
-        {
-          business_id: businessId,
-          business_name: business.name,
-          owner_id: business.owner_id,
-          name: addForm.name,
-          level: addForm.level,
-          expire: expireDate
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.data.status_code === 200) {
-        showToast(lang === "zh" ? "权限已添加" : "Permission added", 'success');
-        setShowAddModal(false);
-        fetchBusinessDetails();
-      } else {
-        showToast(response.data.status_msg || (lang === "zh" ? "添加失败" : "Add failed"), 'error');
-      }
-    } catch (err) {
-      console.error("Failed to add permission:", err);
-      showToast(lang === "zh" ? "添加失败" : "Add failed", 'error');
-    }
+    // Permissions are now read-only, fetched from API
+    showToast(lang === "zh" ? "权限由后端API管理" : "Permissions are managed by backend API", 'info');
+    setShowAddModal(false);
   };
 
   if (authLoading) {
@@ -2071,52 +1974,22 @@ export default function BusinessDetailPage() {
       {/* Edit Permission Modal */}
       <Modal $show={showEditModal} onClick={() => setShowEditModal(false)}>
         <ModalContent onClick={(e) => e.stopPropagation()}>
-          <ModalTitle>{lang === "zh" ? "编辑权限" : "Edit Permission"}</ModalTitle>
+          <ModalTitle>{lang === "zh" ? "权限详情" : "Permission Details"}</ModalTitle>
           <FormGroup>
             <Label>{lang === "zh" ? "权限名称" : "Permission Name"}</Label>
             <Input 
-              value={selectedPermission?.name || ''} 
+              value={selectedPermission || ''} 
               disabled 
             />
           </FormGroup>
-          <FormGroup>
-            <Label>{lang === "zh" ? "级别" : "Level"}</Label>
-            <Select 
-              value={editForm.level}
-              onChange={(e) => setEditForm({ ...editForm, level: e.target.value })}
-            >
-              <option value="">Select Level</option>
-              <option value="read">Read</option>
-              <option value="write">Write</option>
-              <option value="admin">Admin</option>
-            </Select>
-          </FormGroup>
-          {!editForm.unlimited && (
-            <FormGroup>
-              <Label>{lang === "zh" ? "到期日期" : "Expire Date"}</Label>
-              <Input 
-                type="date"
-                value={editForm.expire}
-                onChange={(e) => setEditForm({ ...editForm, expire: e.target.value })}
-              />
-            </FormGroup>
-          )}
-          <FormGroup>
-            <CheckboxLabel>
-              <input
-                type="checkbox"
-                checked={editForm.unlimited}
-                onChange={(e) => setEditForm({ ...editForm, unlimited: e.target.checked })}
-              />
-              {lang === "zh" ? "无限期" : "Unlimited"}
-            </CheckboxLabel>
-          </FormGroup>
+          <p style={{ marginBottom: '1.5rem', color: '#5c6b7a', fontSize: '0.875rem' }}>
+            {lang === "zh" 
+              ? '权限由后端API管理，在此无法编辑。'
+              : 'Permissions are managed by the backend API and cannot be edited here.'}
+          </p>
           <ModalActions>
-            <ModalButton onClick={() => setShowEditModal(false)}>
-              {lang === "zh" ? "取消" : "Cancel"}
-            </ModalButton>
-            <ModalButton $primary onClick={handleEditSubmit}>
-              {lang === "zh" ? "保存" : "Save"}
+            <ModalButton $primary onClick={() => setShowEditModal(false)}>
+              {lang === "zh" ? "关闭" : "Close"}
             </ModalButton>
           </ModalActions>
         </ModalContent>
@@ -2128,8 +2001,8 @@ export default function BusinessDetailPage() {
           <ModalTitle>{lang === "zh" ? "删除权限" : "Delete Permission"}</ModalTitle>
           <p style={{ marginBottom: '1.5rem', color: '#5c6b7a' }}>
             {lang === "zh" 
-              ? `确定要删除权限 "${selectedPermission?.name}" 吗？此操作无法撤销。`
-              : `Are you sure you want to delete permission "${selectedPermission?.name}"? This action cannot be undone.`}
+              ? `确定要删除权限 "${selectedPermission}" 吗？此操作无法撤销。`
+              : `Are you sure you want to delete permission "${selectedPermission}"? This action cannot be undone.`}
           </p>
           <ModalActions>
             <ModalButton onClick={() => setShowDeleteModal(false)}>
@@ -2145,53 +2018,15 @@ export default function BusinessDetailPage() {
       {/* Add Permission Modal */}
       <Modal $show={showAddModal} onClick={() => setShowAddModal(false)}>
         <ModalContent onClick={(e) => e.stopPropagation()}>
-          <ModalTitle>{lang === "zh" ? "添加权限" : "Add Permission"}</ModalTitle>
-          <FormGroup>
-            <Label>{lang === "zh" ? "权限名称" : "Permission Name"}</Label>
-            <Input 
-              value={addForm.name}
-              onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
-              placeholder={lang === "zh" ? "输入权限名称" : "Enter permission name"}
-            />
-          </FormGroup>
-          <FormGroup>
-            <Label>{lang === "zh" ? "级别" : "Level"}</Label>
-            <Select 
-              value={addForm.level}
-              onChange={(e) => setAddForm({ ...addForm, level: e.target.value })}
-            >
-              <option value="">Select Level</option>
-              <option value="read">Read</option>
-              <option value="write">Write</option>
-              <option value="admin">Admin</option>
-            </Select>
-          </FormGroup>
-          <FormGroup>
-            <CheckboxLabel>
-              <input
-                type="checkbox"
-                checked={addForm.unlimited}
-                onChange={(e) => setAddForm({ ...addForm, unlimited: e.target.checked })}
-              />
-              {lang === "zh" ? "无限期" : "Unlimited"}
-            </CheckboxLabel>
-          </FormGroup>
-          {!addForm.unlimited && (
-            <FormGroup>
-              <Label>{lang === "zh" ? "到期日期" : "Expire Date"}</Label>
-              <Input 
-                type="date"
-                value={addForm.expire}
-                onChange={(e) => setAddForm({ ...addForm, expire: e.target.value })}
-              />
-            </FormGroup>
-          )}
+          <ModalTitle>{lang === "zh" ? "关于权限" : "About Permissions"}</ModalTitle>
+          <p style={{ marginBottom: '1.5rem', color: '#5c6b7a', fontSize: '0.875rem' }}>
+            {lang === "zh" 
+              ? '权限由后端API管理。业务权限从后端自动获取，并在权限选项卡中显示。无法在此添加或修改权限。'
+              : 'Permissions are managed by the backend API. Business permissions are automatically retrieved from the backend and displayed in the Permissions tab. You cannot add or modify permissions here.'}
+          </p>
           <ModalActions>
-            <ModalButton onClick={() => setShowAddModal(false)}>
-              {lang === "zh" ? "取消" : "Cancel"}
-            </ModalButton>
-            <ModalButton $primary onClick={handleAddSubmit}>
-              {lang === "zh" ? "添加" : "Add"}
+            <ModalButton $primary onClick={() => setShowAddModal(false)}>
+              {lang === "zh" ? "关闭" : "Close"}
             </ModalButton>
           </ModalActions>
         </ModalContent>
