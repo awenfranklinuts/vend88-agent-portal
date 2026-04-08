@@ -157,6 +157,31 @@ const Th = styled.th`
   @media (max-width: 968px) { padding: 0.75rem 0.5rem; font-size: 0.75rem; }
 `;
 
+const SortableHeader = styled.th<{ $active?: boolean }>`
+  padding: 1rem;
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0a3655;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s ease;
+  ${p => p.$active && `background: #e0e7ef;`}
+  &:hover { background: #e0e7ef; }
+  @media (max-width: 968px) { padding: 0.75rem 0.5rem; font-size: 0.75rem; }
+`;
+
+const SortIcon = styled.span<{ $direction?: 'asc' | 'desc' }>`
+  display: inline-block;
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  opacity: ${p => p.$direction ? 1 : 0.3};
+  transition: opacity 0.2s ease;
+  ${SortableHeader}:hover & { opacity: 1; }
+`;
+
 const Tbody = styled.tbody``;
 
 const Tr = styled.tr`
@@ -172,7 +197,7 @@ const Td = styled.td`
   @media (max-width: 968px) { padding: 0.75rem 0.5rem; font-size: 0.8125rem; }
 `;
 
-const ActionButton = styled.button<{ $variant?: 'edit' | 'delete' | 'view' }>`
+const ActionButton = styled.button<{ $variant?: 'edit' | 'delete' | 'view'; $isLoading?: boolean }>`
   padding: 0.5rem 1rem;
   border: none;
   border-radius: 6px;
@@ -182,17 +207,20 @@ const ActionButton = styled.button<{ $variant?: 'edit' | 'delete' | 'view' }>`
   transition: all 0.2s ease;
   margin-right: 0.5rem;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   ${p => {
     switch(p.$variant) {
       case 'edit':
-        return `background: #dbeafe; color: #1e40af; &:hover { background: #bfdbfe; }`;
+        return `background: #dbeafe; color: #1e40af; &:hover:not(:disabled) { background: #bfdbfe; }`;
       case 'delete':
-        return `background: #fee2e2; color: #991b1b; &:hover { background: #fecaca; }`;
+        return `background: #fee2e2; color: #991b1b; &:hover:not(:disabled) { background: #fecaca; }`;
       default:
-        return `background: #dbeafe; color: #1e40af; &:hover { background: #bfdbfe; }`;
+        return `background: #dbeafe; color: #1e40af; &:hover:not(:disabled) { background: #bfdbfe; }`;
     }
   }}
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
   @media (max-width: 968px) { padding: 0.4rem 0.6rem; font-size: 0.75rem; margin-right: 0.25rem; margin-bottom: 0.25rem; }
 `;
 
@@ -391,7 +419,10 @@ const SaveButton = styled.button`
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  &:hover { background: #2563eb; }
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  &:hover:not(:disabled) { background: #2563eb; }
   &:disabled { opacity: 0.6; cursor: not-allowed; }
 `;
 
@@ -405,7 +436,8 @@ const CancelButton = styled.button`
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  &:hover { background: #d1d5db; }
+  &:hover:not(:disabled) { background: #d1d5db; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
 `;
 
 const ErrorText = styled.span`
@@ -414,6 +446,18 @@ const ErrorText = styled.span`
   margin-top: 0.25rem;
   display: block;
 `;
+
+/* Loading Spinner */
+const SpinnerIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10" style={{ opacity: 0.3 }} />
+    <circle cx="12" cy="12" r="10" style={{
+      strokeDasharray: "15.7 47.1",
+      animation: "spin 0.8s linear infinite"
+    }} />
+    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+  </svg>
+);
 
 /* ─── Icons ─── */
 
@@ -474,6 +518,8 @@ export default function AdminManagementPage() {
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortColumn, setSortColumn] = useState<'name' | 'email' | 'role' | 'created_at'>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Modal state
   const [modalMode, setModalMode] = useState<ModalMode>(null);
@@ -534,7 +580,16 @@ export default function AdminManagementPage() {
     if (token) fetchAdmins();
   }, [token, fetchAdmins]);
 
-  /* ─── Filter ─── */
+  /* ─── Filter & Sort ─── */
+  const handleSort = (column: 'name' | 'email' | 'role' | 'created_at') => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
   const filteredAdmins = admins.filter(admin => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
@@ -543,6 +598,33 @@ export default function AdminManagementPage() {
       `${admin.first_name} ${admin.last_name}`.toLowerCase().includes(q) ||
       (ROLE_LABELS[admin.role]?.en.toLowerCase().includes(q) || ROLE_LABELS[admin.role]?.zh.includes(q))
     );
+  }).sort((a, b) => {
+    let aVal: any, bVal: any;
+
+    switch (sortColumn) {
+      case 'name':
+        aVal = `${a.first_name} ${a.last_name}`.toLowerCase();
+        bVal = `${b.first_name} ${b.last_name}`.toLowerCase();
+        break;
+      case 'email':
+        aVal = a.email.toLowerCase();
+        bVal = b.email.toLowerCase();
+        break;
+      case 'role':
+        aVal = ROLE_LABELS[a.role]?.[lang] || a.role;
+        bVal = ROLE_LABELS[b.role]?.[lang] || b.role;
+        break;
+      case 'created_at':
+        aVal = new Date(a.created_at).getTime();
+        bVal = new Date(b.created_at).getTime();
+        break;
+      default:
+        return 0;
+    }
+
+    if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
   });
 
   /* ─── Validation ─── */
@@ -553,6 +635,8 @@ export default function AdminManagementPage() {
       errors.email = lang === 'zh' ? '请输入邮箱' : 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       errors.email = lang === 'zh' ? '邮箱格式无效' : 'Invalid email format';
+    } else if (admins.some(admin => admin.email.toLowerCase() === formData.email.toLowerCase())) {
+      errors.email = lang === 'zh' ? '该邮箱已被使用' : 'Email already in use';
     }
 
     if (!formData.first_name.trim()) {
@@ -635,10 +719,42 @@ export default function AdminManagementPage() {
     <Table>
       <Thead>
         <Tr>
-          <Th>{lang === "zh" ? "姓名" : "Name"}</Th>
-          <Th>{lang === "zh" ? "邮箱" : "Email"}</Th>
-          <Th>{lang === "zh" ? "角色" : "Role"}</Th>
-          <Th>{lang === "zh" ? "创建时间" : "Created At"}</Th>
+          <SortableHeader
+            $active={sortColumn === 'name'}
+            onClick={() => handleSort('name')}
+          >
+            {lang === "zh" ? "姓名" : "Name"}
+            <SortIcon $direction={sortColumn === 'name' ? sortDirection : undefined}>
+              {sortColumn === 'name' && sortDirection === 'asc' ? '↑' : '↓'}
+            </SortIcon>
+          </SortableHeader>
+          <SortableHeader
+            $active={sortColumn === 'email'}
+            onClick={() => handleSort('email')}
+          >
+            {lang === "zh" ? "邮箱" : "Email"}
+            <SortIcon $direction={sortColumn === 'email' ? sortDirection : undefined}>
+              {sortColumn === 'email' && sortDirection === 'asc' ? '↑' : '↓'}
+            </SortIcon>
+          </SortableHeader>
+          <SortableHeader
+            $active={sortColumn === 'role'}
+            onClick={() => handleSort('role')}
+          >
+            {lang === "zh" ? "角色" : "Role"}
+            <SortIcon $direction={sortColumn === 'role' ? sortDirection : undefined}>
+              {sortColumn === 'role' && sortDirection === 'asc' ? '↑' : '↓'}
+            </SortIcon>
+          </SortableHeader>
+          <SortableHeader
+            $active={sortColumn === 'created_at'}
+            onClick={() => handleSort('created_at')}
+          >
+            {lang === "zh" ? "创建时间" : "Created At"}
+            <SortIcon $direction={sortColumn === 'created_at' ? sortDirection : undefined}>
+              {sortColumn === 'created_at' && sortDirection === 'asc' ? '↑' : '↓'}
+            </SortIcon>
+          </SortableHeader>
           <Th>{lang === "zh" ? "操作" : "Actions"}</Th>
         </Tr>
       </Thead>
@@ -759,8 +875,9 @@ export default function AdminManagementPage() {
               {lang === 'zh' ? '取消' : 'Cancel'}
             </CancelButton>
             <SaveButton onClick={handleCreate} disabled={saving}>
+              {saving && <SpinnerIcon />}
               {saving
-                ? (lang === 'zh' ? '保存中...' : 'Saving...')
+                ? (lang === 'zh' ? '保存中' : 'Saving')
                 : (lang === 'zh' ? '保存' : 'Save')}
             </SaveButton>
           </ModalFooter>
@@ -855,10 +972,42 @@ export default function AdminManagementPage() {
                 <Table>
                   <Thead>
                     <Tr>
-                      <Th>{lang === "zh" ? "姓名" : "Name"}</Th>
-                      <Th>{lang === "zh" ? "邮箱" : "Email"}</Th>
-                      <Th>{lang === "zh" ? "角色" : "Role"}</Th>
-                      <Th>{lang === "zh" ? "创建时间" : "Created At"}</Th>
+                      <SortableHeader
+                        $active={sortColumn === 'name'}
+                        onClick={() => handleSort('name')}
+                      >
+                        {lang === "zh" ? "姓名" : "Name"}
+                        <SortIcon $direction={sortColumn === 'name' ? sortDirection : undefined}>
+                          {sortColumn === 'name' && sortDirection === 'asc' ? '↑' : '↓'}
+                        </SortIcon>
+                      </SortableHeader>
+                      <SortableHeader
+                        $active={sortColumn === 'email'}
+                        onClick={() => handleSort('email')}
+                      >
+                        {lang === "zh" ? "邮箱" : "Email"}
+                        <SortIcon $direction={sortColumn === 'email' ? sortDirection : undefined}>
+                          {sortColumn === 'email' && sortDirection === 'asc' ? '↑' : '↓'}
+                        </SortIcon>
+                      </SortableHeader>
+                      <SortableHeader
+                        $active={sortColumn === 'role'}
+                        onClick={() => handleSort('role')}
+                      >
+                        {lang === "zh" ? "角色" : "Role"}
+                        <SortIcon $direction={sortColumn === 'role' ? sortDirection : undefined}>
+                          {sortColumn === 'role' && sortDirection === 'asc' ? '↑' : '↓'}
+                        </SortIcon>
+                      </SortableHeader>
+                      <SortableHeader
+                        $active={sortColumn === 'created_at'}
+                        onClick={() => handleSort('created_at')}
+                      >
+                        {lang === "zh" ? "创建时间" : "Created At"}
+                        <SortIcon $direction={sortColumn === 'created_at' ? sortDirection : undefined}>
+                          {sortColumn === 'created_at' && sortDirection === 'asc' ? '↑' : '↓'}
+                        </SortIcon>
+                      </SortableHeader>
                       <Th>{lang === "zh" ? "操作" : "Actions"}</Th>
                     </Tr>
                   </Thead>

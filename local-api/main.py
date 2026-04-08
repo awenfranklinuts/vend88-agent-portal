@@ -332,6 +332,11 @@ class AdminPermissionsRequest(BaseModel):
     permissions: list[str]
 
 
+class BusinessPermissionsRequest(BaseModel):
+    token: str
+    business_id: str
+
+
 # ── Registration Management Schemas ──────────────────────────────
 class RegistrationSubmitRequest(BaseModel):
     token: str  # Registration token from generated link
@@ -956,6 +961,10 @@ def update_admin_permissions(body: AdminPermissionsRequest):
         "email": email,
         "permissions": body.permissions,
     }
+
+
+# ── Business management ──────────────────────────────────────────
+
 
 
 # ── Registration management ──────────────────────────────────────
@@ -1808,6 +1817,53 @@ def delete_business(business_id: str, body: dict, authorization: Optional[str] =
         "success": True,
         "message": "Business deleted successfully",
         "data": business,
+    }
+
+
+@app.post("/businesses/{business_id}/permissions", tags=["Business"])
+def get_business_permissions(business_id: str, body: dict, authorization: Optional[str] = Header(None)):
+    """Get business permissions for admin access."""
+    _require_registration_access(token=body.get("token"), authorization=authorization)
+
+    # Business permissions
+    business_permissions: dict[str, list[str]] = {
+        "business_001": [
+            "manage_devices",
+            "manage_staff",
+            "view_reports",
+            "manage_settings",
+            "manage_menu",
+            "manage_orders",
+        ],
+        "business_002": [
+            "view_reports",
+            "manage_menu",
+            "manage_orders",
+        ],
+        "business_003": [
+            "manage_devices",
+            "manage_staff",
+            "view_reports",
+            "manage_settings",
+            "manage_menu",
+            "manage_orders",
+            "manage_customers",
+            "manage_integrations",
+        ],
+    }
+
+    # Return default permissions if business not in list
+    default_permissions = [
+        "view_reports",
+        "manage_menu",
+        "manage_orders",
+    ]
+
+    return {
+        "status_code": 200,
+        "status_msg": "success",
+        "business_id": business_id,
+        "permissions": business_permissions.get(business_id, default_permissions),
     }
 
 

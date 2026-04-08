@@ -783,7 +783,8 @@ const FileIcon = () => (
 
 interface Business {
   _id: string;
-  owner_id: string;
+  owner_id?: string;
+  customer_id?: string;
   name: string;
   status: string;
   abn?: string;
@@ -793,13 +794,18 @@ interface Business {
   state?: string;
   country?: string;
   contactEmail?: string;
+  contact_email?: string;
   contactPhone?: string;
+  contact_phone?: string;
   eftposIntegration?: string;
   alipayOption?: string;
   alipayOther?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  created_at?: string;
+  updatedAt?: string;
+  updated_at?: string;
   registrationId?: string;
+  registration_id?: string;
 }
 
 interface Permission {
@@ -914,8 +920,9 @@ export default function BusinessDetailPage() {
           setBusiness(foundBusiness);
           setOriginalBusiness(foundBusiness);
           
-          // Fetch owner details
-          if (foundBusiness.owner_id || foundBusiness.customer_id) {
+          // Fetch owner details using customer_id
+          const customerId = foundBusiness.customer_id || foundBusiness.owner_id;
+          if (customerId) {
             try {
               const customerResponse = await axios.post(
                 '/api/customer/list',
@@ -931,7 +938,7 @@ export default function BusinessDetailPage() {
               if (customerResponse.data.status_code === 200) {
                 const customersList = customerResponse.data.customers || customerResponse.data.data || [];
                 const ownerData = customersList.find(
-                  (c: any) => c._id === foundBusiness.owner_id
+                  (c: any) => c._id === customerId
                 );
                 setOwner(ownerData || null);
               }
@@ -946,8 +953,8 @@ export default function BusinessDetailPage() {
 
       // Fetch permissions
       const permissionResponse = await axios.post(
-        '/api/shop/get-permission',
-        { business_id: businessId },
+        `/api/admin/businesses/${businessId}/permissions`,
+        { token },
         {
           headers: {
             "Content-Type": "application/json",
@@ -1356,22 +1363,27 @@ export default function BusinessDetailPage() {
   const handleExportCSV = () => {
     if (!business) return;
     
+    const createdDate = business.createdAt || business.created_at;
+    const updatedDate = business.updatedAt || business.updated_at;
+    const contactEmail = business.contactEmail || business.contact_email;
+    const contactPhone = business.contactPhone || business.contact_phone;
+    
     const csvData = [
       ['Field', 'Value'],
       ['Business ID', business._id],
       ['Name', business.name],
-      ['Owner', owner?.name || business.owner_id],
+      ['Owner', owner?.name || business.owner_id || business.customer_id || 'N/A'],
       ['Status', business.status],
       ['ABN', business.abn || 'N/A'],
       ['Address', business.address || 'N/A'],
       ['City', business.suburb || 'N/A'],
       ['State', business.state || 'N/A'],
       ['Postcode', business.postcode || 'N/A'],
-      ['Contact Email', business.contactEmail || 'N/A'],
-      ['Contact Phone', business.contactPhone || 'N/A'],
+      ['Contact Email', contactEmail || 'N/A'],
+      ['Contact Phone', contactPhone || 'N/A'],
       ['EFTPOS Integration', business.eftposIntegration || 'N/A'],
-      ['Created At', new Date(business.createdAt).toLocaleDateString()],
-      ['Updated At', new Date(business.updatedAt).toLocaleDateString()],
+      ['Created At', createdDate ? new Date(createdDate).toLocaleDateString() : 'N/A'],
+      ['Updated At', updatedDate ? new Date(updatedDate).toLocaleDateString() : 'N/A'],
     ];
     
     const csvContent = csvData.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
@@ -1404,7 +1416,7 @@ export default function BusinessDetailPage() {
   };
   
   const handleViewRegistration = () => {
-    if (business?.registrationId) {
+    if (business?.registrationId || business?.registration_id) {
       router.push(`/admin/registrations`);
     }
   };
@@ -1437,8 +1449,10 @@ export default function BusinessDetailPage() {
   };
   
   const calculateDaysSinceCreation = () => {
-    if (!business?.createdAt) return 0;
-    const created = new Date(business.createdAt);
+    if (!business) return 0;
+    const createdDate = business.createdAt || business.created_at;
+    if (!createdDate) return 0;
+    const created = new Date(createdDate);
     const now = new Date();
     return Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
   };
@@ -1789,11 +1803,11 @@ export default function BusinessDetailPage() {
                           {isEditMode ? (
                             <Input 
                               type="email"
-                              value={business.contactEmail || ''}
+                              value={business.contactEmail || business.contact_email || ''}
                               onChange={(e) => handleBusinessChange('contactEmail', e.target.value)}
                             />
                           ) : (
-                            <InfoValue>{business.contactEmail || 'N/A'}</InfoValue>
+                            <InfoValue>{business.contactEmail || business.contact_email || 'N/A'}</InfoValue>
                           )}
                         </InfoItem>
                         <InfoItem>
@@ -1801,11 +1815,11 @@ export default function BusinessDetailPage() {
                           {isEditMode ? (
                             <Input 
                               type="tel"
-                              value={business.contactPhone || ''}
+                              value={business.contactPhone || business.contact_phone || ''}
                               onChange={(e) => handleBusinessChange('contactPhone', e.target.value)}
                             />
                           ) : (
-                            <InfoValue>{business.contactPhone || 'N/A'}</InfoValue>
+                            <InfoValue>{business.contactPhone || business.contact_phone || 'N/A'}</InfoValue>
                           )}
                         </InfoItem>
                         <InfoItem>
@@ -1844,26 +1858,35 @@ export default function BusinessDetailPage() {
                       <InfoGrid>
                         <InfoItem>
                           <InfoLabel>{lang === "zh" ? "创建日期" : "Created At"}</InfoLabel>
-                          <InfoValue>{new Date(business.createdAt).toLocaleDateString()}</InfoValue>
+                          <InfoValue>{(business.createdAt || business.created_at) ? new Date(business.createdAt || business.created_at!).toLocaleDateString() : 'Invalid Date'}</InfoValue>
                         </InfoItem>
                         <InfoItem>
                           <InfoLabel>{lang === "zh" ? "更新日期" : "Updated At"}</InfoLabel>
-                          <InfoValue>{new Date(business.updatedAt).toLocaleDateString()}</InfoValue>
+                          <InfoValue>{(business.updatedAt || business.updated_at) ? new Date(business.updatedAt || business.updated_at!).toLocaleDateString() : 'Invalid Date'}</InfoValue>
                         </InfoItem>
-                        {business.registrationId && (
-                          <InfoItem>
-                            <InfoLabel>{lang === "zh" ? "注册 ID" : "Registration ID"}</InfoLabel>
-                            <InfoValue>
-                              <QuickActionButton 
-                                onClick={handleViewRegistration}
-                                style={{ padding: '0.5rem 1rem', minWidth: 'auto' }}
-                              >
-                                {business.registrationId}
-                              </QuickActionButton>
-                            </InfoValue>
-                          </InfoItem>
-                        )}
                       </InfoGrid>
+
+                      {/* Registration Information Card */}
+                      {(business.registrationId || business.registration_id) && (
+                        <Card style={{ marginTop: '2rem', background: '#eff6ff', borderLeft: '4px solid #3b82f6' }}>
+                          <CardTitle style={{ borderColor: '#bfdbfe' }}>
+                            {lang === "zh" ? "注册表单" : "Registration Form"}
+                          </CardTitle>
+                          <InfoGrid>
+                            <InfoItem>
+                              <InfoLabel>{lang === "zh" ? "注册 ID" : "Registration ID"}</InfoLabel>
+                              <InfoValue>{business.registrationId || business.registration_id}</InfoValue>
+                            </InfoItem>
+                          </InfoGrid>
+                          <QuickActionButton 
+                            $variant="primary" 
+                            onClick={handleViewRegistration}
+                            style={{ marginTop: '1rem', minWidth: 'auto', flex: 'none', padding: '0.75rem 1.5rem' }}
+                          >
+                            📋 {lang === "zh" ? "查看原始注册表单" : "View Original Registration Form"}
+                          </QuickActionButton>
+                        </Card>
+                      )}
 
                       {/* Edit Mode Actions */}
                       {isEditMode && (
@@ -1946,34 +1969,14 @@ export default function BusinessDetailPage() {
                       {permissions.length > 0 ? (
                         <PermissionList>
                           {permissions.map((permission) => (
-                            <PermissionCard key={permission._id}>
-                              <PermissionName>{permission.name || 'N/A'}</PermissionName>
+                            <PermissionCard key={permission}>
+                              <PermissionName>{permission || 'N/A'}</PermissionName>
                               <PermissionDetails>
                                 <PermissionDetailItem>
-                                  <PermissionLabel>{lang === "zh" ? "级别" : "Level"}</PermissionLabel>
-                                  <PermissionValue>{permission.level || 'N/A'}</PermissionValue>
-                                </PermissionDetailItem>
-                                <PermissionDetailItem>
-                                  <PermissionLabel>{lang === "zh" ? "到期" : "Expires"}</PermissionLabel>
-                                  <PermissionValue>
-                                    {permission.expire === '99' || permission.expire === '9999-12-31'
-                                      ? (lang === "zh" ? "永不" : "Never")
-                                      : permission.expire || 'N/A'}
-                                  </PermissionValue>
-                                </PermissionDetailItem>
-                                <PermissionDetailItem>
-                                  <PermissionLabel>{lang === "zh" ? "权限 ID" : "Permission ID"}</PermissionLabel>
-                                  <PermissionValue>{permission._id}</PermissionValue>
+                                  <PermissionLabel>{lang === "zh" ? "权限名称" : "Permission Name"}</PermissionLabel>
+                                  <PermissionValue>{permission}</PermissionValue>
                                 </PermissionDetailItem>
                               </PermissionDetails>
-                              <PermissionActions>
-                                <ActionButton $variant="edit" onClick={() => handleEditClick(permission)}>
-                                  {lang === "zh" ? "编辑" : "Edit"}
-                                </ActionButton>
-                                <ActionButton $variant="delete" onClick={() => handleDeleteClick(permission)}>
-                                  {lang === "zh" ? "删除" : "Delete"}
-                                </ActionButton>
-                              </PermissionActions>
                             </PermissionCard>
                           ))}
                         </PermissionList>

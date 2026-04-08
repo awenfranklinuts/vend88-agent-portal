@@ -579,6 +579,136 @@ const AuditEmpty = styled.div`
   font-size: 0.875rem;
 `;
 
+const DateRangeFilter = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f7faff;
+  border-radius: 8px;
+  border: 1px solid #e0e7ef;
+`;
+
+const FilterRow = styled.div`
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  @media (max-width: 600px) {
+    flex-direction: column;
+  }
+`;
+
+const DateInputGroup = styled.div`
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+`;
+
+const DateLabel = styled.label`
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #5c6b7a;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+`;
+
+const DateInput = styled.input`
+  padding: 0.75rem 1rem;
+  border: 2px solid #e0e7ef;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  color: #0a3655;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  &:focus {
+    outline: none;
+    border-color: #1a237e;
+    box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.1);
+  }
+`;
+
+const PresetButtonGroup = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+`;
+
+const PresetButton = styled.button<{ $active?: boolean }>`
+  padding: 0.5rem 1rem;
+  border: 2px solid #e0e7ef;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #0a3655;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  ${p => p.$active ? `
+    background: #1a237e;
+    color: white;
+    border-color: #1a237e;
+  ` : `
+    &:hover { border-color: #1a237e; color: #1a237e; }
+  `}
+`;
+
+const ClearFilterButton = styled.button`
+  padding: 0.5rem 1rem;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  &:hover { background: #dc2626; }
+`;
+
+const PaginationContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+`;
+
+const PaginationButton = styled.button<{ $active?: boolean; $disabled?: boolean }>`
+  padding: 0.5rem 0.75rem;
+  border: 2px solid #e0e7ef;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #0a3655;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  ${p => p.$active ? `
+    background: #1a237e;
+    color: white;
+    border-color: #1a237e;
+  ` : `
+    &:hover:not(:disabled) { border-color: #1a237e; color: #1a237e; }
+  `}
+`;
+
+const PaginationInfo = styled.span`
+  font-size: 0.8125rem;
+  color: #5c6b7a;
+  padding: 0.5rem 1rem;
+  white-space: nowrap;
+`;
+
 const SkeletonBlock = styled.div`
   height: 1rem;
   background: linear-gradient(90deg, #e0e7ef 25%, #f0f4f8 50%, #e0e7ef 75%);
@@ -714,6 +844,10 @@ export default function AdminDetailPage() {
   // Audit logs
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loadingAuditLogs, setLoadingAuditLogs] = useState(false);
+  const [auditDateStart, setAuditDateStart] = useState<string>('');
+  const [auditDateEnd, setAuditDateEnd] = useState<string>('');
+  const [auditCurrentPage, setAuditCurrentPage] = useState(1);
+  const auditItemsPerPage = 10;
 
   // Inline edit mode
   const [isEditing, setIsEditing] = useState(false);
@@ -766,6 +900,55 @@ export default function AdminDetailPage() {
     if (!authLoading && role !== 'admin' && (role as string) !== 'super_admin') { router.push('/admin'); return; }
     if (token) fetchAdmin();
   }, [authLoading, token, role, router, fetchAdmin]);
+
+  /* ─── Date range helpers ─── */
+  const getDateRangeForPreset = (preset: string) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endDate = new Date(today);
+    endDate.setHours(23, 59, 59, 999);
+    let startDate = new Date(today);
+
+    switch (preset) {
+      case 'today':
+        startDate = new Date(today);
+        break;
+      case 'last7days':
+        startDate.setDate(startDate.getDate() - 6);
+        break;
+      case 'last30days':
+        startDate.setDate(startDate.getDate() - 29);
+        break;
+      case 'alltime':
+        return { start: '', end: '' };
+    }
+
+    const formatDate = (date: Date) => date.toISOString().split('T')[0];
+    return { start: formatDate(startDate), end: formatDate(endDate) };
+  };
+
+  const handlePresetClick = (preset: string) => {
+    const range = getDateRangeForPreset(preset);
+    setAuditDateStart(range.start);
+    setAuditDateEnd(range.end);
+    setAuditCurrentPage(1);
+  };
+
+  /* ─── Audit logs filtering & pagination ─── */
+  const filteredAuditLogs = auditLogs.filter(log => {
+    if (!auditDateStart && !auditDateEnd) return true;
+    const logDate = new Date(log.timestamp);
+    const startDate = auditDateStart ? new Date(auditDateStart) : new Date('1900-01-01');
+    const endDate = auditDateEnd ? new Date(auditDateEnd) : new Date('2100-12-31');
+    endDate.setHours(23, 59, 59, 999);
+    return logDate >= startDate && logDate <= endDate;
+  });
+
+  const totalPages = Math.ceil(filteredAuditLogs.length / auditItemsPerPage);
+  const paginatedAuditLogs = filteredAuditLogs.slice(
+    (auditCurrentPage - 1) * auditItemsPerPage,
+    auditCurrentPage * auditItemsPerPage
+  );
 
   /* ─── Fetch audit logs ─── */
   const fetchAuditLogs = useCallback(async () => {
@@ -1224,34 +1407,161 @@ export default function AdminDetailPage() {
                   {lang === 'zh' ? '暂无活动记录' : 'No activity recorded'}
                 </AuditEmpty>
               ) : (
-                <AuditTable>
-                  <AuditThead>
-                    <tr>
-                      <AuditTh>{lang === 'zh' ? '时间' : 'Timestamp'}</AuditTh>
-                      <AuditTh>{lang === 'zh' ? '操作' : 'Action'}</AuditTh>
-                      <AuditTh>{lang === 'zh' ? '操作者' : 'Actor'}</AuditTh>
-                      <AuditTh>{lang === 'zh' ? '详情' : 'Details'}</AuditTh>
-                    </tr>
-                  </AuditThead>
-                  <AuditTbody>
-                    {auditLogs.map((log, idx) => (
-                      <AuditTr key={idx}>
-                        <AuditTd style={{ fontSize: '0.8125rem' }}>
-                          {new Date(log.timestamp).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
-                        </AuditTd>
-                        <AuditTd>
-                          <ActionBadge $action={log.action}>{log.action}</ActionBadge>
-                        </AuditTd>
-                        <AuditTd style={{ fontSize: '0.8125rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {log.actor_email}
-                        </AuditTd>
-                        <AuditTd style={{ fontSize: '0.8125rem', maxWidth: '300px' }}>
-                          {log.details}
-                        </AuditTd>
-                      </AuditTr>
-                    ))}
-                  </AuditTbody>
-                </AuditTable>
+                <>
+                  {/* Date Range Filter */}
+                  <DateRangeFilter>
+                    <FilterRow>
+                      <DateInputGroup>
+                        <DateLabel>{lang === 'zh' ? '开始日期' : 'Start Date'}</DateLabel>
+                        <DateInput
+                          type="date"
+                          value={auditDateStart}
+                          onChange={(e) => {
+                            setAuditDateStart(e.target.value);
+                            setAuditCurrentPage(1);
+                          }}
+                        />
+                      </DateInputGroup>
+                      <DateInputGroup>
+                        <DateLabel>{lang === 'zh' ? '结束日期' : 'End Date'}</DateLabel>
+                        <DateInput
+                          type="date"
+                          value={auditDateEnd}
+                          onChange={(e) => {
+                            setAuditDateEnd(e.target.value);
+                            setAuditCurrentPage(1);
+                          }}
+                        />
+                      </DateInputGroup>
+                      {(auditDateStart || auditDateEnd) && (
+                        <ClearFilterButton
+                          onClick={() => {
+                            setAuditDateStart('');
+                            setAuditDateEnd('');
+                            setAuditCurrentPage(1);
+                          }}
+                        >
+                          {lang === 'zh' ? '清除' : 'Clear'}
+                        </ClearFilterButton>
+                      )}
+                    </FilterRow>
+                    <PresetButtonGroup>
+                      <PresetButton onClick={() => handlePresetClick('today')}>
+                        {lang === 'zh' ? '今天' : 'Today'}
+                      </PresetButton>
+                      <PresetButton onClick={() => handlePresetClick('last7days')}>
+                        {lang === 'zh' ? '最近7天' : 'Last 7 Days'}
+                      </PresetButton>
+                      <PresetButton onClick={() => handlePresetClick('last30days')}>
+                        {lang === 'zh' ? '最近30天' : 'Last 30 Days'}
+                      </PresetButton>
+                      <PresetButton onClick={() => handlePresetClick('alltime')}>
+                        {lang === 'zh' ? '全部' : 'All Time'}
+                      </PresetButton>
+                    </PresetButtonGroup>
+                  </DateRangeFilter>
+
+                  {/* Results Count */}
+                  <PaginationInfo>
+                    {filteredAuditLogs.length === 0
+                      ? (lang === 'zh' ? '没有匹配的记录' : 'No matching records')
+                      : `${(auditCurrentPage - 1) * auditItemsPerPage + 1} - ${Math.min(auditCurrentPage * auditItemsPerPage, filteredAuditLogs.length)} ${lang === 'zh' ? '共' : 'of'} ${filteredAuditLogs.length}`}
+                  </PaginationInfo>
+
+                  {filteredAuditLogs.length === 0 ? (
+                    <AuditEmpty>
+                      {lang === 'zh' ? '该日期范围内无活动记录' : 'No activity recorded for this date range'}
+                    </AuditEmpty>
+                  ) : (
+                    <>
+                      <AuditTable>
+                        <AuditThead>
+                          <tr>
+                            <AuditTh>{lang === 'zh' ? '时间' : 'Timestamp'}</AuditTh>
+                            <AuditTh>{lang === 'zh' ? '操作' : 'Action'}</AuditTh>
+                            <AuditTh>{lang === 'zh' ? '操作者' : 'Actor'}</AuditTh>
+                            <AuditTh>{lang === 'zh' ? '详情' : 'Details'}</AuditTh>
+                          </tr>
+                        </AuditThead>
+                        <AuditTbody>
+                          {paginatedAuditLogs.map((log, idx) => (
+                            <AuditTr key={idx}>
+                              <AuditTd style={{ fontSize: '0.8125rem' }}>
+                                {new Date(log.timestamp).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
+                              </AuditTd>
+                              <AuditTd>
+                                <ActionBadge $action={log.action}>{log.action}</ActionBadge>
+                              </AuditTd>
+                              <AuditTd style={{ fontSize: '0.8125rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {log.actor_email}
+                              </AuditTd>
+                              <AuditTd style={{ fontSize: '0.8125rem', maxWidth: '300px' }}>
+                                {log.details}
+                              </AuditTd>
+                            </AuditTr>
+                          ))}
+                        </AuditTbody>
+                      </AuditTable>
+
+                      {/* Pagination Controls */}
+                      {totalPages > 1 && (
+                        <PaginationContainer>
+                          <PaginationButton
+                            $disabled={auditCurrentPage === 1}
+                            onClick={() => setAuditCurrentPage(1)}
+                            disabled={auditCurrentPage === 1}
+                          >
+                            {lang === 'zh' ? '首页' : 'First'}
+                          </PaginationButton>
+                          <PaginationButton
+                            $disabled={auditCurrentPage === 1}
+                            onClick={() => setAuditCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={auditCurrentPage === 1}
+                          >
+                            {lang === 'zh' ? '上一页' : 'Prev'}
+                          </PaginationButton>
+
+                          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                            let pageNum = i + 1;
+                            if (totalPages > 5) {
+                              if (auditCurrentPage <= 3) {
+                                pageNum = i + 1;
+                              } else if (auditCurrentPage >= totalPages - 2) {
+                                pageNum = totalPages - 4 + i;
+                              } else {
+                                pageNum = auditCurrentPage - 2 + i;
+                              }
+                            }
+                            return (
+                              <PaginationButton
+                                key={pageNum}
+                                $active={auditCurrentPage === pageNum}
+                                onClick={() => setAuditCurrentPage(pageNum)}
+                              >
+                                {pageNum}
+                              </PaginationButton>
+                            );
+                          })}
+
+                          <PaginationButton
+                            $disabled={auditCurrentPage === totalPages}
+                            onClick={() => setAuditCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={auditCurrentPage === totalPages}
+                          >
+                            {lang === 'zh' ? '下一页' : 'Next'}
+                          </PaginationButton>
+                          <PaginationButton
+                            $disabled={auditCurrentPage === totalPages}
+                            onClick={() => setAuditCurrentPage(totalPages)}
+                            disabled={auditCurrentPage === totalPages}
+                          >
+                            {lang === 'zh' ? '末页' : 'Last'}
+                          </PaginationButton>
+                        </PaginationContainer>
+                      )}
+                    </>
+                  )}
+                </>
               )}
             </AuditLogSection>
           </Card>
