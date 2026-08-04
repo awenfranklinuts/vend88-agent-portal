@@ -861,15 +861,7 @@ export default function LoginPage() {
     
     setIsLoading(true);
 
-    // Only allow admin/super_admin login for now
-    if (role !== "admin") {
-      console.log("Agent login not available");
-      setErrorKey("agentLoginNotAvailable");
-      setIsLoading(false);
-      return;
-    }
-
-    console.log("Attempting admin login...");
+    console.log("Attempting login...");
     // Use proxy to bypass SSL certificate errors
     const apiUrl = '/api/login';
     console.log("API URL:", apiUrl);

@@ -8,17 +8,6 @@ const httpsAgent = new https.Agent({
   rejectUnauthorized: false,
 });
 
-// Mock admin profile data
-const mockAdminProfile = {
-  status_code: 200,
-  status_msg: 'success',
-  email: 'admin@vend88.com',
-  role: 'admin',
-  first_name: 'Admin',
-  last_name: 'Pospal',
-  created_at: '2024-01-01T00:00:00Z'
-};
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -33,10 +22,9 @@ export async function POST(request: NextRequest) {
 
     console.log('[Admin Profile API] Fetching admin profile...');
 
-    // Try to forward request to backend
     try {
       const response = await axios.post(
-        `${getBackendBaseUrl()}/portal/admin/profile`,
+        `${getBackendBaseUrl()}/portal/auth/profile`,
         { token },
         {
           headers: {
@@ -48,24 +36,22 @@ export async function POST(request: NextRequest) {
         }
       );
 
-      // Check if the response is actually successful
-      if (response.data.status_code === 200) {
-        console.log('[Admin Profile API] Real API success');
-        return NextResponse.json(response.data, { status: 200 });
-      } else {
-        // Backend returned error, use mock data
-        console.log('[Admin Profile API] Backend error, using mock data:', response.data);
-        return NextResponse.json(mockAdminProfile, { status: 200 });
-      }
+      return NextResponse.json(response.data, { status: response.status });
     } catch (apiError: any) {
-      // Real API failed, use mock data
-      console.log('[Admin Profile API] Real API failed, using mock data');
-      return NextResponse.json(mockAdminProfile, { status: 200 });
+      console.error('[Admin Profile API] Backend request failed:', apiError.message);
+      const status = apiError.response?.status || 502;
+      const data = apiError.response?.data || {
+        status_code: status,
+        status_msg: 'error',
+        message: 'Failed to reach backend service',
+      };
+      return NextResponse.json(data, { status });
     }
   } catch (error: any) {
     console.error('[Admin Profile API] Unexpected error:', error.message);
-    
-    // Return mock data on any unexpected error
-    return NextResponse.json(mockAdminProfile, { status: 200 });
+    return NextResponse.json(
+      { status_code: 500, status_msg: 'error', message: 'Unexpected server error' },
+      { status: 500 }
+    );
   }
 }

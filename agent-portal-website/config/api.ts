@@ -66,6 +66,11 @@ export const API_CONFIG = {
     CUSTOMERS_GET: "/customers/:id",
     CUSTOMERS_UPDATE: "/customers/update/:id",
     CUSTOMERS_DELETE: "/customers/delete/:id",
+
+    // Inquiry Management
+    INQUIRIES_LIST: "/portal/inquiries/list",
+    INQUIRIES_UPDATE: "/portal/inquiries/update",
+    INQUIRIES_DELETE: "/portal/inquiries/delete",
   }
 } as const;
 

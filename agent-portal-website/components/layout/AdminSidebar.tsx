@@ -48,6 +48,14 @@ const ReportsIcon = () => (
   </svg>
 );
 
+const InquiryIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    <line x1="12" y1="8" x2="12" y2="12"/>
+    <line x1="12" y1="15.5" x2="12.01" y2="15.5"/>
+  </svg>
+);
+
 const SettingsIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="3"/>
@@ -398,6 +406,13 @@ export default function AdminSidebar({ mobileOpen, onClose }: AdminSidebarProps)
             <NavItem href="/admin/customers" $active={pathname === "/admin/customers"} onClick={onClose} prefetch={true}>
               <NavIcon><CustomersIcon /></NavIcon>
               {t("customerManagement")}
+            </NavItem>
+          )}
+
+          {hasPerm('manage_inquiries') && (
+            <NavItem href="/admin/inquiries" $active={pathname === "/admin/inquiries"} onClick={onClose} prefetch={true}>
+              <NavIcon><InquiryIcon /></NavIcon>
+              {lang === "zh" ? "咨询管理" : "Inquiry Management"}
             </NavItem>
           )}
 

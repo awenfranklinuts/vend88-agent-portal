@@ -1,0 +1,101 @@
+<style>
+.vend88-inquiry-card{max-width:960px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 16px rgba(0,0,0,.08);padding:4rem;font-family:inherit}
+.vend88-inquiry-card h2{margin:0 0 .5rem;font-size:2.25rem}
+.vend88-inquiry-card p{color:#555;margin-bottom:2rem;font-size:1.2rem}
+.vend88-inquiry-card label{display:block;font-weight:600;font-size:1rem;margin:1.25rem 0 .4rem}
+.vend88-inquiry-card input,.vend88-inquiry-card select,.vend88-inquiry-card textarea{width:100%;box-sizing:border-box;padding:.85rem 1rem;border:1px solid #ccc;border-radius:6px;font-size:1.1rem}
+.vend88-inquiry-card textarea{min-height:130px;resize:vertical}
+.vend88-inquiry-card .req{color:#e53e3e}
+.vend88-inquiry-card button{margin-top:2rem;background:#f5a623;color:#fff;border:none;border-radius:6px;padding:1rem 2rem;font-size:1.1rem;font-weight:700;cursor:pointer}
+.vend88-inquiry-card button:disabled{opacity:.6;cursor:default}
+.vend88-hp{position:absolute;left:-9999px}
+#vend88-inquiry-success{display:none;text-align:center;padding:1rem 0}
+#vend88-inquiry-error{display:none;color:#c53030;margin-top:1rem;font-size:.9rem}
+</style>
+
+<div class="vend88-inquiry-card">
+  <h2>Contact Us Now!</h2>
+  <p>Leave your details below and one of our professional representatives will contact you!</p>
+
+  <form id="vend88-inquiry-form">
+    <label>Full Name <span class="req">*</span></label>
+    <input type="text" name="full_name" required>
+
+    <label>Company Name <span class="req">*</span></label>
+    <input type="text" name="company_name" required>
+
+    <label>Email</label>
+    <input type="email" name="email">
+
+    <label>Mobile <span class="req">*</span></label>
+    <input type="tel" name="mobile" required>
+
+    <label>State</label>
+    <input type="text" name="state">
+
+    <label>Business Type</label>
+    <select name="business_type">
+      <option value="">Select a Business Category</option>
+      <option>Cafe</option>
+      <option>Restaurant</option>
+      <option>Retail</option>
+      <option>Convenience Store</option>
+      <option>Other</option>
+    </select>
+
+    <label>Additional Message</label>
+    <textarea name="message" placeholder="Please enter any Additional Comments"></textarea>
+
+    <input type="hidden" name="source" value="pospal.com.au">
+
+    <div class="vend88-hp" aria-hidden="true">
+      <label>Website</label>
+      <input type="text" name="website" tabindex="-1" autocomplete="off">
+    </div>
+
+    <button type="submit">Submit</button>
+  </form>
+
+  <div id="vend88-inquiry-success">Thanks! One of our representatives will be in touch shortly.</div>
+  <div id="vend88-inquiry-error"></div>
+</div>
+
+<script>
+(function () {
+  var form = document.getElementById('vend88-inquiry-form');
+  var success = document.getElementById('vend88-inquiry-success');
+  var errorEl = document.getElementById('vend88-inquiry-error');
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var data = Object.fromEntries(new FormData(form).entries());
+    var btn = form.querySelector('button[type=submit]');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+    errorEl.style.display = 'none';
+
+    fetch('https://dbapi.vend88.com/portal/inquiries/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+      .then(function (res) { return res.json().then(function (json) { return { ok: res.ok, json: json }; }); })
+      .then(function (result) {
+        if (result.ok) {
+          form.style.display = 'none';
+          success.style.display = 'block';
+        } else {
+          errorEl.textContent = result.json.message || 'Something went wrong. Please try again.';
+          errorEl.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = 'Submit';
+        }
+      })
+      .catch(function () {
+        errorEl.textContent = 'Network error. Please try again.';
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Submit';
+      });
+  });
+})();
+</script>
