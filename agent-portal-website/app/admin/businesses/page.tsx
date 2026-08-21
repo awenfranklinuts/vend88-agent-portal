@@ -22,7 +22,6 @@ import axios from "axios";
 
 import { getApiUrl, API_CONFIG } from "@/config/api";
 
-import { mockBusinesses, mockCustomers, getBusinessOwner } from "@/lib/mockBusinessData";
 
 
 
@@ -944,6 +943,96 @@ const InfoValue = styled.span`
 
 
 
+const ShopSection = styled.div`
+
+  margin-top: 0.75rem;
+
+  padding-top: 0.75rem;
+
+  border-top: 1px solid #e0e7ef;
+
+`;
+
+
+
+const ShopSectionTitle = styled.div`
+
+  font-size: 0.75rem;
+
+  font-weight: 600;
+
+  color: #5c6b7a;
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.5px;
+
+  margin-bottom: 0.5rem;
+
+`;
+
+
+
+const ShopItem = styled.div`
+
+  display: flex;
+
+  flex-direction: column;
+
+  padding: 0.5rem 0.75rem;
+
+  background: #f7faff;
+
+  border-radius: 8px;
+
+  margin-bottom: 0.5rem;
+
+  font-size: 0.8125rem;
+
+
+
+  &:last-child {
+
+    margin-bottom: 0;
+
+  }
+
+`;
+
+
+
+const ShopName = styled.span`
+
+  font-weight: 600;
+
+  color: #0a3655;
+
+`;
+
+
+
+const ShopLocation = styled.span`
+
+  color: #5c6b7a;
+
+  font-size: 0.75rem;
+
+`;
+
+
+
+const NoShops = styled.div`
+
+  font-size: 0.8125rem;
+
+  color: #9ca3af;
+
+  font-style: italic;
+
+`;
+
+
+
 const formatStatus = (status: string) => {
   if (!status) return 'N/A';
   return status
@@ -1817,6 +1906,8 @@ export default function BusinessManagementPage() {
 
   const [customers, setCustomers] = useState<any[]>([]);
 
+  const [shops, setShops] = useState<any[]>([]);
+
   const [searchQuery, setSearchQuery] = useState('');
 
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -1950,7 +2041,31 @@ export default function BusinessManagementPage() {
 
       );
 
-      
+
+
+      // Fetch shops from API
+
+      const shopResponse = await axios.post(
+
+        '/api/shops/list',
+
+        { token },
+
+        {
+
+          headers: {
+
+            "Content-Type": "application/json",
+
+            Authorization: `Bearer ${token}`,
+
+          },
+
+        }
+
+      );
+
+
 
       if (businessResponse.data.status_code === 200) {
 
@@ -1958,7 +2073,7 @@ export default function BusinessManagementPage() {
 
         setAllBusinesses(apiBusinessList);
 
-        
+
 
         if (customerResponse.data.status_code === 200) {
 
@@ -1973,6 +2088,18 @@ export default function BusinessManagementPage() {
 
         }
 
+        if (shopResponse.data.status_code === 200) {
+
+          const apiShops = shopResponse.data.data || [];
+
+          setShops(apiShops);
+
+        } else {
+
+          setShops([]);
+
+        }
+
       } else {
 
         // If business API fails, use empty array
@@ -1980,17 +2107,19 @@ export default function BusinessManagementPage() {
 
         setCustomers([]);
 
+        setShops([]);
+
       }
 
     } catch (error) {
 
       console.error('Failed to fetch data:', error);
 
-      // On error, fallback to mock data
+      setAllBusinesses([]);
 
-      setAllBusinesses(mockBusinesses);
+      setCustomers([]);
 
-      setCustomers(mockCustomers);
+      setShops([]);
 
     } finally {
 
@@ -2440,7 +2569,25 @@ export default function BusinessManagementPage() {
 
   };
 
-  
+
+
+  const getShopsForBusiness = (businessId: string) => {
+
+    return shops.filter(s => s.business_id === businessId);
+
+  };
+
+
+
+  const formatShopLocation = (location: any) => {
+
+    if (typeof location === 'string' && location.trim()) return location;
+
+    return null;
+
+  };
+
+
 
   const getBusinessOwnerName = (business: any) => {
 
@@ -3144,6 +3291,27 @@ export default function BusinessManagementPage() {
                     </InfoRow>
 
                   </BusinessInfo>
+
+                  <ShopSection>
+
+                    <ShopSectionTitle>
+                      {lang === 'zh' ? `店铺 (${getShopsForBusiness(business._id).length})` : `Shops (${getShopsForBusiness(business._id).length})`}
+                    </ShopSectionTitle>
+
+                    {getShopsForBusiness(business._id).length === 0 ? (
+                      <NoShops>{lang === 'zh' ? '暂无店铺' : 'No shops yet'}</NoShops>
+                    ) : (
+                      getShopsForBusiness(business._id).map(shop => (
+                        <ShopItem key={shop._id}>
+                          <ShopName>{shop.store_name || shop.name || 'N/A'}</ShopName>
+                          {formatShopLocation(shop.location) && (
+                            <ShopLocation>{formatShopLocation(shop.location)}</ShopLocation>
+                          )}
+                        </ShopItem>
+                      ))
+                    )}
+
+                  </ShopSection>
 
                   <CardActions>
 

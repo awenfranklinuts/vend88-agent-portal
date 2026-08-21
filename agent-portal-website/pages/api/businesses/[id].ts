@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
 import https from 'https';
-import { API_CONFIG } from '../../../config/api';
+import { getBackendBaseUrl } from '../../../config/server';
 
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false,
@@ -17,44 +17,26 @@ export default async function handler(
 
   try {
     const { id } = req.query;
-    const authHeader = req.headers.authorization;
+    const fullUrl = `${getBackendBaseUrl()}/portal/businesses/${id}`;
+    console.log('[Business Detail API] Forwarding to:', fullUrl);
 
-    if (!authHeader) {
-      return res.status(401).json({
-        status_code: 401,
-        message: 'Unauthorized'
-      });
-    }
+    const response = await axios.post(fullUrl, req.body, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 15000,
+      httpsAgent,
+    });
 
-    console.log('[API Proxy] Getting business:', id);
-    
-    try {
-      const externalUrl = `${API_CONFIG.BASE_URL}/businesses/${id}`;
-      const response = await axios.post(
-        externalUrl,
-        req.body,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': authHeader,
-          },
-          timeout: 5000,
-          httpsAgent,
-        }
-      );
-
-      console.log('[API Proxy] Business get response status:', response.status);
-      return res.status(response.status).json(response.data);
-    } catch (apiError: any) {
-      console.log('[API Proxy] Real API failed, error:', apiError?.message);
-      throw apiError;
-    }
+    return res.status(response.status).json(response.data);
   } catch (error: any) {
-    console.error('[API Proxy] Business get error:', error.message);
-    
-    return res.status(error?.response?.status || 500).json({
-      status_code: error?.response?.status || 500,
-      message: error?.response?.data?.message || error.message || 'Failed to get business'
+    console.error('[Business Detail API] Error:', error.response?.data || error.message);
+
+    if (error.response) {
+      return res.status(error.response.status).json(error.response.data);
+    }
+
+    return res.status(500).json({
+      status_code: 500,
+      message: 'Internal server error',
     });
   }
 }

@@ -16,8 +16,8 @@ export default async function handler(
   }
 
   try {
-    const fullUrl = `${getBackendBaseUrl()}/portal/businesses/list`;
-    console.log('[Businesses List API] Forwarding to:', fullUrl);
+    const fullUrl = `${getBackendBaseUrl()}/portal/shops/list`;
+    console.log('[Shops List API] Forwarding to:', fullUrl);
 
     const response = await axios.post(fullUrl, req.body, {
       headers: { 'Content-Type': 'application/json' },
@@ -27,7 +27,7 @@ export default async function handler(
 
     return res.status(response.status).json(response.data);
   } catch (error: any) {
-    console.error('[Businesses List API] Error:', error.response?.data || error.message);
+    console.error('[Shops List API] Error:', error.response?.data || error.message);
 
     if (error.response) {
       return res.status(error.response.status).json(error.response.data);

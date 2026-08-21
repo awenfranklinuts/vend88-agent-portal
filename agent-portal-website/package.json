@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
-    "dev:local": "NEXT_PUBLIC_API_BASE_URL=http://localhost:3000 next dev --webpack",
+    "dev:local": "NEXT_PUBLIC_API_BASE_URL=http://localhost:3001 next dev --webpack",
     "dev:remote": "NEXT_PUBLIC_API_BASE_URL=https://dbapi.vend88.com next dev --webpack",
     "build": "next build",
     "start": "next start",
