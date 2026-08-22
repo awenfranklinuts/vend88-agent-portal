@@ -134,12 +134,82 @@ const StatusBadge = styled.span<{ $status: string }>`
         return 'background: #d1fae5; color: #065f46;';
       case 'inactive':
         return 'background: #e5e7eb; color: #374151;';
+      case 'test':
       case 'maintenance':
         return 'background: #fef3c7; color: #92400e;';
+      case 'suspended':
+        return 'background: #fee2e2; color: #991b1b;';
       default:
         return 'background: #e5e7eb; color: #374151;';
     }
   }}
+`;
+
+const StatusSelectWrapper = styled.div`
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+`;
+
+const StatusSelect = styled.select<{ $status: string }>`
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding: 0.5rem 2.25rem 0.5rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  outline: none;
+  transition: filter 0.15s ease, box-shadow 0.15s ease;
+
+  ${p => {
+    switch (p.$status) {
+      case 'active':
+        return 'background: #d1fae5; color: #065f46;';
+      case 'inactive':
+        return 'background: #e5e7eb; color: #374151;';
+      case 'test':
+        return 'background: #fef3c7; color: #92400e;';
+      case 'suspended':
+        return 'background: #fee2e2; color: #991b1b;';
+      default:
+        return 'background: #e5e7eb; color: #374151;';
+    }
+  }}
+
+  &:hover {
+    filter: brightness(0.96);
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  option {
+    background: white;
+    color: #0a3655;
+    text-transform: none;
+    font-weight: 500;
+  }
+`;
+
+const StatusSelectArrow = styled.span`
+  position: absolute;
+  right: 0.85rem;
+  font-size: 0.625rem;
+  color: #0a3655;
+  opacity: 0.5;
+  pointer-events: none;
 `;
 
 const LoadingText = styled.div`
@@ -557,7 +627,17 @@ interface Shop {
   location?: any;
   phone?: string;
   shop_key?: string;
+  status?: string;
 }
+
+const SHOP_STATUSES = ['active', 'inactive', 'test', 'suspended'] as const;
+
+const SHOP_STATUS_LABELS: Record<string, { en: string; zh: string }> = {
+  active: { en: 'Active', zh: '活跃' },
+  inactive: { en: 'Inactive', zh: '非活跃' },
+  test: { en: 'Test', zh: '测试' },
+  suspended: { en: 'Suspended', zh: '已暂停' },
+};
 
 export default function ShopDetailPage() {
   const params = useParams();
@@ -577,6 +657,8 @@ export default function ShopDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<'devices' | 'permissions' | 'activity' | 'notes'>('devices');
+
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -670,6 +752,39 @@ export default function ShopDetailPage() {
       setError(lang === "zh" ? "加载失败" : "Failed to load shop details");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!shop || newStatus === (shop.status || 'active')) return;
+    const previousStatus = shop.status;
+    setShop({ ...shop, status: newStatus });
+    setIsSavingStatus(true);
+    try {
+      const response = await axios.post(
+        `/api/shops/update`,
+        { token, id: shop._id, status: newStatus },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.status_code === 200) {
+        setShop(response.data.data || { ...shop, status: newStatus });
+        showToast(lang === "zh" ? "状态已更新" : "Status updated successfully", 'success');
+      } else {
+        setShop((prev) => (prev ? { ...prev, status: previousStatus } : prev));
+        showToast(response.data.message || (lang === "zh" ? "更新失败" : "Failed to update status"), 'error');
+      }
+    } catch (err: any) {
+      console.error('Failed to update shop status:', err);
+      setShop((prev) => (prev ? { ...prev, status: previousStatus } : prev));
+      showToast(err?.response?.data?.message || (lang === "zh" ? "更新失败" : "Failed to update status"), 'error');
+    } finally {
+      setIsSavingStatus(false);
     }
   };
 
@@ -864,6 +979,24 @@ export default function ShopDetailPage() {
                   <InfoItem>
                     <InfoLabel>{lang === "zh" ? "店铺密钥" : "Shop Key"}</InfoLabel>
                     <InfoValue>{shop.shop_key || 'N/A'}</InfoValue>
+                  </InfoItem>
+                  <InfoItem>
+                    <InfoLabel>{lang === "zh" ? "状态" : "Status"}</InfoLabel>
+                    <StatusSelectWrapper>
+                      <StatusSelect
+                        $status={shop.status || 'active'}
+                        value={shop.status || 'active'}
+                        disabled={isSavingStatus}
+                        onChange={(e) => handleStatusChange(e.target.value)}
+                      >
+                        {SHOP_STATUSES.map((s) => (
+                          <option key={s} value={s}>
+                            {SHOP_STATUS_LABELS[s][lang === "zh" ? "zh" : "en"]}
+                          </option>
+                        ))}
+                      </StatusSelect>
+                      <StatusSelectArrow>▾</StatusSelectArrow>
+                    </StatusSelectWrapper>
                   </InfoItem>
                 </InfoGrid>
               </Card>

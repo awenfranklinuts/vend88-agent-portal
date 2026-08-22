@@ -186,7 +186,7 @@ const InfoValue = styled.div`
 const StatusBadge = styled.span<{ $status: string }>`
   display: inline-block;
   padding: 0.5rem 1rem;
-  border-radius: 12px;
+  border-radius: 6px;
   font-size: 0.875rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -200,9 +200,11 @@ const StatusBadge = styled.span<{ $status: string }>`
       case 'insetup':
         return 'background: #dbeafe; color: #1e40af;';
       case 'inactive':
-        return 'background: #e5e7eb; color: #374151;';
-      case 'suspended':
         return 'background: #fee2e2; color: #991b1b;';
+      case 'suspended':
+        return 'background: #fecaca; color: #7f1d1d;';
+      case 'test':
+        return 'background: #fef3c7; color: #92400e;';
       default:
         return 'background: #e5e7eb; color: #374151;';
     }
@@ -258,6 +260,14 @@ const PermissionDetails = styled.div`
   gap: 1rem;
   font-size: 0.875rem;
   color: #5c6b7a;
+`;
+
+const ShopCardHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
 `;
 
 const Modal = styled.div<{ $show: boolean }>`
@@ -675,6 +685,22 @@ export default function BusinessDetailPage() {
       .toUpperCase();
   };
 
+  // Business status is derived from its shops rather than stored directly, once
+  // any of them has an explicit status set: any shop active wins outright;
+  // otherwise the most severe remaining condition (suspended, then inactive)
+  // wins; only if every status-bearing shop is 'test' does the business read
+  // as 'test'. Shops that have never had a status set are ignored (not
+  // treated as 'active') - if none of the shops have a status yet, this falls
+  // back to the manually-set business.status (e.g. during onboarding/"Setup").
+  const deriveBusinessStatus = (businessShops: any[]): string | null => {
+    const statuses = (businessShops || []).map((s) => s.status).filter(Boolean);
+    if (statuses.length === 0) return null;
+    if (statuses.includes('active')) return 'active';
+    if (statuses.includes('suspended')) return 'suspended';
+    if (statuses.includes('inactive')) return 'inactive';
+    return 'test';
+  };
+
   const formatShopLocation = (location: any) => {
     if (typeof location === 'string' && location.trim()) return location;
     return null;
@@ -838,22 +864,34 @@ export default function BusinessDetailPage() {
                     </InfoItem>
                     <InfoItem>
                       <InfoLabel>{lang === "zh" ? "状态" : "Status"}</InfoLabel>
-                      {isEditMode ? (
-                        <Select
-                          value={business.status || ''}
-                          onChange={(e) => handleBusinessChange('status', e.target.value)}
-                        >
-                          <option value="active">Active</option>
-                          <option value="setup">Setup</option>
-                          <option value="in_setup">In Setup</option>
-                          <option value="inactive">Inactive</option>
-                          <option value="suspended">Suspended</option>
-                        </Select>
-                      ) : (
-                        <StatusBadge $status={business.status || 'N/A'}>
-                          {formatStatus(business.status || 'inactive')}
-                        </StatusBadge>
-                      )}
+                      {(() => {
+                        const derivedStatus = deriveBusinessStatus(shops);
+                        if (derivedStatus) {
+                          // 1+ shops: status is derived from them, not manually editable.
+                          return (
+                            <StatusBadge $status={derivedStatus}>
+                              {formatStatus(derivedStatus)}
+                            </StatusBadge>
+                          );
+                        }
+                        // No shops yet: fall back to the manually-set status (e.g. "Setup").
+                        return isEditMode ? (
+                          <Select
+                            value={business.status || ''}
+                            onChange={(e) => handleBusinessChange('status', e.target.value)}
+                          >
+                            <option value="active">Active</option>
+                            <option value="setup">Setup</option>
+                            <option value="in_setup">In Setup</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="suspended">Suspended</option>
+                          </Select>
+                        ) : (
+                          <StatusBadge $status={business.status || 'N/A'}>
+                            {formatStatus(business.status || 'inactive')}
+                          </StatusBadge>
+                        );
+                      })()}
                     </InfoItem>
                   </InfoGrid>
 
@@ -868,7 +906,14 @@ export default function BusinessDetailPage() {
                           key={shop._id}
                           onClick={() => router.push(`/admin/businesses/${business._id}/shops/${shop._id}`)}
                         >
-                          <PermissionName>{shop.store_name || shop.name || 'N/A'}</PermissionName>
+                          <ShopCardHeader>
+                            <PermissionName style={{ marginBottom: 0 }}>{shop.store_name || shop.name || 'N/A'}</PermissionName>
+                            {shop.status && (
+                              <StatusBadge $status={shop.status}>
+                                {formatStatus(shop.status)}
+                              </StatusBadge>
+                            )}
+                          </ShopCardHeader>
                           <PermissionDetails>
                             {formatShopLocation(shop.location)
                               ? formatShopLocation(shop.location)
@@ -881,151 +926,6 @@ export default function BusinessDetailPage() {
                   ) : (
                     <InfoValue>{lang === "zh" ? "暂无店铺" : "No shops linked to this business"}</InfoValue>
                   )}
-
-                  {/* Address Information */}
-                  <CardTitle style={{ marginTop: '2rem' }}>
-                    {lang === "zh" ? "地址信息" : "Address Information"}
-                  </CardTitle>
-                  <InfoGrid>
-                    <InfoItem>
-                      <InfoLabel>{lang === "zh" ? "街道地址" : "Street Address"}</InfoLabel>
-                      {isEditMode ? (
-                        <Input
-                          value={business.address || ''}
-                          onChange={(e) => handleBusinessChange('address', e.target.value)}
-                        />
-                      ) : (
-                        <InfoValue>{business.address || 'N/A'}</InfoValue>
-                      )}
-                    </InfoItem>
-                    <InfoItem>
-                      <InfoLabel>{lang === "zh" ? "城市/郊区" : "Suburb/City"}</InfoLabel>
-                      {isEditMode ? (
-                        <Input
-                          value={business.suburb || ''}
-                          onChange={(e) => handleBusinessChange('suburb', e.target.value)}
-                        />
-                      ) : (
-                        <InfoValue>{business.suburb || 'N/A'}</InfoValue>
-                      )}
-                    </InfoItem>
-                    <InfoItem>
-                      <InfoLabel>{lang === "zh" ? "州" : "State"}</InfoLabel>
-                      {isEditMode ? (
-                        <Select
-                          value={business.state || ''}
-                          onChange={(e) => handleBusinessChange('state', e.target.value)}
-                        >
-                          <option value="">Select State</option>
-                          <option value="NSW">NSW</option>
-                          <option value="VIC">VIC</option>
-                          <option value="QLD">QLD</option>
-                          <option value="WA">WA</option>
-                          <option value="SA">SA</option>
-                          <option value="TAS">TAS</option>
-                          <option value="ACT">ACT</option>
-                          <option value="NT">NT</option>
-                        </Select>
-                      ) : (
-                        <InfoValue>{business.state || 'N/A'}</InfoValue>
-                      )}
-                    </InfoItem>
-                    <InfoItem>
-                      <InfoLabel>{lang === "zh" ? "邮编" : "Postcode"}</InfoLabel>
-                      {isEditMode ? (
-                        <Input
-                          value={business.postcode || ''}
-                          onChange={(e) => handleBusinessChange('postcode', e.target.value)}
-                        />
-                      ) : (
-                        <InfoValue>{business.postcode || 'N/A'}</InfoValue>
-                      )}
-                    </InfoItem>
-                    <InfoItem>
-                      <InfoLabel>{lang === "zh" ? "国家" : "Country"}</InfoLabel>
-                      {isEditMode ? (
-                        <Input
-                          value={business.country || ''}
-                          onChange={(e) => handleBusinessChange('country', e.target.value)}
-                        />
-                      ) : (
-                        <InfoValue>{business.country || 'N/A'}</InfoValue>
-                      )}
-                    </InfoItem>
-                  </InfoGrid>
-
-                  {/* Contact Information */}
-                  <CardTitle style={{ marginTop: '2rem' }}>
-                    {lang === "zh" ? "联系信息" : "Contact Information"}
-                  </CardTitle>
-                  <InfoGrid>
-                    <InfoItem>
-                      <InfoLabel>{lang === "zh" ? "联系邮箱" : "Contact Email"}</InfoLabel>
-                      {isEditMode ? (
-                        <Input
-                          type="email"
-                          value={business.contactEmail || business.contact_email || ''}
-                          onChange={(e) => handleBusinessChange('contactEmail', e.target.value)}
-                        />
-                      ) : (
-                        <InfoValue>{business.contactEmail || business.contact_email || 'N/A'}</InfoValue>
-                      )}
-                    </InfoItem>
-                    <InfoItem>
-                      <InfoLabel>{lang === "zh" ? "联系电话" : "Contact Phone"}</InfoLabel>
-                      {isEditMode ? (
-                        <Input
-                          type="tel"
-                          value={business.contactPhone || business.contact_phone || ''}
-                          onChange={(e) => handleBusinessChange('contactPhone', e.target.value)}
-                        />
-                      ) : (
-                        <InfoValue>{business.contactPhone || business.contact_phone || 'N/A'}</InfoValue>
-                      )}
-                    </InfoItem>
-                    <InfoItem>
-                      <InfoLabel>{lang === "zh" ? "EFTPOS 集成" : "EFTPOS Integration"}</InfoLabel>
-                      {isEditMode ? (
-                        <Input
-                          value={business.eftposIntegration || ''}
-                          onChange={(e) => handleBusinessChange('eftposIntegration', e.target.value)}
-                        />
-                      ) : (
-                        <InfoValue>{business.eftposIntegration || 'N/A'}</InfoValue>
-                      )}
-                    </InfoItem>
-                    <InfoItem>
-                      <InfoLabel>{lang === "zh" ? "支付宝选项" : "Alipay Option"}</InfoLabel>
-                      {isEditMode ? (
-                        <Select
-                          value={business.alipayOption || ''}
-                          onChange={(e) => handleBusinessChange('alipayOption', e.target.value)}
-                        >
-                          <option value="">Select Option</option>
-                          <option value="yes">Yes</option>
-                          <option value="no">No</option>
-                          <option value="other">Other</option>
-                        </Select>
-                      ) : (
-                        <InfoValue>{business.alipayOption || 'N/A'}</InfoValue>
-                      )}
-                    </InfoItem>
-                  </InfoGrid>
-
-                  {/* Additional Information */}
-                  <CardTitle style={{ marginTop: '2rem' }}>
-                    {lang === "zh" ? "其他信息" : "Additional Information"}
-                  </CardTitle>
-                  <InfoGrid>
-                    <InfoItem>
-                      <InfoLabel>{lang === "zh" ? "创建日期" : "Created At"}</InfoLabel>
-                      <InfoValue>{(business.createdAt || business.created_at) ? new Date(business.createdAt || business.created_at!).toLocaleDateString() : 'Invalid Date'}</InfoValue>
-                    </InfoItem>
-                    <InfoItem>
-                      <InfoLabel>{lang === "zh" ? "更新日期" : "Updated At"}</InfoLabel>
-                      <InfoValue>{(business.updatedAt || business.updated_at) ? new Date(business.updatedAt || business.updated_at!).toLocaleDateString() : 'Invalid Date'}</InfoValue>
-                    </InfoItem>
-                  </InfoGrid>
 
                   {/* Edit Mode Actions */}
                   {isEditMode && (

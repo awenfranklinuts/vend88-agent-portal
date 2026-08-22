@@ -1046,7 +1046,7 @@ const StatusBadge = styled.span<{ $status: string }>`
 
   padding: 0.25rem 0.75rem;
 
-  border-radius: 12px;
+  border-radius: 4px;
 
   font-size: 0.75rem;
 
@@ -1074,11 +1074,15 @@ const StatusBadge = styled.span<{ $status: string }>`
 
       case 'inactive':
 
-        return 'background: #e5e7eb; color: #374151;';
+        return 'background: #fee2e2; color: #991b1b;';
 
       case 'suspended':
 
-        return 'background: #fee2e2; color: #991b1b;';
+        return 'background: #fecaca; color: #7f1d1d;';
+
+      case 'test':
+
+        return 'background: #fef3c7; color: #92400e;';
 
       default:
 
@@ -2243,9 +2247,23 @@ export default function BusinessManagementPage() {
 
     filtered.sort((a, b) => {
 
+      // Group by whether the business has a resolved status at all, regardless
+      // of sort field/direction: active/inactive/suspended first, 'test' next,
+      // and businesses with no status (derived or manual) set at all last.
+      const statusGroupRank = (business: any) => {
+        const status = deriveBusinessStatus(business._id) || business.status;
+        if (!status) return 2;
+        if (status === 'test') return 1;
+        return 0;
+      };
+
+      const statusGroupDiff = statusGroupRank(a) - statusGroupRank(b);
+
+      if (statusGroupDiff !== 0) return statusGroupDiff;
+
       let compareValue = 0;
 
-      
+
 
       if (sortField === 'name') {
 
@@ -2269,7 +2287,7 @@ export default function BusinessManagementPage() {
 
       }
 
-      
+
 
       return sortDirection === 'asc' ? compareValue : -compareValue;
 
@@ -2281,7 +2299,7 @@ export default function BusinessManagementPage() {
 
     setCurrentPage(1);
 
-  }, [searchQuery, searchByABN, searchByAddress, searchByOwner, filterStatus, filterState, dateFilterFrom, dateFilterTo, sortField, sortDirection, allBusinesses, customers]);
+  }, [searchQuery, searchByABN, searchByAddress, searchByOwner, filterStatus, filterState, dateFilterFrom, dateFilterTo, sortField, sortDirection, allBusinesses, customers, shops]);
 
 
 
@@ -2575,6 +2593,22 @@ export default function BusinessManagementPage() {
 
     return shops.filter(s => s.business_id === businessId);
 
+  };
+
+  // Same derivation as the business detail page: once a business has shops
+  // that have an explicit status set, it's computed from them rather than the
+  // manually-set field - any active shop wins outright, else the most severe
+  // remaining condition (suspended, then inactive) wins, and only reads 'test'
+  // if every status-bearing shop is. Shops that have never had a status set
+  // are ignored entirely (not treated as 'active') - if none of a business's
+  // shops have a status yet, this returns null so no badge is shown.
+  const deriveBusinessStatus = (businessId: string): string | null => {
+    const statuses = getShopsForBusiness(businessId).map(s => s.status).filter(Boolean);
+    if (statuses.length === 0) return null;
+    if (statuses.includes('active')) return 'active';
+    if (statuses.includes('suspended')) return 'suspended';
+    if (statuses.includes('inactive')) return 'inactive';
+    return 'test';
   };
 
 
@@ -3186,11 +3220,13 @@ export default function BusinessManagementPage() {
 
                       <Td>
 
-                        <StatusBadge $status={business.status}>
+                        {(deriveBusinessStatus(business._id) || business.status) && (
+                          <StatusBadge $status={deriveBusinessStatus(business._id) || business.status}>
 
-                          {formatStatus(business.status)}
+                            {formatStatus(deriveBusinessStatus(business._id) || business.status)}
 
-                        </StatusBadge>
+                          </StatusBadge>
+                        )}
 
                       </Td>
 
@@ -3256,11 +3292,13 @@ export default function BusinessManagementPage() {
 
                     </div>
 
-                    <StatusBadge $status={business.status}>
+                    {(deriveBusinessStatus(business._id) || business.status) && (
+                      <StatusBadge $status={deriveBusinessStatus(business._id) || business.status}>
 
-                      {formatStatus(business.status)}
+                        {formatStatus(deriveBusinessStatus(business._id) || business.status)}
 
-                    </StatusBadge>
+                      </StatusBadge>
+                    )}
 
                   </CardHeader>
 
@@ -3471,11 +3509,14 @@ export default function BusinessManagementPage() {
 
               <DetailValue>
 
-                <StatusBadge $status={selectedBusiness?.status || 'inactive'}>
-
-                  {formatStatus(selectedBusiness?.status || 'inactive')}
-
-                </StatusBadge>
+                {(() => {
+                  const resolvedStatus = (selectedBusiness && deriveBusinessStatus(selectedBusiness._id)) || selectedBusiness?.status;
+                  return resolvedStatus ? (
+                    <StatusBadge $status={resolvedStatus}>
+                      {formatStatus(resolvedStatus)}
+                    </StatusBadge>
+                  ) : 'N/A';
+                })()}
 
               </DetailValue>
 

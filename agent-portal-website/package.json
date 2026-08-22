@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
-    "dev:local": "NEXT_PUBLIC_API_BASE_URL=http://localhost:3001 next dev --webpack",
-    "dev:remote": "NEXT_PUBLIC_API_BASE_URL=https://dbapi.vend88.com next dev --webpack",
+    "dev:local": "cross-env NEXT_PUBLIC_API_BASE_URL=http://localhost:3000 next dev --webpack",
+    "dev:remote": "cross-env NEXT_PUBLIC_API_BASE_URL=https://dbapi.vend88.com next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -30,6 +30,8 @@
     "@types/nprogress": "^0.2.3",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "baseline-browser-mapping": "^2.11.17",
+    "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "15.3.1",
     "typescript": "^5"
