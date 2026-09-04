@@ -2118,7 +2118,7 @@ export default function BusinessManagementPage() {
 
   const [filterState, setFilterState] = useState<string>('all');
 
-  const [excludeTestAndNoStatus, setExcludeTestAndNoStatus] = useState(false);
+  const [includeTestAndNoStatus, setIncludeTestAndNoStatus] = useState(false);
 
   const [isLoadingData, setIsLoadingData] = useState(false);
 
@@ -2440,9 +2440,10 @@ export default function BusinessManagementPage() {
 
 
 
-    // Exclude test accounts and businesses with no status set
+    // Test accounts and businesses with no status set are hidden by default -
+    // only show them when the admin explicitly opts in.
 
-    if (excludeTestAndNoStatus) {
+    if (!includeTestAndNoStatus) {
 
       filtered = filtered.filter(b => {
 
@@ -2538,7 +2539,7 @@ export default function BusinessManagementPage() {
 
     setCurrentPage(1);
 
-  }, [searchQuery, searchByABN, searchByAddress, searchByOwner, filterStatus, filterState, excludeTestAndNoStatus, dateFilterFrom, dateFilterTo, sortField, sortDirection, allBusinesses, customers, shops]);
+  }, [searchQuery, searchByABN, searchByAddress, searchByOwner, filterStatus, filterState, includeTestAndNoStatus, dateFilterFrom, dateFilterTo, sortField, sortDirection, allBusinesses, customers, shops]);
 
 
 
@@ -2556,7 +2557,7 @@ export default function BusinessManagementPage() {
 
     setFilterState('all');
 
-    setExcludeTestAndNoStatus(false);
+    setIncludeTestAndNoStatus(false);
 
     setDateFilterFrom('');
 
@@ -3349,17 +3350,17 @@ export default function BusinessManagementPage() {
 
                 <Checkbox
 
-                  checked={excludeTestAndNoStatus}
+                  checked={includeTestAndNoStatus}
 
-                  onChange={(e) => setExcludeTestAndNoStatus(e.target.checked)}
+                  onChange={(e) => setIncludeTestAndNoStatus(e.target.checked)}
 
                 />
 
-                {lang === "zh" ? "排除测试和无状态账户" : "Exclude test & no-status accounts"}
+                {lang === "zh" ? "包含测试和无状态账户" : "Include test & no-status accounts"}
 
               </FilterCheckboxLabel>
 
-              {(searchQuery || searchByABN || searchByAddress || searchByOwner || filterStatus !== 'all' || filterState !== 'all' || excludeTestAndNoStatus || dateFilterFrom || dateFilterTo) && (
+              {(searchQuery || searchByABN || searchByAddress || searchByOwner || filterStatus !== 'all' || filterState !== 'all' || includeTestAndNoStatus || dateFilterFrom || dateFilterTo) && (
 
                 <ClearButton onClick={handleClearFilters}>
 
@@ -3662,14 +3663,6 @@ export default function BusinessManagementPage() {
                       <InfoLabel>{lang === "zh" ? "所有者:" : "Owner:"}</InfoLabel>
 
                       <InfoValue>{getBusinessOwnerName(business)}</InfoValue>
-
-                    </InfoRow>
-
-                    <InfoRow>
-
-                      <InfoLabel>{lang === "zh" ? "ABN:" : "ABN:"}</InfoLabel>
-
-                      <InfoValue>{business.abn || 'N/A'}</InfoValue>
 
                     </InfoRow>
 
