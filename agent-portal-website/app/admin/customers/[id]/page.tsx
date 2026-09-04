@@ -124,6 +124,147 @@ const SectionTitle = styled.h2`
   border-bottom: 2px solid #e0e7ef;
 `;
 
+const SectionHeaderRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e0e7ef;
+
+  ${SectionTitle} {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+`;
+
+const AddBusinessButton = styled.button`
+  padding: 0.5rem 1rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+
+  &:hover {
+    background: #2563eb;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  }
+`;
+
+const Modal = styled.div<{ $show: boolean }>`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: ${p => p.$show ? 'flex' : 'none'};
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+`;
+
+const ModalContent = styled.div`
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 480px;
+  width: 100%;
+`;
+
+const ModalHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+`;
+
+const ModalTitle = styled.h3`
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0a3655;
+`;
+
+const ModalCloseButton = styled.button`
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #5c6b7a;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    color: #0a3655;
+  }
+`;
+
+const ModalInput = styled.input`
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e0e7ef;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  color: #0a3655;
+
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+`;
+
+const ModalActions = styled.div`
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+`;
+
+const ModalButton = styled.button<{ $primary?: boolean }>`
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  ${p => p.$primary ? `
+    background: #3b82f6;
+    color: white;
+    &:hover {
+      background: #2563eb;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+  ` : `
+    background: #f3f4f6;
+    color: #374151;
+    &:hover {
+      background: #e5e7eb;
+    }
+  `}
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+`;
+
 const DetailGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -396,6 +537,10 @@ export default function CustomerDetailPage() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedCustomer, setEditedCustomer] = useState<Customer | null>(null);
+  const [showAddBusinessModal, setShowAddBusinessModal] = useState(false);
+  const [newBusinessName, setNewBusinessName] = useState('');
+  const [addBusinessError, setAddBusinessError] = useState('');
+  const [isAddingBusiness, setIsAddingBusiness] = useState(false);
 
   const t = (key: keyof typeof dict) => dict[key][lang];
 
@@ -547,6 +692,46 @@ export default function CustomerDetailPage() {
 
   const handleBusinessClick = (businessId: string) => {
     router.push(`/admin/businesses/${businessId}`);
+  };
+
+  const handleAddBusiness = async () => {
+    if (!customer) return;
+
+    if (!newBusinessName.trim()) {
+      setAddBusinessError(lang === 'zh' ? '请输入业务名称' : 'Please enter a business name');
+      return;
+    }
+
+    setAddBusinessError('');
+    setIsAddingBusiness(true);
+
+    try {
+      const response = await axios.post(
+        `/api/customers/${customer._id}/add-business`,
+        { token, name: newBusinessName.trim() },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.status_code === 201 && response.data.business_id) {
+        setShowAddBusinessModal(false);
+        setNewBusinessName('');
+        router.push(`/admin/businesses/${response.data.business_id}`);
+      } else {
+        throw new Error(response.data.message || 'Failed to create business');
+      }
+    } catch (err: any) {
+      setAddBusinessError(
+        err?.response?.data?.message ||
+        (lang === 'zh' ? '创建业务失败，请重试' : 'Failed to create business, please try again')
+      );
+    } finally {
+      setIsAddingBusiness(false);
+    }
   };
 
   const formatStatus = (status: string) => {
@@ -721,9 +906,14 @@ export default function CustomerDetailPage() {
           </DetailSection>
 
           <DetailSection>
-            <SectionTitle>
-              {lang === "zh" ? "业务" : "Businesses"} ({customer.businesses.length})
-            </SectionTitle>
+            <SectionHeaderRow>
+              <SectionTitle>
+                {lang === "zh" ? "业务" : "Businesses"} ({customer.businesses.length})
+              </SectionTitle>
+              <AddBusinessButton onClick={() => { setNewBusinessName(''); setAddBusinessError(''); setShowAddBusinessModal(true); }}>
+                + {lang === "zh" ? "添加业务" : "Add Business"}
+              </AddBusinessButton>
+            </SectionHeaderRow>
             {customer.businesses.length > 0 ? (
               customer.businesses.map((business) => (
                 <BusinessDetailCard key={business._id} onClick={() => handleBusinessClick(business._id)}>
@@ -773,6 +963,43 @@ export default function CustomerDetailPage() {
           </DetailSection>
         </MainContent>
       </Container>
+
+      {/* Add Business Modal */}
+      <Modal $show={showAddBusinessModal} onClick={() => setShowAddBusinessModal(false)}>
+        <ModalContent onClick={(e) => e.stopPropagation()}>
+          <ModalHeader>
+            <ModalTitle>{lang === "zh" ? "添加业务" : "Add Business"}</ModalTitle>
+            <ModalCloseButton onClick={() => setShowAddBusinessModal(false)}>×</ModalCloseButton>
+          </ModalHeader>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#5c6b7a', marginBottom: '0.5rem' }}>
+              {lang === "zh" ? "业务名称" : "Business Name"} *
+            </label>
+            <ModalInput
+              type="text"
+              value={newBusinessName}
+              onChange={(e) => setNewBusinessName(e.target.value)}
+              placeholder={lang === "zh" ? "输入业务名称" : "Enter business name"}
+            />
+          </div>
+
+          {addBusinessError && (
+            <p style={{ color: '#dc2626', fontSize: '0.8125rem', marginBottom: '1rem' }}>{addBusinessError}</p>
+          )}
+
+          <ModalActions>
+            <ModalButton onClick={() => setShowAddBusinessModal(false)} disabled={isAddingBusiness}>
+              {lang === "zh" ? "取消" : "Cancel"}
+            </ModalButton>
+            <ModalButton $primary onClick={handleAddBusiness} disabled={isAddingBusiness}>
+              {isAddingBusiness
+                ? (lang === "zh" ? "创建中..." : "Creating...")
+                : (lang === "zh" ? "创建业务" : "Create Business")}
+            </ModalButton>
+          </ModalActions>
+        </ModalContent>
+      </Modal>
     </MainLayout>
   );
 }

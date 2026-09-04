@@ -75,6 +75,22 @@ const ContentHeader = styled.div`
 
   margin-bottom: 2rem;
 
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  gap: 2rem;
+
+  @media (max-width: 968px) {
+
+    flex-direction: column;
+
+    align-items: flex-start;
+
+  }
+
 `;
 
 
@@ -99,6 +115,155 @@ const PageDescription = styled.p`
 
   color: #5c6b7a;
 
+`;
+
+const HeaderLeft = styled.div`
+
+  flex: 1;
+
+`;
+
+const CreateBusinessButton = styled.button`
+
+  padding: 0.75rem 1.5rem;
+
+  background: #3b82f6;
+
+  color: white;
+
+  border: none;
+
+  border-radius: 8px;
+
+  font-size: 1rem;
+
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition: all 0.3s ease;
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 0.5rem;
+
+  white-space: nowrap;
+
+  &:hover {
+
+    background: #2563eb;
+
+    transform: translateY(-2px);
+
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+
+  }
+
+`;
+
+const Section = styled.div`
+  margin-bottom: 1.25rem;
+`;
+
+const Input = styled.input`
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #e0e7ef;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #0a3655;
+  transition: all 0.2s ease;
+
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  &::placeholder {
+    color: #94a3b8;
+  }
+`;
+
+const EmailInputGroup = styled.div`
+  display: flex;
+  align-items: stretch;
+`;
+
+const EmailSuffix = styled.span`
+  display: flex;
+  align-items: center;
+  padding: 0 0.75rem;
+  background: #f3f4f6;
+  border: 1px solid #e0e7ef;
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  color: #5c6b7a;
+  font-size: 0.875rem;
+  white-space: nowrap;
+`;
+
+const PasswordFieldRow = styled.div`
+  display: flex;
+  gap: 0.5rem;
+`;
+
+const PasswordInputWrapper = styled.div`
+  position: relative;
+  flex: 1;
+`;
+
+const ToggleVisibilityButton = styled.button`
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #5c6b7a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+
+  &:hover {
+    color: #0a3655;
+  }
+`;
+
+const GeneratePasswordButton = styled.button`
+  padding: 0 1rem;
+  background: #f3f4f6;
+  border: 1px solid #e0e7ef;
+  border-radius: 8px;
+  color: #374151;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #e5e7eb;
+  }
+`;
+
+const FieldHint = styled.p`
+  font-size: 0.75rem;
+  color: #5c6b7a;
+  margin-top: 1rem;
+  margin-bottom: 1.25rem;
+`;
+
+const ErrorText = styled.p`
+  font-size: 0.8125rem;
+  color: #dc2626;
+  margin: -0.75rem 0 1rem;
 `;
 
 
@@ -206,6 +371,26 @@ const FilterRow = styled.div`
     flex-direction: column;
 
   }
+
+`;
+
+
+
+const FilterCheckboxLabel = styled.label`
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 0.5rem;
+
+  font-size: 0.875rem;
+
+  color: #374151;
+
+  cursor: pointer;
+
+  white-space: nowrap;
 
 `;
 
@@ -1918,6 +2103,8 @@ export default function BusinessManagementPage() {
 
   const [filterState, setFilterState] = useState<string>('all');
 
+  const [excludeTestAndNoStatus, setExcludeTestAndNoStatus] = useState(false);
+
   const [isLoadingData, setIsLoadingData] = useState(false);
 
   
@@ -1955,6 +2142,27 @@ export default function BusinessManagementPage() {
   const [showStatusModal, setShowStatusModal] = useState(false);
 
   const [statusToChange, setStatusToChange] = useState<{businessId: string, newStatus: string} | null>(null);
+
+  const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
+
+  const BUSINESS_EMAIL_DOMAIN = '@vend88.com';
+
+  const PHONE_REGEX = /^\+[1-9]\d{7,14}$/;
+
+  const [newBusinessAccount, setNewBusinessAccount] = useState({
+    first_name: '',
+    last_name: '',
+    business_name: '',
+    emailPrefix: '',
+    phone: '',
+    password: '',
+  });
+
+  const [createAccountError, setCreateAccountError] = useState('');
+
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+
+  const [showPassword, setShowPassword] = useState(false);
 
 
 
@@ -2215,7 +2423,23 @@ export default function BusinessManagementPage() {
 
     }
 
-    
+
+
+    // Exclude test accounts and businesses with no status set
+
+    if (excludeTestAndNoStatus) {
+
+      filtered = filtered.filter(b => {
+
+        const status = (deriveBusinessStatus(b._id) || b.status || '').toLowerCase();
+
+        return status !== '' && status !== 'test';
+
+      });
+
+    }
+
+
 
     // State filter
 
@@ -2299,7 +2523,7 @@ export default function BusinessManagementPage() {
 
     setCurrentPage(1);
 
-  }, [searchQuery, searchByABN, searchByAddress, searchByOwner, filterStatus, filterState, dateFilterFrom, dateFilterTo, sortField, sortDirection, allBusinesses, customers, shops]);
+  }, [searchQuery, searchByABN, searchByAddress, searchByOwner, filterStatus, filterState, excludeTestAndNoStatus, dateFilterFrom, dateFilterTo, sortField, sortDirection, allBusinesses, customers, shops]);
 
 
 
@@ -2316,6 +2540,8 @@ export default function BusinessManagementPage() {
     setFilterStatus('all');
 
     setFilterState('all');
+
+    setExcludeTestAndNoStatus(false);
 
     setDateFilterFrom('');
 
@@ -2421,6 +2647,78 @@ export default function BusinessManagementPage() {
 
     exportToCSV(businesses);
 
+  };
+
+  const resetCreateAccountForm = () => {
+    setNewBusinessAccount({ first_name: '', last_name: '', business_name: '', emailPrefix: '', phone: '', password: '' });
+    setCreateAccountError('');
+    setShowPassword(false);
+  };
+
+  const handleGeneratePassword = () => {
+    const digits = Math.floor(1000 + Math.random() * 9000);
+    setNewBusinessAccount((prev) => ({ ...prev, password: `Vend${digits}` }));
+    setShowPassword(true);
+  };
+
+  const handleCreateBusinessAccount = async () => {
+    const { first_name, last_name, business_name, emailPrefix, phone, password } = newBusinessAccount;
+
+    if (!first_name || !last_name || !business_name || !emailPrefix || !phone || !password) {
+      setCreateAccountError(
+        lang === 'zh' ? '请填写所有必填字段' : 'Please fill in all required fields'
+      );
+      return;
+    }
+
+    if (!PHONE_REGEX.test(phone.trim())) {
+      setCreateAccountError(
+        lang === 'zh' ? '请输入有效的电话号码（例如 +61400000000）' : 'Please enter a valid phone number (e.g. +61400000000)'
+      );
+      return;
+    }
+
+    const email = `${emailPrefix.trim().toLowerCase()}${BUSINESS_EMAIL_DOMAIN}`;
+
+    setCreateAccountError('');
+    setIsCreatingAccount(true);
+
+    try {
+      const response = await axios.post(
+        '/api/businesses/create-account',
+        { token, first_name, last_name, business_name, email, phone, password },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.status_code === 201 || response.data.status_code === 200) {
+        const newBusinessId = response.data.business?._id;
+        setShowCreateAccountModal(false);
+        resetCreateAccountForm();
+        if (newBusinessId) {
+          router.push(`/admin/businesses/${newBusinessId}`);
+        } else {
+          await fetchBusinesses();
+        }
+      } else {
+        throw new Error(response.data.message || 'Create failed');
+      }
+    } catch (error: any) {
+      if (error?.response?.status === 409) {
+        setCreateAccountError(lang === 'zh' ? '邮箱已存在' : 'Email already exists');
+      } else {
+        setCreateAccountError(
+          error?.response?.data?.message ||
+          (lang === 'zh' ? '创建账户失败，请重试' : 'Failed to create account, please try again')
+        );
+      }
+    } finally {
+      setIsCreatingAccount(false);
+    }
   };
 
   
@@ -2818,17 +3116,35 @@ export default function BusinessManagementPage() {
 
           <ContentHeader>
 
-            <PageTitle>{t("businessManagement")}</PageTitle>
+            <HeaderLeft>
 
-            <PageDescription>
+              <PageTitle>{t("businessManagement")}</PageTitle>
 
-              {lang === "zh"
+              <PageDescription>
 
-                ? "管理所有业务和地点。查看、添加、编辑和监控业务信息。"
+                {lang === "zh"
 
-                : "Manage all businesses and locations. View, add, edit, and monitor business information."}
+                  ? "管理所有业务和地点。查看、添加、编辑和监控业务信息。"
 
-            </PageDescription>
+                  : "Manage all businesses and locations. View, add, edit, and monitor business information."}
+
+              </PageDescription>
+
+            </HeaderLeft>
+
+            <CreateBusinessButton onClick={() => { resetCreateAccountForm(); setShowCreateAccountModal(true); }}>
+
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+
+                <line x1="12" y1="5" x2="12" y2="19"/>
+
+                <line x1="5" y1="12" x2="19" y2="12"/>
+
+              </svg>
+
+              {lang === 'zh' ? '创建新业务' : 'Create New Business'}
+
+            </CreateBusinessButton>
 
           </ContentHeader>
 
@@ -3006,7 +3322,21 @@ export default function BusinessManagementPage() {
 
               </FilterSelect>
 
-              {(searchQuery || searchByABN || searchByAddress || searchByOwner || filterStatus !== 'all' || filterState !== 'all' || dateFilterFrom || dateFilterTo) && (
+              <FilterCheckboxLabel>
+
+                <Checkbox
+
+                  checked={excludeTestAndNoStatus}
+
+                  onChange={(e) => setExcludeTestAndNoStatus(e.target.checked)}
+
+                />
+
+                {lang === "zh" ? "排除测试和无状态账户" : "Exclude test & no-status accounts"}
+
+              </FilterCheckboxLabel>
+
+              {(searchQuery || searchByABN || searchByAddress || searchByOwner || filterStatus !== 'all' || filterState !== 'all' || excludeTestAndNoStatus || dateFilterFrom || dateFilterTo) && (
 
                 <ClearButton onClick={handleClearFilters}>
 
@@ -3685,6 +4015,226 @@ export default function BusinessManagementPage() {
               <ActionButton $variant="primary" onClick={handleConfirmStatusChange}>
 
                 {lang === 'zh' ? '确认更改' : 'Confirm Change'}
+
+              </ActionButton>
+
+            </ModalActions>
+
+          </ModalContent>
+
+        </Modal>
+
+      )}
+
+      {/* Create Business Account Modal */}
+
+      {showCreateAccountModal && (
+
+        <Modal $show={showCreateAccountModal} onClick={() => setShowCreateAccountModal(false)}>
+
+          <ModalContent onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+
+            <ModalHeader>
+
+              <ModalTitle>{lang === 'zh' ? '创建业务账户' : 'Create Business Account'}</ModalTitle>
+
+              <CloseButton onClick={() => setShowCreateAccountModal(false)}>×</CloseButton>
+
+            </ModalHeader>
+
+            <FieldHint>
+
+              {lang === 'zh'
+
+                ? '创建业务及其所有者的登录账户。'
+
+                : 'Creates the business along with a login account for its owner.'}
+
+            </FieldHint>
+
+            <Section>
+
+              <DetailLabel>{lang === 'zh' ? '业务名称' : 'Business Name'} *</DetailLabel>
+
+              <Input
+
+                type="text"
+
+                value={newBusinessAccount.business_name}
+
+                onChange={(e) => setNewBusinessAccount({ ...newBusinessAccount, business_name: e.target.value })}
+
+                placeholder={lang === 'zh' ? '输入业务名称' : 'Enter business name'}
+
+              />
+
+            </Section>
+
+            <Section>
+
+              <DetailLabel>{lang === 'zh' ? '名字' : 'First Name'} *</DetailLabel>
+
+              <Input
+
+                type="text"
+
+                value={newBusinessAccount.first_name}
+
+                onChange={(e) => setNewBusinessAccount({ ...newBusinessAccount, first_name: e.target.value })}
+
+                placeholder={lang === 'zh' ? '输入名字' : 'Enter first name'}
+
+              />
+
+            </Section>
+
+            <Section>
+
+              <DetailLabel>{lang === 'zh' ? '姓氏' : 'Last Name'} *</DetailLabel>
+
+              <Input
+
+                type="text"
+
+                value={newBusinessAccount.last_name}
+
+                onChange={(e) => setNewBusinessAccount({ ...newBusinessAccount, last_name: e.target.value })}
+
+                placeholder={lang === 'zh' ? '输入姓氏' : 'Enter last name'}
+
+              />
+
+            </Section>
+
+            <Section>
+
+              <DetailLabel>{lang === 'zh' ? '邮箱' : 'Email'} *</DetailLabel>
+
+              <EmailInputGroup>
+
+                <Input
+
+                  type="text"
+
+                  style={{ borderRadius: '8px 0 0 8px' }}
+
+                  value={newBusinessAccount.emailPrefix}
+
+                  onChange={(e) => setNewBusinessAccount({ ...newBusinessAccount, emailPrefix: e.target.value.toLowerCase() })}
+
+                  placeholder={lang === 'zh' ? '输入邮箱前缀' : 'Enter email prefix'}
+
+                />
+
+                <EmailSuffix>{BUSINESS_EMAIL_DOMAIN}</EmailSuffix>
+
+              </EmailInputGroup>
+
+            </Section>
+
+            <Section>
+
+              <DetailLabel>{lang === 'zh' ? '电话' : 'Phone'} *</DetailLabel>
+
+              <Input
+
+                type="tel"
+
+                value={newBusinessAccount.phone}
+
+                onChange={(e) => setNewBusinessAccount({ ...newBusinessAccount, phone: e.target.value })}
+
+                placeholder={lang === 'zh' ? '例如 +61400000000' : 'e.g. +61400000000'}
+
+              />
+
+            </Section>
+
+            <Section>
+
+              <DetailLabel>{lang === 'zh' ? '密码' : 'Password'} *</DetailLabel>
+
+              <PasswordFieldRow>
+
+                <PasswordInputWrapper>
+
+                  <Input
+
+                    type={showPassword ? 'text' : 'password'}
+
+                    style={{ paddingRight: '2.5rem' }}
+
+                    value={newBusinessAccount.password}
+
+                    onChange={(e) => setNewBusinessAccount({ ...newBusinessAccount, password: e.target.value })}
+
+                    placeholder={lang === 'zh' ? '输入密码' : 'Enter password'}
+
+                  />
+
+                  <ToggleVisibilityButton
+
+                    type="button"
+
+                    onClick={() => setShowPassword((prev) => !prev)}
+
+                    aria-label={showPassword ? (lang === 'zh' ? '隐藏密码' : 'Hide password') : (lang === 'zh' ? '显示密码' : 'Show password')}
+
+                  >
+
+                    {showPassword ? (
+
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+
+                        <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.6 18.6 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+
+                        <line x1="1" y1="1" x2="23" y2="23" />
+
+                      </svg>
+
+                    ) : (
+
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+
+                        <circle cx="12" cy="12" r="3" />
+
+                      </svg>
+
+                    )}
+
+                  </ToggleVisibilityButton>
+
+                </PasswordInputWrapper>
+
+                <GeneratePasswordButton type="button" onClick={handleGeneratePassword}>
+
+                  {lang === 'zh' ? '生成密码' : 'Generate'}
+
+                </GeneratePasswordButton>
+
+              </PasswordFieldRow>
+
+            </Section>
+
+            {createAccountError && <ErrorText>{createAccountError}</ErrorText>}
+
+            <ModalActions>
+
+              <ActionButton onClick={() => setShowCreateAccountModal(false)} disabled={isCreatingAccount}>
+
+                {lang === 'zh' ? '取消' : 'Cancel'}
+
+              </ActionButton>
+
+              <ActionButton $variant="primary" onClick={handleCreateBusinessAccount} disabled={isCreatingAccount}>
+
+                {isCreatingAccount
+
+                  ? (lang === 'zh' ? '创建中...' : 'Creating...')
+
+                  : (lang === 'zh' ? '创建账户' : 'Create Account')}
 
               </ActionButton>
 

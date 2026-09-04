@@ -111,6 +111,28 @@ const QuickActionButton = styled.button<{ $variant?: 'primary' | 'secondary' | '
   }}
 `;
 
+const AddShopButton = styled.button`
+  padding: 0.5rem 1rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+
+  &:hover {
+    background: #2563eb;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  }
+`;
+
 const TabContainer = styled.div`
   background: white;
   border-radius: 16px;
@@ -134,6 +156,21 @@ const CardTitle = styled.h2`
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
   border-bottom: 2px solid #e0e7ef;
+`;
+
+const SectionHeaderRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e0e7ef;
+
+  ${CardTitle} {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
 `;
 
 const BusinessName = styled.h1`
@@ -389,6 +426,64 @@ const OwnerActions = styled.div`
   flex-wrap: wrap;
 `;
 
+const CredentialsBox = styled.div`
+  background: white;
+  border: 1px solid #e0e7ef;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+`;
+
+const CredentialRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+`;
+
+const CredentialInfo = styled.div`
+  min-width: 0;
+`;
+
+const CredentialLabel = styled.div`
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #5c6b7a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.25rem;
+`;
+
+const CredentialValue = styled.div`
+  font-size: 0.9375rem;
+  font-family: monospace;
+  color: #0a3655;
+  overflow-wrap: break-word;
+`;
+
+const CopyButton = styled.button`
+  flex-shrink: 0;
+  padding: 0.4rem 0.75rem;
+  background: #f3f4f6;
+  border: 1px solid #e0e7ef;
+  border-radius: 6px;
+  color: #374151;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #e5e7eb;
+  }
+`;
+
 const EditActions = styled.div`
   display: flex;
   gap: 0.75rem;
@@ -458,6 +553,13 @@ const SaveIcon = () => (
   </svg>
 );
 
+const CopyIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+  </svg>
+);
+
 interface Business {
   _id: string;
   owner_id?: string;
@@ -496,6 +598,7 @@ export default function BusinessDetailPage() {
   const [business, setBusiness] = useState<Business | null>(null);
   const [originalBusiness, setOriginalBusiness] = useState<Business | null>(null);
   const [owner, setOwner] = useState<any>(null);
+  const [ownerCredentials, setOwnerCredentials] = useState<{ email: string; password: string } | null>(null);
   const [shops, setShops] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -504,6 +607,10 @@ export default function BusinessDetailPage() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [newStatus, setNewStatus] = useState('');
+  const [showAddShopModal, setShowAddShopModal] = useState(false);
+  const [newShop, setNewShop] = useState({ name: '', location: '' });
+  const [addShopError, setAddShopError] = useState('');
+  const [isAddingShop, setIsAddingShop] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !token) {
@@ -571,6 +678,27 @@ export default function BusinessDetailPage() {
             }
           }
 
+          // Fetch the owner's login credentials for display (separate endpoint -
+          // every other business/customer response strips password on purpose).
+          try {
+            const credentialsResponse = await axios.post(
+              `/api/businesses/${foundBusiness._id}/owner-credentials`,
+              { token },
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+
+            if (credentialsResponse.data.status_code === 200) {
+              setOwnerCredentials(credentialsResponse.data.data);
+            }
+          } catch (err) {
+            console.error('Failed to fetch owner credentials:', err);
+          }
+
           // Fetch shops linked to this business
           try {
             const shopResponse = await axios.post(
@@ -616,7 +744,21 @@ export default function BusinessDetailPage() {
     if (!business) return;
 
     try {
-      // TODO: Replace with real API call
+      if (business.status !== originalBusiness?.status) {
+        await axios.post(
+          '/api/businesses/update',
+          { token, id: business._id, status: business.status },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+      }
+
+      // TODO: persist the remaining editable fields (name, abn, etc.) - only
+      // status is wired up to a real endpoint so far.
       setOriginalBusiness(business);
       setIsEditMode(false);
       showToast(
@@ -654,6 +796,68 @@ export default function BusinessDetailPage() {
       console.error('Failed to change status:', err);
       showToast(
         lang === 'zh' ? '状态更改失败' : 'Failed to change status',
+        'error'
+      );
+    }
+  };
+
+  const resetAddShopForm = () => {
+    setNewShop({ name: '', location: '' });
+    setAddShopError('');
+  };
+
+  const handleCreateShop = async () => {
+    if (!business) return;
+    const { name, location } = newShop;
+
+    if (!name.trim()) {
+      setAddShopError(lang === 'zh' ? '请输入店铺名称' : 'Please enter a shop name');
+      return;
+    }
+
+    setAddShopError('');
+    setIsAddingShop(true);
+
+    try {
+      const response = await axios.post(
+        '/api/shops/create',
+        { token, business_id: business._id, name: name.trim(), location: location.trim() || undefined },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.status_code === 201 && response.data.shop_id) {
+        setShowAddShopModal(false);
+        resetAddShopForm();
+        showToast(lang === 'zh' ? '店铺创建成功' : 'Shop created successfully', 'success');
+        await fetchBusinessDetails();
+      } else {
+        throw new Error(response.data.message || 'Create failed');
+      }
+    } catch (err: any) {
+      setAddShopError(
+        err?.response?.data?.message ||
+        (lang === 'zh' ? '创建店铺失败，请重试' : 'Failed to create shop, please try again')
+      );
+    } finally {
+      setIsAddingShop(false);
+    }
+  };
+
+  const handleCopyToClipboard = async (value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      showToast(
+        lang === 'zh' ? `${label}已复制` : `${label} copied to clipboard`,
+        'success'
+      );
+    } catch (err) {
+      showToast(
+        lang === 'zh' ? '复制失败' : 'Failed to copy',
         'error'
       );
     }
@@ -787,10 +991,6 @@ export default function BusinessDetailPage() {
                           <InfoValue>{owner.name || 'N/A'}</InfoValue>
                         </InfoItem>
                         <InfoItem>
-                          <InfoLabel>{lang === "zh" ? "邮箱" : "Email"}</InfoLabel>
-                          <InfoValue>{owner.email || 'N/A'}</InfoValue>
-                        </InfoItem>
-                        <InfoItem>
                           <InfoLabel>{lang === "zh" ? "电话" : "Phone"}</InfoLabel>
                           <InfoValue>{owner.phone || 'N/A'}</InfoValue>
                         </InfoItem>
@@ -799,6 +999,30 @@ export default function BusinessDetailPage() {
                           <InfoValue>{owner._id || 'N/A'}</InfoValue>
                         </InfoItem>
                       </InfoGrid>
+
+                      {ownerCredentials && (
+                        <CredentialsBox>
+                          <CredentialRow>
+                            <CredentialInfo>
+                              <CredentialLabel>{lang === "zh" ? "邮箱" : "Email"}</CredentialLabel>
+                              <CredentialValue>{ownerCredentials.email || 'N/A'}</CredentialValue>
+                            </CredentialInfo>
+                            <CopyButton onClick={() => handleCopyToClipboard(ownerCredentials.email, lang === "zh" ? "邮箱" : "Email")}>
+                              <CopyIcon /> {lang === "zh" ? "复制" : "Copy"}
+                            </CopyButton>
+                          </CredentialRow>
+                          <CredentialRow>
+                            <CredentialInfo>
+                              <CredentialLabel>{lang === "zh" ? "密码" : "Password"}</CredentialLabel>
+                              <CredentialValue>{ownerCredentials.password || 'N/A'}</CredentialValue>
+                            </CredentialInfo>
+                            <CopyButton onClick={() => handleCopyToClipboard(ownerCredentials.password, lang === "zh" ? "密码" : "Password")}>
+                              <CopyIcon /> {lang === "zh" ? "复制" : "Copy"}
+                            </CopyButton>
+                          </CredentialRow>
+                        </CredentialsBox>
+                      )}
+
                       <OwnerActions>
                         <QuickActionButton onClick={handleEmailOwner}>
                           <MailIcon />
@@ -883,6 +1107,7 @@ export default function BusinessDetailPage() {
                             <option value="active">Active</option>
                             <option value="setup">Setup</option>
                             <option value="in_setup">In Setup</option>
+                            <option value="test">Test</option>
                             <option value="inactive">Inactive</option>
                             <option value="suspended">Suspended</option>
                           </Select>
@@ -896,9 +1121,14 @@ export default function BusinessDetailPage() {
                   </InfoGrid>
 
                   {/* Shops Section */}
-                  <CardTitle style={{ marginTop: '2rem' }}>
-                    {lang === "zh" ? `店铺 (${shops.length})` : `Shops (${shops.length})`}
-                  </CardTitle>
+                  <SectionHeaderRow style={{ marginTop: '2rem' }}>
+                    <CardTitle>
+                      {lang === "zh" ? `店铺 (${shops.length})` : `Shops (${shops.length})`}
+                    </CardTitle>
+                    <AddShopButton onClick={() => { resetAddShopForm(); setShowAddShopModal(true); }}>
+                      + {lang === "zh" ? "添加店铺" : "Add Shop"}
+                    </AddShopButton>
+                  </SectionHeaderRow>
                   {shops.length > 0 ? (
                     <PermissionList>
                       {shops.map((shop) => (
@@ -963,6 +1193,52 @@ export default function BusinessDetailPage() {
             </ModalButton>
             <ModalButton $primary onClick={handleConfirmStatusChange}>
               {lang === "zh" ? "确认" : "Confirm"}
+            </ModalButton>
+          </ModalActions>
+        </ModalContent>
+      </Modal>
+
+      {/* Add Shop Modal */}
+      <Modal $show={showAddShopModal} onClick={() => setShowAddShopModal(false)}>
+        <ModalContent onClick={(e) => e.stopPropagation()}>
+          <ModalTitle>{lang === "zh" ? "添加店铺" : "Add Shop"}</ModalTitle>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#5c6b7a', marginBottom: '0.5rem' }}>
+              {lang === "zh" ? "店铺名称" : "Shop Name"} *
+            </label>
+            <Input
+              type="text"
+              value={newShop.name}
+              onChange={(e) => setNewShop({ ...newShop, name: e.target.value })}
+              placeholder={lang === "zh" ? "输入店铺名称" : "Enter shop name"}
+            />
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#5c6b7a', marginBottom: '0.5rem' }}>
+              {lang === "zh" ? "地址" : "Location"}
+            </label>
+            <Input
+              type="text"
+              value={newShop.location}
+              onChange={(e) => setNewShop({ ...newShop, location: e.target.value })}
+              placeholder={lang === "zh" ? "输入店铺地址（可选）" : "Enter shop address (optional)"}
+            />
+          </div>
+
+          {addShopError && (
+            <p style={{ color: '#dc2626', fontSize: '0.8125rem', marginBottom: '1rem' }}>{addShopError}</p>
+          )}
+
+          <ModalActions>
+            <ModalButton onClick={() => setShowAddShopModal(false)} disabled={isAddingShop}>
+              {lang === "zh" ? "取消" : "Cancel"}
+            </ModalButton>
+            <ModalButton $primary onClick={handleCreateShop} disabled={isAddingShop}>
+              {isAddingShop
+                ? (lang === "zh" ? "创建中..." : "Creating...")
+                : (lang === "zh" ? "创建店铺" : "Create Shop")}
             </ModalButton>
           </ModalActions>
         </ModalContent>
