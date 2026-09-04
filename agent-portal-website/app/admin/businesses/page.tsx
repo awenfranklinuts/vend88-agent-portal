@@ -1447,7 +1447,7 @@ const StatsContainer = styled.div`
 
 
 
-const StatCard = styled.div`
+const StatCard = styled.div<{ $active?: boolean; $clickable?: boolean }>`
 
   background: white;
 
@@ -1456,6 +1456,21 @@ const StatCard = styled.div`
   padding: 1.25rem;
 
   box-shadow: 0 4px 16px rgba(30, 64, 175, 0.08);
+
+  ${p => p.$clickable && `
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(30, 64, 175, 0.15);
+    }
+  `}
+
+  ${p => p.$active && `
+    outline: 2px solid #3b82f6;
+    outline-offset: -2px;
+  `}
 
 `;
 
@@ -2419,7 +2434,7 @@ export default function BusinessManagementPage() {
 
     if (filterStatus !== 'all') {
 
-      filtered = filtered.filter(b => b.status === filterStatus);
+      filtered = filtered.filter(b => getNormalizedStatus(b) === filterStatus);
 
     }
 
@@ -2909,6 +2924,17 @@ export default function BusinessManagementPage() {
     return 'test';
   };
 
+  // The single source of truth for "what status is this business" - matches
+  // what's actually shown on its card/badge (shop-derived status first, else
+  // its own manually-set status), normalized into the same bucket used by
+  // both the stat cards and the status filter/dropdown so they never disagree
+  // with what's on screen.
+  const getNormalizedStatus = (business: Business): string => {
+    const raw = deriveBusinessStatus(business._id) || business.status || '';
+    const normalized = raw.toLowerCase().replace(/_/g, ' ').replace(/ /g, '');
+    return normalized === 'insetup' ? 'setup' : normalized;
+  };
+
 
 
   const formatShopLocation = (location: any) => {
@@ -2965,14 +2991,11 @@ export default function BusinessManagementPage() {
 
     total: allBusinesses.length,
 
-    active: allBusinesses.filter(b => b.status?.toLowerCase() === 'active').length,
+    active: allBusinesses.filter(b => getNormalizedStatus(b) === 'active').length,
 
-    setup: allBusinesses.filter(b => {
-      const status = b.status?.toLowerCase().replace(/_/g, ' ').replace(/ /g, '');
-      return status === 'setup' || status === 'insetup';
-    }).length,
+    setup: allBusinesses.filter(b => getNormalizedStatus(b) === 'setup').length,
 
-    inactive: allBusinesses.filter(b => b.status?.toLowerCase() === 'inactive').length,
+    inactive: allBusinesses.filter(b => getNormalizedStatus(b) === 'inactive').length,
 
   };
 
@@ -3152,7 +3175,7 @@ export default function BusinessManagementPage() {
 
           <StatsContainer>
 
-            <StatCard>
+            <StatCard $clickable $active={filterStatus === 'all'} onClick={() => setFilterStatus('all')}>
 
               <StatLabel>{lang === "zh" ? "总业务数" : "Total Businesses"}</StatLabel>
 
@@ -3160,7 +3183,7 @@ export default function BusinessManagementPage() {
 
             </StatCard>
 
-            <StatCard>
+            <StatCard $clickable $active={filterStatus === 'active'} onClick={() => setFilterStatus(filterStatus === 'active' ? 'all' : 'active')}>
 
               <StatLabel>{lang === "zh" ? "活跃" : "Active"}</StatLabel>
 
@@ -3168,7 +3191,7 @@ export default function BusinessManagementPage() {
 
             </StatCard>
 
-            <StatCard>
+            <StatCard $clickable $active={filterStatus === 'setup'} onClick={() => setFilterStatus(filterStatus === 'setup' ? 'all' : 'setup')}>
 
               <StatLabel>{lang === "zh" ? "设置中" : "In Setup"}</StatLabel>
 
@@ -3176,7 +3199,7 @@ export default function BusinessManagementPage() {
 
             </StatCard>
 
-            <StatCard>
+            <StatCard $clickable $active={filterStatus === 'inactive'} onClick={() => setFilterStatus(filterStatus === 'inactive' ? 'all' : 'inactive')}>
 
               <StatLabel>{lang === "zh" ? "非活跃" : "Inactive"}</StatLabel>
 

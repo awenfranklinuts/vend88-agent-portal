@@ -889,22 +889,6 @@ export default function BusinessDetailPage() {
       .toUpperCase();
   };
 
-  // Business status is derived from its shops rather than stored directly, once
-  // any of them has an explicit status set: any shop active wins outright;
-  // otherwise the most severe remaining condition (suspended, then inactive)
-  // wins; only if every status-bearing shop is 'test' does the business read
-  // as 'test'. Shops that have never had a status set are ignored (not
-  // treated as 'active') - if none of the shops have a status yet, this falls
-  // back to the manually-set business.status (e.g. during onboarding/"Setup").
-  const deriveBusinessStatus = (businessShops: any[]): string | null => {
-    const statuses = (businessShops || []).map((s) => s.status).filter(Boolean);
-    if (statuses.length === 0) return null;
-    if (statuses.includes('active')) return 'active';
-    if (statuses.includes('suspended')) return 'suspended';
-    if (statuses.includes('inactive')) return 'inactive';
-    return 'test';
-  };
-
   const formatShopLocation = (location: any) => {
     if (typeof location === 'string' && location.trim()) return location;
     return null;
@@ -1088,35 +1072,23 @@ export default function BusinessDetailPage() {
                     </InfoItem>
                     <InfoItem>
                       <InfoLabel>{lang === "zh" ? "状态" : "Status"}</InfoLabel>
-                      {(() => {
-                        const derivedStatus = deriveBusinessStatus(shops);
-                        if (derivedStatus) {
-                          // 1+ shops: status is derived from them, not manually editable.
-                          return (
-                            <StatusBadge $status={derivedStatus}>
-                              {formatStatus(derivedStatus)}
-                            </StatusBadge>
-                          );
-                        }
-                        // No shops yet: fall back to the manually-set status (e.g. "Setup").
-                        return isEditMode ? (
-                          <Select
-                            value={business.status || ''}
-                            onChange={(e) => handleBusinessChange('status', e.target.value)}
-                          >
-                            <option value="active">Active</option>
-                            <option value="setup">Setup</option>
-                            <option value="in_setup">In Setup</option>
-                            <option value="test">Test</option>
-                            <option value="inactive">Inactive</option>
-                            <option value="suspended">Suspended</option>
-                          </Select>
-                        ) : (
-                          <StatusBadge $status={business.status || 'N/A'}>
-                            {formatStatus(business.status || 'inactive')}
-                          </StatusBadge>
-                        );
-                      })()}
+                      {isEditMode ? (
+                        <Select
+                          value={business.status || ''}
+                          onChange={(e) => handleBusinessChange('status', e.target.value)}
+                        >
+                          <option value="active">Active</option>
+                          <option value="setup">Setup</option>
+                          <option value="in_setup">In Setup</option>
+                          <option value="test">Test</option>
+                          <option value="inactive">Inactive</option>
+                          <option value="suspended">Suspended</option>
+                        </Select>
+                      ) : (
+                        <StatusBadge $status={business.status || 'N/A'}>
+                          {formatStatus(business.status || 'inactive')}
+                        </StatusBadge>
+                      )}
                     </InfoItem>
                   </InfoGrid>
 
