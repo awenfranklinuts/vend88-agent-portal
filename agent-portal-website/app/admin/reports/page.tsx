@@ -7,6 +7,8 @@ import { useAuth, isAdminRole } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../components/layout/AdminSidebar";
+import RevenueSummaryCard from "@/components/ui/RevenueSummaryCard";
+import TransactionsSummaryCard from "@/components/ui/TransactionsSummaryCard";
 
 const Container = styled.div`
   min-height: 100vh;
@@ -98,7 +100,9 @@ export default function ReportsPage() {
                 : "View detailed reports, analytics, and insights across all customers and businesses."}
             </PageDescription>
           </ContentHeader>
-          {/* Add your reports content here */}
+
+          <RevenueSummaryCard />
+          <TransactionsSummaryCard />
         </MainContent>
       </Container>
     </MainLayout>
