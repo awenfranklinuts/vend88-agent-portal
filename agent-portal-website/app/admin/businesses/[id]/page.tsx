@@ -931,6 +931,12 @@ export default function BusinessDetailPage() {
     setAddShopError('');
   };
 
+  // A freshly provisioned business is unusable until it has a shop, so the first
+  // visit blocks on creating one. Scoped to status 'setup' (what provisioning
+  // sets) so older shop-less businesses aren't retroactively blocked.
+  const mustCreateFirstShop =
+    !isLoading && !error && !!business && business.status === 'setup' && shops.length === 0;
+
   const handleCreateShop = async () => {
     if (!business) return;
     const { name, location } = newShop;
@@ -1462,6 +1468,60 @@ export default function BusinessDetailPage() {
             </ModalButton>
             <ModalButton $primary onClick={handleConfirmStatusChange}>
               {lang === "zh" ? "确认" : "Confirm"}
+            </ModalButton>
+          </ModalActions>
+        </ModalContent>
+      </Modal>
+
+      {/* First-shop gate: no dismiss, no backdrop close - the only ways out are
+          creating the shop or leaving the page entirely. */}
+      <Modal $show={mustCreateFirstShop}>
+        <ModalContent onClick={(e) => e.stopPropagation()}>
+          <ModalTitle>
+            {lang === "zh" ? "添加第一个店铺" : "Add the First Shop"}
+          </ModalTitle>
+          <p style={{ fontSize: '0.875rem', color: '#5c6b7a', marginBottom: '1.25rem', lineHeight: 1.6 }}>
+            {lang === "zh"
+              ? `"${business?.name}" 还没有店铺。请先创建第一个店铺，之后才能使用此业务。`
+              : `"${business?.name}" has no shop yet. Create its first shop before this business can be used.`}
+          </p>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#5c6b7a', marginBottom: '0.5rem' }}>
+              {lang === "zh" ? "店铺名称" : "Shop Name"} *
+            </label>
+            <Input
+              type="text"
+              value={newShop.name}
+              onChange={(e) => setNewShop({ ...newShop, name: e.target.value })}
+              placeholder={lang === "zh" ? "输入店铺名称" : "Enter shop name"}
+            />
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#5c6b7a', marginBottom: '0.5rem' }}>
+              {lang === "zh" ? "地址" : "Location"}
+            </label>
+            <Input
+              type="text"
+              value={newShop.location}
+              onChange={(e) => setNewShop({ ...newShop, location: e.target.value })}
+              placeholder={lang === "zh" ? "输入店铺地址（可选）" : "Enter shop address (optional)"}
+            />
+          </div>
+
+          {addShopError && (
+            <p style={{ color: '#dc2626', fontSize: '0.8125rem', marginBottom: '1rem' }}>{addShopError}</p>
+          )}
+
+          <ModalActions>
+            <ModalButton onClick={() => router.push('/admin/businesses')} disabled={isAddingShop}>
+              {lang === "zh" ? "返回业务列表" : "Back to Businesses"}
+            </ModalButton>
+            <ModalButton $primary onClick={handleCreateShop} disabled={isAddingShop}>
+              {isAddingShop
+                ? (lang === "zh" ? "创建中..." : "Creating...")
+                : (lang === "zh" ? "创建店铺" : "Create Shop")}
             </ModalButton>
           </ModalActions>
         </ModalContent>

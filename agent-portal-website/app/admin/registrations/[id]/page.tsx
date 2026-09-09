@@ -18,6 +18,8 @@ interface Registration {
   status: "pending" | "submitted" | "approved" | "rejected" | "expired" | "cancelled";
   linked_customer_id?: string;
   linkedCustomerId?: string;
+  linked_business_id?: string;
+  linkedBusinessId?: string;
   generatedBy?: string;
   generated_at?: string;
   generatedAt?: string;
@@ -171,6 +173,79 @@ const Subtitle = styled.p`
   color: #5c6b7a;
   font-size: 0.9375rem;
 `;
+
+const LinkedRecordsBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1.25rem;
+  padding: 0.85rem 1rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+`;
+
+const LinkedRecordsLabel = styled.span`
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #15803d;
+`;
+
+const LinkedRecordButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  background: white;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  color: #15803d;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #dcfce7;
+  }
+`;
+
+const RefreshIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+    <path d="M23 4v6h-6M1 20v-6h6"/>
+    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+  </svg>
+);
+
+const EyeIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+    <circle cx="12" cy="12" r="3"/>
+  </svg>
+);
+
+const EyeOffIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+    <line x1="1" y1="1" x2="23" y2="23"/>
+  </svg>
+);
+
+const BriefcaseIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+  </svg>
+);
+
+const UsersIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+    <circle cx="9" cy="7" r="4"/>
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+  </svg>
+);
 
 const StatusBadge = styled.span<{ $status: Registration["status"] }>`
   display: inline-flex;
@@ -788,6 +863,7 @@ const normalizeRegistration = (r: any): Registration => {
     id: r.id || r._id || r.form_id,
     status: r.status || "pending",
     linkedCustomerId: r.linkedCustomerId || r.linked_customer_id,
+    linkedBusinessId: r.linkedBusinessId || r.linked_business_id,
     generatedBy: r.generatedBy || r.generated_by,
     generatedAt: r.generatedAt || r.generated_at,
     submittedAt: r.submittedAt || r.submitted_at,
@@ -843,6 +919,15 @@ export default function RegistrationDetailsPage() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountPassword, setAccountPassword] = useState("");
+  const [showAccountPassword, setShowAccountPassword] = useState(false);
+  const [approvalResult, setApprovalResult] = useState<{
+    customerId?: string;
+    customerEmail?: string;
+    businessId?: string;
+    businessName?: string;
+  } | null>(null);
   const [customerBusinesses, setCustomerBusinesses] = useState<any[]>([]);
   const [approvalMode, setApprovalMode] = useState<'new_customer' | 'existing_customer'>('new_customer');
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
@@ -1013,6 +1098,11 @@ export default function RegistrationDetailsPage() {
       setCustomerBusinesses([]);
     }
     setCustomerSearchQuery("");
+    // Default the login to businessname@vend88.com; still editable, and the
+    // backend normalizes the domain regardless of what's typed.
+    setAccountEmail(registration ? businessEmailFromName(getBusinessName(registration)) : "");
+    setAccountPassword("");
+    setShowAccountPassword(false);
     setShowApprovalModal(true);
   };
 
@@ -1037,151 +1127,65 @@ export default function RegistrationDetailsPage() {
     );
   }, [customers, customerSearchQuery]);
 
+  // The login is derived from the business name, not the contact email:
+  // "Pospal Australia Pty Ltd" -> pospalaustraliaptyltd@vend88.com
+  const businessEmailFromName = (name: string) => {
+    const localPart = String(name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    return localPart ? `${localPart}@vend88.com` : "";
+  };
+
+  const generatePassword = () => {
+    setAccountPassword(`Vend${Math.floor(1000 + Math.random() * 9000)}`);
+    setShowAccountPassword(true);
+  };
+
+  const newCustomerCredentialsValid =
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail.trim()) && accountPassword.length >= 6;
+
   const actuallyApprove = async () => {
     if (!registration || !token) return;
 
     setIsActing(true);
-    let linkedCustomerId: string | null = null;
-
     try {
-      const linkEndpoint = getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_LINK.replace(":id", registration.id));
-
-      // Step 1: Link or create customer
-      if (approvalMode === 'existing_customer' && selectedCustomerId) {
-        console.log("[DEBUG] Approve - Linking to existing customer");
-        linkedCustomerId = selectedCustomerId;
-
-        const linkResponse = await fetch(linkEndpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            token,
-            customer_id: selectedCustomerId,
-          }),
-        });
-
-        console.log("[DEBUG] Link Response Status:", linkResponse.status);
-
-        if (!linkResponse.ok) {
-          const errorData = await linkResponse.text();
-          console.error("[DEBUG] Link Error:", errorData);
-          throw new Error("Failed to link customer");
-        }
-
-        const linkResponseData = await linkResponse.json();
-        console.log("[DEBUG] Link Response Body:", linkResponseData);
-      } else {
-        // Create new customer
-        console.log("[DEBUG] Approve - Creating new customer");
-
-        const linkResponse = await fetch(linkEndpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            token,
-            create_new: true,
-            customer_data: {
-              name: registration ? getContactName(registration) : '',
-              email: registration ? getContactEmail(registration) : '',
-              phone: registration ? getContactPhone(registration) : '',
-            },
-          }),
-        });
-
-        console.log("[DEBUG] New Customer Response Status:", linkResponse.status);
-
-        if (!linkResponse.ok) {
-          const errorData = await linkResponse.text();
-          console.error("[DEBUG] New Customer Error:", errorData);
-          throw new Error("Failed to create customer");
-        }
-
-        const linkResponseData = await linkResponse.json();
-        linkedCustomerId = linkResponseData.customer?._id;
-        console.log("[DEBUG] New Customer Response Body:", linkResponseData);
-      }
-
-      // Step 2: Create business/store for the customer
-      if (linkedCustomerId) {
-        console.log("[DEBUG] Creating business for customer:", linkedCustomerId);
-
-        const businessEndpoint = getApiUrl("/businesses/create");
-        const businessResponse = await fetch(businessEndpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            token,
-            customer_id: linkedCustomerId,
-            name: getBusinessName(registration),
-            address: registration?.registeredAddress || "",
-            suburb: registration?.registeredSuburb || "",
-            state: registration?.registeredState || "",
-            postcode: registration?.registeredPostcode || "",
-            abn: registration?.abn || "",
-            owner_name: getContactName(registration),
-            owner_email: getContactEmail(registration),
-            contact_email: getContactEmail(registration),
-            contact_phone: getContactPhone(registration),
-            registration_id: registration?.id,
-          }),
-        });
-
-        console.log("[DEBUG] Business Response Status:", businessResponse.status);
-
-        if (!businessResponse.ok) {
-          const errorData = await businessResponse.text();
-          console.error("[DEBUG] Business Error:", errorData);
-          throw new Error("Failed to create business");
-        }
-
-        const businessResponseData = await businessResponse.json();
-        console.log("[DEBUG] Business Response Body:", businessResponseData);
-      }
-
-      // Step 3: Approve the registration
+      // The backend provisions the customer and business and flips the status in
+      // one call. It used to be orchestrated here as three separate requests,
+      // which could leave a customer created but no business (or neither) when
+      // one leg failed halfway.
       const approveEndpoint = getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_APPROVE.replace(":id", registration.id));
-      
-      console.log("[DEBUG] Approve Endpoint:", approveEndpoint);
-      
-      const approveResponse = await fetch(approveEndpoint, {
+      const response = await fetch(approveEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           token,
           approval_notes: "",
           approval_action: approvalMode === 'existing_customer' ? 'add_store' : 'new_customer_and_store',
+          customer_id: approvalMode === 'existing_customer' ? selectedCustomerId : undefined,
+          account_email: approvalMode === 'new_customer' ? accountEmail.trim() : undefined,
+          account_password: approvalMode === 'new_customer' ? accountPassword : undefined,
         }),
       });
 
-      console.log("[DEBUG] Approve Response Status:", approveResponse.status);
+      const responseData = await response.json().catch(() => ({}));
 
-      if (!approveResponse.ok) {
-        const errorData = await approveResponse.text();
-        console.error("[DEBUG] Approve Error:", errorData);
-        throw new Error("Failed to approve");
+      if (!response.ok) {
+        throw new Error(responseData?.message || "Failed to approve");
       }
 
-      const approveResponseData = await approveResponse.json();
-      console.log("[DEBUG] Approve Response Body:", approveResponseData);
-
-      showToast(lang === "zh" ? "批准成功" : "Approved successfully", "success");
       setShowApprovalModal(false);
+      setApprovalResult({
+        customerId: responseData?.customer_id,
+        customerEmail: responseData?.customer_email,
+        businessId: responseData?.business?._id,
+        businessName: responseData?.business?.name,
+      });
+      setAccountPassword("");
       await fetchDetails();
     } catch (err: any) {
-      console.error("[DEBUG] Approve Error:", err);
-      showToast(lang === "zh" ? "批准失败" : "Failed to approve", "error");
+      console.error("[Approve] Failed:", err);
+      showToast(err?.message || (lang === "zh" ? "批准失败" : "Failed to approve"), "error");
     } finally {
       setIsActing(false);
     }
@@ -1598,6 +1602,31 @@ export default function RegistrationDetailsPage() {
                     </ToggleGroup>
                   </div>
                 </HeaderRow>
+
+                {registration.status === "approved" &&
+                  (registration.linkedBusinessId || registration.linkedCustomerId) && (
+                  <LinkedRecordsBar>
+                    <LinkedRecordsLabel>
+                      {lang === "zh" ? "此注册已创建：" : "Created from this registration:"}
+                    </LinkedRecordsLabel>
+                    {registration.linkedBusinessId && (
+                      <LinkedRecordButton
+                        onClick={() => router.push(`/admin/businesses/${registration.linkedBusinessId}`)}
+                      >
+                        <BriefcaseIcon />
+                        {lang === "zh" ? "前往业务" : "Go to Business"}
+                      </LinkedRecordButton>
+                    )}
+                    {registration.linkedCustomerId && (
+                      <LinkedRecordButton
+                        onClick={() => router.push(`/admin/customers/${registration.linkedCustomerId}`)}
+                      >
+                        <UsersIcon />
+                        {lang === "zh" ? "前往客户" : "Go to Customer"}
+                      </LinkedRecordButton>
+                    )}
+                  </LinkedRecordsBar>
+                )}
 
                 <Divider />
 
@@ -2051,6 +2080,56 @@ export default function RegistrationDetailsPage() {
         </Modal>
       )}
 
+      {approvalResult && (
+        <Modal $show onClick={() => setApprovalResult(null)}>
+          <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+            <ModalTitle style={{ color: '#15803d' }}>
+              {lang === 'zh' ? '批准成功' : 'Registration Approved'}
+            </ModalTitle>
+            <ModalText>
+              {lang === 'zh'
+                ? '已根据此注册创建以下记录。'
+                : 'The following records were created from this registration.'}
+            </ModalText>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', margin: '1.25rem 0' }}>
+              {approvalResult.businessName && (
+                <div style={{ padding: '0.85rem 1rem', background: '#f7faff', border: '1px solid #e0e7ef', borderRadius: '10px' }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#5c6b7a', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.25rem' }}>
+                    {lang === 'zh' ? '业务' : 'Business'}
+                  </div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#0a3655' }}>{approvalResult.businessName}</div>
+                </div>
+              )}
+              {approvalResult.customerEmail && (
+                <div style={{ padding: '0.85rem 1rem', background: '#f7faff', border: '1px solid #e0e7ef', borderRadius: '10px' }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#5c6b7a', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.25rem' }}>
+                    {lang === 'zh' ? '客户登录邮箱' : 'Customer Login Email'}
+                  </div>
+                  <div style={{ fontSize: '0.95rem', fontFamily: 'monospace', color: '#0a3655' }}>{approvalResult.customerEmail}</div>
+                </div>
+              )}
+            </div>
+
+            <ModalActions>
+              <ModalButton onClick={() => setApprovalResult(null)}>
+                {lang === 'zh' ? '关闭' : 'Close'}
+              </ModalButton>
+              {approvalResult.customerId && (
+                <ModalButton onClick={() => router.push(`/admin/customers/${approvalResult.customerId}`)}>
+                  {lang === 'zh' ? '前往客户' : 'Go to Customer'}
+                </ModalButton>
+              )}
+              {approvalResult.businessId && (
+                <ModalButton $primary onClick={() => router.push(`/admin/businesses/${approvalResult.businessId}`)}>
+                  {lang === 'zh' ? '前往业务' : 'Go to Business'}
+                </ModalButton>
+              )}
+            </ModalActions>
+          </ModalContent>
+        </Modal>
+      )}
+
       {showApprovalModal && (
         <Modal $show={showApprovalModal} onClick={() => setShowApprovalModal(false)}>
           <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '1000px', padding: '2rem' }}>
@@ -2064,7 +2143,7 @@ export default function RegistrationDetailsPage() {
                 {lang === 'zh' ? '选择操作' : 'Choose Action'}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                {/* Option A: New Customer + Store */}
+                {/* Option A: New Customer + Business */}
                 <div
                   onClick={() => handleApprovalModeChange('new_customer')}
                   style={{
@@ -2089,17 +2168,17 @@ export default function RegistrationDetailsPage() {
                       )}
                     </div>
                     <div style={{ fontWeight: 700, color: '#0a3655', fontSize: '0.95rem' }}>
-                      {lang === 'zh' ? '创建新客户与门店' : 'Create New Customer & Store'}
+                      {lang === 'zh' ? '创建新客户与业务' : 'Create New Customer & Business'}
                     </div>
                   </div>
                   <div style={{ fontSize: '0.8rem', color: '#64748b', lineHeight: 1.5, paddingLeft: '2.75rem' }}>
                     {lang === 'zh'
-                      ? '基于此注册信息创建一个全新的客户记录和门店'
-                      : 'Create a brand new customer record and store from this registration'}
+                      ? '基于此注册信息创建一个全新的客户记录和业务'
+                      : 'Create a brand new customer record and business from this registration'}
                   </div>
                 </div>
 
-                {/* Option B: Add Store to Existing Customer */}
+                {/* Option B: Add Business to Existing Customer */}
                 <div
                   onClick={() => handleApprovalModeChange('existing_customer')}
                   style={{
@@ -2124,13 +2203,13 @@ export default function RegistrationDetailsPage() {
                       )}
                     </div>
                     <div style={{ fontWeight: 700, color: '#0a3655', fontSize: '0.95rem' }}>
-                      {lang === 'zh' ? '添加门店到已有客户' : 'Add Store to Existing Customer'}
+                      {lang === 'zh' ? '添加业务到已有客户' : 'Add Business to Existing Customer'}
                     </div>
                   </div>
                   <div style={{ fontSize: '0.8rem', color: '#64748b', lineHeight: 1.5, paddingLeft: '2.75rem' }}>
                     {lang === 'zh'
-                      ? '将此注册的门店添加到系统中已有的客户账户下'
-                      : 'Add this registration\'s store to an existing customer in the system'}
+                      ? '将此注册的业务添加到系统中已有的客户账户下'
+                      : 'Add this registration\'s business to an existing customer in the system'}
                   </div>
                 </div>
               </div>
@@ -2169,7 +2248,7 @@ export default function RegistrationDetailsPage() {
                     </div>
                   </div>
                   <div style={{ paddingTop: '1rem', borderTop: '1px solid #cbd5e1', fontSize: '0.85rem', color: '#b45309' }}>
-                    {lang === 'zh' ? '新客户和门店将在批准时自动创建' : 'A new customer and store will be created upon approval'}
+                    {lang === 'zh' ? '新客户和业务将在批准时自动创建' : 'A new customer and business will be created upon approval'}
                   </div>
                 </div>
               ) : (
@@ -2244,7 +2323,7 @@ export default function RegistrationDetailsPage() {
                     )}
                   </div>
 
-                  {/* Selected customer detail with existing stores */}
+                  {/* Selected customer detail with existing businesses */}
                   {selectedCustomer && (
                     <div style={{
                       padding: '1.25rem',
@@ -2266,11 +2345,11 @@ export default function RegistrationDetailsPage() {
                         </div>
                       </div>
 
-                      {/* Existing stores */}
+                      {/* Existing businesses */}
                       {customerBusinesses.length > 0 && (
                         <div style={{ paddingTop: '1rem', borderTop: '1px solid #cbd5e1' }}>
                           <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '0.75rem' }}>
-                            {lang === 'zh' ? '现有门店' : 'Existing Stores'} ({customerBusinesses.length})
+                            {lang === 'zh' ? '现有业务' : 'Existing Businesses'} ({customerBusinesses.length})
                           </div>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
                             {customerBusinesses.map((business, idx) => (
@@ -2290,8 +2369,8 @@ export default function RegistrationDetailsPage() {
                         <span style={{ fontSize: '0.95rem' }}>+</span>
                         <span>
                           {lang === 'zh'
-                            ? `一个新门店将被添加到 "${selectedCustomer.name}" 的账户下`
-                            : `A new store will be added to "${selectedCustomer.name}"`}
+                            ? `一个新业务将被添加到 "${selectedCustomer.name}" 的账户下`
+                            : `A new business will be added to "${selectedCustomer.name}"`}
                         </span>
                       </div>
                     </div>
@@ -2300,10 +2379,10 @@ export default function RegistrationDetailsPage() {
               )}
             </div>
 
-            {/* ─── Step 3: New Store/Business Information ─── */}
+            {/* ─── Step 3: New Business Information ─── */}
             <div style={{ marginBottom: '2rem' }}>
               <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0a3655', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                {lang === 'zh' ? '新门店信息' : 'New Store Information'}
+                {lang === 'zh' ? '新业务信息' : 'New Business Information'}
               </div>
               
               <div style={{
@@ -2337,7 +2416,7 @@ export default function RegistrationDetailsPage() {
                   <span style={{ fontSize: '0.95rem' }}>✓</span>
                   <span>
                     {approvalMode === 'existing_customer' && selectedCustomer
-                      ? (lang === 'zh' ? `此门店将作为新门店添加到 "${selectedCustomer.name}" 的账户下` : `This store will be added as a new store under "${selectedCustomer.name}"`)
+                      ? (lang === 'zh' ? `此业务将作为新业务添加到 "${selectedCustomer.name}" 的账户下` : `This business will be added as a new business under "${selectedCustomer.name}"`)
                       : (lang === 'zh' ? '将与新客户一起创建' : 'Will be created along with the new customer')
                     }
                   </span>
@@ -2345,7 +2424,91 @@ export default function RegistrationDetailsPage() {
               </div>
             </div>
 
+            {/* ─── Login credentials (new customer only) ─── */}
+            {approvalMode === 'new_customer' && (
+              <div style={{ marginBottom: '2rem' }}>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0a3655', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  {lang === 'zh' ? '登录信息' : 'Login Credentials'}
+                </div>
+                <div style={{ fontSize: '0.85rem', color: '#5c6b7a', marginBottom: '1rem' }}>
+                  {lang === 'zh'
+                    ? '设置该客户用于登录 POS 的邮箱和密码。'
+                    : "Set the email and password this customer will use to sign in to the POS."}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#5c6b7a', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>
+                      {lang === 'zh' ? '登录邮箱' : 'Login Email'} *
+                    </label>
+                    <input
+                      type="email"
+                      value={accountEmail}
+                      autoComplete="off"
+                      onChange={e => setAccountEmail(e.target.value)}
+                      placeholder="name@example.com"
+                      style={{ width: '100%', padding: '0.6rem 0.75rem', border: '2px solid #e0e7ef', borderRadius: '8px', fontSize: '0.9rem', color: '#0a3655', boxSizing: 'border-box' }}
+                    />
+                    {accountEmail.trim() && (
+                      <div style={{ fontSize: '0.75rem', color: '#92400e', marginTop: '0.35rem' }}>
+                        {lang === 'zh' ? '实际登录邮箱：' : 'Will sign in as: '}
+                        <strong style={{ fontFamily: 'monospace' }}>
+                          {accountEmail.trim().toLowerCase().replace(/@.*$/, '')}@vend88.com
+                        </strong>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#5c6b7a', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>
+                      {lang === 'zh' ? '密码' : 'Password'} *
+                    </label>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: '0.35rem',
+                      border: '2px solid #e0e7ef', borderRadius: '8px',
+                      padding: '0 0.35rem 0 0', background: 'white',
+                    }}>
+                      <input
+                        type={showAccountPassword ? 'text' : 'password'}
+                        value={accountPassword}
+                        autoComplete="new-password"
+                        onChange={e => setAccountPassword(e.target.value)}
+                        placeholder={lang === 'zh' ? '至少 6 个字符' : 'At least 6 characters'}
+                        style={{ flex: 1, minWidth: 0, padding: '0.6rem 0.75rem', border: 'none', outline: 'none', background: 'transparent', fontSize: '0.9rem', fontFamily: 'monospace', color: '#0a3655' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={generatePassword}
+                        style={{ flexShrink: 0, padding: '0.3rem 0.6rem', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', color: '#1d4ed8', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                      >
+                        <RefreshIcon />
+                        {lang === 'zh' ? '生成' : 'Generate'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowAccountPassword(!showAccountPassword)}
+                        aria-label={showAccountPassword ? (lang === 'zh' ? '隐藏密码' : 'Hide password') : (lang === 'zh' ? '显示密码' : 'Show password')}
+                        style={{ flexShrink: 0, padding: '0.35rem 0.4rem', background: 'transparent', border: 'none', color: '#5c6b7a', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
+                      >
+                        {showAccountPassword ? <EyeOffIcon /> : <EyeIcon />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* ─── Validation Warning ─── */}
+            {approvalMode === 'new_customer' && !newCustomerCredentialsValid && (
+              <div style={{
+                padding: '1rem 1.25rem', background: '#fef3c7', border: '1px solid #fde68a',
+                borderRadius: '8px', marginBottom: '1.5rem', fontSize: '0.85rem', color: '#92400e',
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+              }}>
+                <span style={{ fontSize: '1.1rem' }}>⚠</span>
+                {lang === 'zh'
+                  ? '请填写有效的登录邮箱和至少 6 位的密码'
+                  : 'Enter a valid login email and a password of at least 6 characters'}
+              </div>
+            )}
             {approvalMode === 'existing_customer' && !selectedCustomerId && (
               <div style={{
                 padding: '1rem 1.25rem',
@@ -2374,13 +2537,17 @@ export default function RegistrationDetailsPage() {
               <ModalButton 
                 $primary 
                 onClick={actuallyApprove} 
-                disabled={isActing || (approvalMode === 'existing_customer' && !selectedCustomerId)}
+                disabled={
+                  isActing ||
+                  (approvalMode === 'existing_customer' && !selectedCustomerId) ||
+                  (approvalMode === 'new_customer' && !newCustomerCredentialsValid)
+                }
               >
                 {isActing
                   ? (lang === 'zh' ? '处理中...' : 'Processing...')
                   : approvalMode === 'new_customer'
-                    ? (lang === 'zh' ? '确认 — 创建新客户与门店' : 'Confirm — Create New Customer & Store')
-                    : (lang === 'zh' ? '确认 — 添加门店到已有客户' : 'Confirm — Add Store to Existing Customer')
+                    ? (lang === 'zh' ? '确认 — 创建新客户与业务' : 'Confirm — Create New Customer & Business')
+                    : (lang === 'zh' ? '确认 — 添加业务到已有客户' : 'Confirm — Add Business to Existing Customer')
                 }
               </ModalButton>
             </ModalActions>

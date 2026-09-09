@@ -9,7 +9,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../components/layout/AdminSidebar";
-import { getApiUrl, getRegistrationApiUrl, API_CONFIG } from "@/config/api";
+import { getApiUrl, API_CONFIG } from "@/config/api";
 import * as MockAPI from "@/lib/mockRegistrationApi";
 import { FormFieldSelector, type FormField } from "@/components/FormFieldSelector";
 
@@ -1841,9 +1841,10 @@ export default function RegistrationsPage() {
         ...requestBody,
         token: requestBody.token ? '***' : ''
       });
-      console.log('[Reject] API URL:', `${API_CONFIG.REGISTRATION_BASE_URL}/registration/reject/${id}`);
-      
-      const response = await fetch(`${API_CONFIG.REGISTRATION_BASE_URL}/registration/reject/${id}`, {
+      const rejectUrl = getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_REJECT.replace(':id', id));
+      console.log('[Reject] API URL:', rejectUrl);
+
+      const response = await fetch(rejectUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1909,10 +1910,11 @@ export default function RegistrationsPage() {
           },
         });
         result = axiosResp.data;
-      } catch (err) {
-        console.warn('[Revoke] Backend call failed, falling back to mock:', err);
-        // Fallback to mock API when backend unreachable
-        result = await MockAPI.revokeRegistration(id, token || 'admin@vend88.com');
+      } catch (err: any) {
+        // No mock fallback: the mock's in-memory list never holds real ids, so it
+        // always answered "Registration not found" and hid the actual failure.
+        console.error('[Revoke] Backend call failed:', err);
+        result = err.response?.data || { error: 'Failed to reach the server' };
       }
 
       if (result && (result.success || result.status_code === 200)) {
@@ -1927,7 +1929,7 @@ export default function RegistrationsPage() {
         setShowRevokeModal(false);
         setRegistrationToRevoke(null);
       } else {
-        showToast(result?.error || result?.status_msg || 'Failed to revoke', 'error');
+        showToast(result?.message || result?.error || 'Failed to revoke', 'error');
       }
     } catch (error) {
       console.error('Failed to revoke registration:', error);
@@ -1955,9 +1957,9 @@ export default function RegistrationsPage() {
             },
           });
           result = axiosResp.data;
-        } catch (err) {
-          console.warn(`[BulkRevoke] Backend call failed for ${id}, falling back to mock:`, err);
-          result = await MockAPI.revokeRegistration(id, token || 'admin@vend88.com');
+        } catch (err: any) {
+          console.error(`[BulkRevoke] Backend call failed for ${id}:`, err);
+          result = err.response?.data || { error: 'Failed to reach the server' };
         }
 
         if (result && (result.success || result.status_code === 200)) {

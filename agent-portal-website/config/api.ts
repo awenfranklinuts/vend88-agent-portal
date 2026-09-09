@@ -22,9 +22,11 @@ const envRegBase = sanitizeBase(rawEnvRegBase);
 
 const inferredBase = envBase
   || (typeof window !== 'undefined' && window.location.protocol === 'https:' ? defaultHttps : defaultHttp);
-// Use the same base URL for registration (don't mix dev.vend88.com and 52.63.11.1)
-// Always use HTTPS dev server for consistency with login token
-const inferredRegBase = envRegBase || defaultHttps;
+// Registration endpoints live on the same backend as everything else. This used
+// to fall back to the dev host, which silently sent registration writes to a
+// different deployment (and a different database) than the rest of the portal -
+// the call would return 200 while the change never appeared in the real data.
+const inferredRegBase = envRegBase || inferredBase;
 
 export const API_CONFIG = {
   BASE_URL: inferredBase,
