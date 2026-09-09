@@ -39,28 +39,17 @@ export async function POST(request: NextRequest) {
       console.log('[Registration Generate API] Response:', response.data);
       return NextResponse.json(response.data, { status: response.status });
     } catch (backendError: any) {
-      console.log('[Registration Generate API] Backend failed, using mock data');
-      
-      // Generate mock data for testing
-      const mockFormId = `V88-REG-${String(Math.floor(Math.random() * 900) + 100).padStart(3, '0')}`;
-      const mockToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-      
-      const mockResponse = {
-        status_code: 200,
-        success: true,
-        message: 'Registration token generated successfully',
-        data: {
-          form_id: mockFormId,
-          token: mockToken,
-          link: `https://form.vend88.com/register?token=${mockToken}`,
-          generated_by: body.admin_email,
-          generated_at: new Date().toISOString(),
-          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          status: 'pending'
-        }
+      // No silent mock fallback here: fabricating a token would hand the admin a
+      // link that no backend can ever validate, which reads as a working link
+      // until the customer opens it.
+      const status = backendError.response?.status || 502;
+      const data = backendError.response?.data || {
+        status_code: status,
+        success: false,
+        message: 'Failed to generate registration link',
       };
-      
-      return NextResponse.json(mockResponse, { status: 200 });
+      console.error('[Registration Generate API] Backend error:', data);
+      return NextResponse.json(data, { status });
     }
   } catch (error: any) {
     console.error('[Registration Generate API] Error:', error.message);

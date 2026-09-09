@@ -524,6 +524,7 @@ export default function FormTemplatesPage() {
     try {
       const res = await axios.get('/api/form-templates/list', {
         params: { status: filterStatus },
+        headers: { Authorization: `Bearer ${token}` },
       });
       setTemplates(res.data.data || []);
     } catch {
@@ -531,7 +532,7 @@ export default function FormTemplatesPage() {
     } finally {
       setLoading(false);
     }
-  }, [filterStatus, lang, showToast]);
+  }, [filterStatus, lang, showToast, token]);
 
   useEffect(() => {
     if (!authLoading && !token) { router.push('/login'); return; }
@@ -619,8 +620,7 @@ export default function FormTemplatesPage() {
         visibility: formVisibility,
         visible_roles: formVisibility === 'specific_roles' ? formVisibleRoles : [],
         status: formStatus,
-        admin_email: 'admin@vend88.com',
-      });
+      }, { headers: { Authorization: `Bearer ${token}` } });
       showToast(lang === 'zh' ? '模板创建成功' : 'Template created successfully', 'success');
       closeModal();
       fetchTemplates();
@@ -646,7 +646,7 @@ export default function FormTemplatesPage() {
         visible_roles: formVisibility === 'specific_roles' ? formVisibleRoles : [],
         status: formStatus,
         current_version: selectedTemplate.version,
-      });
+      }, { headers: { Authorization: `Bearer ${token}` } });
       showToast(
         lang === 'zh'
           ? `模板已更新至版本 ${selectedTemplate.version + 1}`
@@ -668,7 +668,11 @@ export default function FormTemplatesPage() {
     if (!selectedTemplate) return;
     setSaving(true);
     try {
-      await axios.post('/api/form-templates/delete', { id: selectedTemplate.id });
+      await axios.post(
+        '/api/form-templates/delete',
+        { id: selectedTemplate.id },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       showToast(lang === 'zh' ? '模板已删除' : 'Template deleted successfully', 'success');
       closeModal();
       fetchTemplates();

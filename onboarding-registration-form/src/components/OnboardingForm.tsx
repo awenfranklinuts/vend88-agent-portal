@@ -966,7 +966,10 @@ const ImageCaption = styled.div`
   font-weight: 600;
 `;
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://dev.vend88.com';
+// Set NEXT_PUBLIC_API_BASE_URL at build time to target a different backend
+// (http://localhost:3001 for local dev). This is a static export, so the value is
+// inlined into the bundle when the site is built - changing it needs a rebuild.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://dbapi.vend88.com';
 
 export default function OnboardingForm() {
   const router = useRouter();

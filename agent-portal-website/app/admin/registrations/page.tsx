@@ -1578,7 +1578,10 @@ export default function RegistrationsPage() {
     setShowTemplatePicker(true);
     setLoadingTemplates(true);
     try {
-      const res = await axios.get('/api/form-templates/list', { params: { status: 'active' } });
+      const res = await axios.get('/api/form-templates/list', {
+        params: { status: 'active' },
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setAvailableTemplates(res.data.data || []);
     } catch {
       setAvailableTemplates([]);

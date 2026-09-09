@@ -437,11 +437,113 @@ const CredentialsBox = styled.div`
   gap: 0.75rem;
 `;
 
+const CredentialsHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+`;
+
+const CredentialsTitle = styled.div`
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #5c6b7a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
 const CredentialRow = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+`;
+
+const CredentialInput = styled.input`
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 2px solid #e0e7ef;
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  font-family: monospace;
+  color: #0a3655;
+
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  &:disabled {
+    background: #f7faff;
+    cursor: not-allowed;
+  }
+`;
+
+const CredentialButtons = styled.div`
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+`;
+
+const IconButton = styled.button`
+  flex-shrink: 0;
+  padding: 0.4rem 0.55rem;
+  background: #f3f4f6;
+  border: 1px solid #e0e7ef;
+  border-radius: 6px;
+  color: #374151;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #e5e7eb;
+  }
+`;
+
+const CredentialFieldError = styled.div`
+  font-size: 0.8125rem;
+  color: #c0392b;
+  background: #fdecea;
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+`;
+
+const CredentialEditActions = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+`;
+
+const SmallButton = styled.button<{ $variant?: 'save' | 'cancel' }>`
+  padding: 0.45rem 0.9rem;
+  border: 1px solid ${p => (p.$variant === 'save' ? 'transparent' : '#e0e7ef')};
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+
+  ${p => p.$variant === 'save' ? `
+    background: #10b981;
+    color: white;
+    &:hover:not(:disabled) { background: #059669; }
+  ` : `
+    background: #f3f4f6;
+    color: #374151;
+    &:hover:not(:disabled) { background: #e5e7eb; }
+  `}
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 `;
 
 const CredentialInfo = styled.div`
@@ -560,6 +662,23 @@ const CopyIcon = () => (
   </svg>
 );
 
+const EyeIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+    <circle cx="12" cy="12" r="3"/>
+  </svg>
+);
+
+const EyeOffIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+    <line x1="1" y1="1" x2="23" y2="23"/>
+  </svg>
+);
+
+// Fixed-length mask so a hidden value doesn't leak its real length.
+const MASKED_VALUE = '••••••••••••';
+
 interface Business {
   _id: string;
   owner_id?: string;
@@ -611,6 +730,12 @@ export default function BusinessDetailPage() {
   const [newShop, setNewShop] = useState({ name: '', location: '' });
   const [addShopError, setAddShopError] = useState('');
   const [isAddingShop, setIsAddingShop] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [isEditingCredentials, setIsEditingCredentials] = useState(false);
+  const [credentialsDraft, setCredentialsDraft] = useState({ email: '', password: '' });
+  const [credentialsError, setCredentialsError] = useState('');
+  const [isSavingCredentials, setIsSavingCredentials] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !token) {
@@ -863,6 +988,74 @@ export default function BusinessDetailPage() {
     }
   };
 
+  const handleStartEditCredentials = () => {
+    setCredentialsDraft({
+      email: ownerCredentials?.email || '',
+      password: ownerCredentials?.password || '',
+    });
+    setCredentialsError('');
+    setIsEditingCredentials(true);
+  };
+
+  const handleCancelEditCredentials = () => {
+    setIsEditingCredentials(false);
+    setCredentialsError('');
+    setShowPassword(false);
+  };
+
+  const handleSaveCredentials = async () => {
+    const email = credentialsDraft.email.trim();
+    const password = credentialsDraft.password;
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setCredentialsError(lang === 'zh' ? '请输入有效的邮箱地址' : 'Enter a valid email address');
+      return;
+    }
+    if (password.length < 6) {
+      setCredentialsError(
+        lang === 'zh' ? '密码至少需要 6 个字符' : 'Password must be at least 6 characters'
+      );
+      return;
+    }
+
+    setIsSavingCredentials(true);
+    setCredentialsError('');
+
+    try {
+      const response = await axios.put(
+        `/api/businesses/${businessId}/owner-credentials`,
+        { token, email, password },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.status_code === 200) {
+        setOwnerCredentials(response.data.data);
+        // The owner card reads its email from the customer record, so keep it in
+        // step - otherwise "Send Email" would still target the old address.
+        setOwner((prev: any) => (prev ? { ...prev, email: response.data.data.email } : prev));
+        setIsEditingCredentials(false);
+        setShowPassword(false);
+        showToast(
+          lang === 'zh' ? '登录信息已更新' : 'Login credentials updated',
+          'success'
+        );
+      } else {
+        setCredentialsError(response.data.message || (lang === 'zh' ? '更新失败' : 'Update failed'));
+      }
+    } catch (err: any) {
+      setCredentialsError(
+        err.response?.data?.message || (lang === 'zh' ? '更新失败' : 'Update failed')
+      );
+    } finally {
+      setIsSavingCredentials(false);
+    }
+  };
+
   const handleEmailOwner = () => {
     if (owner?.email) {
       window.location.href = `mailto:${owner.email}`;
@@ -986,24 +1179,128 @@ export default function BusinessDetailPage() {
 
                       {ownerCredentials && (
                         <CredentialsBox>
+                          <CredentialsHeader>
+                            <CredentialsTitle>
+                              {lang === "zh" ? "登录信息" : "Login Credentials"}
+                            </CredentialsTitle>
+                            {!isEditingCredentials && (
+                              <SmallButton onClick={handleStartEditCredentials}>
+                                <EditIcon /> {lang === "zh" ? "编辑" : "Edit"}
+                              </SmallButton>
+                            )}
+                          </CredentialsHeader>
+
                           <CredentialRow>
-                            <CredentialInfo>
+                            <CredentialInfo style={{ flex: 1 }}>
                               <CredentialLabel>{lang === "zh" ? "邮箱" : "Email"}</CredentialLabel>
-                              <CredentialValue>{ownerCredentials.email || 'N/A'}</CredentialValue>
+                              {isEditingCredentials ? (
+                                <CredentialInput
+                                  type="email"
+                                  value={credentialsDraft.email}
+                                  disabled={isSavingCredentials}
+                                  autoComplete="off"
+                                  onChange={(e) =>
+                                    setCredentialsDraft({ ...credentialsDraft, email: e.target.value })
+                                  }
+                                />
+                              ) : (
+                                <CredentialValue>
+                                  {!ownerCredentials.email
+                                    ? 'N/A'
+                                    : showEmail
+                                      ? ownerCredentials.email
+                                      : MASKED_VALUE}
+                                </CredentialValue>
+                              )}
                             </CredentialInfo>
-                            <CopyButton onClick={() => handleCopyToClipboard(ownerCredentials.email, lang === "zh" ? "邮箱" : "Email")}>
-                              <CopyIcon /> {lang === "zh" ? "复制" : "Copy"}
-                            </CopyButton>
+                            {!isEditingCredentials && (
+                              <CredentialButtons>
+                                <IconButton
+                                  onClick={() => setShowEmail(!showEmail)}
+                                  title={
+                                    showEmail
+                                      ? (lang === "zh" ? "隐藏邮箱" : "Hide email")
+                                      : (lang === "zh" ? "显示邮箱" : "Show email")
+                                  }
+                                  aria-label={
+                                    showEmail
+                                      ? (lang === "zh" ? "隐藏邮箱" : "Hide email")
+                                      : (lang === "zh" ? "显示邮箱" : "Show email")
+                                  }
+                                >
+                                  {showEmail ? <EyeOffIcon /> : <EyeIcon />}
+                                </IconButton>
+                                <CopyButton onClick={() => handleCopyToClipboard(ownerCredentials.email, lang === "zh" ? "邮箱" : "Email")}>
+                                  <CopyIcon /> {lang === "zh" ? "复制" : "Copy"}
+                                </CopyButton>
+                              </CredentialButtons>
+                            )}
                           </CredentialRow>
+
                           <CredentialRow>
-                            <CredentialInfo>
+                            <CredentialInfo style={{ flex: 1 }}>
                               <CredentialLabel>{lang === "zh" ? "密码" : "Password"}</CredentialLabel>
-                              <CredentialValue>{ownerCredentials.password || 'N/A'}</CredentialValue>
+                              {isEditingCredentials ? (
+                                <CredentialInput
+                                  type={showPassword ? "text" : "password"}
+                                  value={credentialsDraft.password}
+                                  disabled={isSavingCredentials}
+                                  autoComplete="new-password"
+                                  onChange={(e) =>
+                                    setCredentialsDraft({ ...credentialsDraft, password: e.target.value })
+                                  }
+                                />
+                              ) : (
+                                <CredentialValue>
+                                  {!ownerCredentials.password
+                                    ? 'N/A'
+                                    : showPassword
+                                      ? ownerCredentials.password
+                                      : MASKED_VALUE}
+                                </CredentialValue>
+                              )}
                             </CredentialInfo>
-                            <CopyButton onClick={() => handleCopyToClipboard(ownerCredentials.password, lang === "zh" ? "密码" : "Password")}>
-                              <CopyIcon /> {lang === "zh" ? "复制" : "Copy"}
-                            </CopyButton>
+                            <CredentialButtons>
+                              <IconButton
+                                onClick={() => setShowPassword(!showPassword)}
+                                title={
+                                  showPassword
+                                    ? (lang === "zh" ? "隐藏密码" : "Hide password")
+                                    : (lang === "zh" ? "显示密码" : "Show password")
+                                }
+                                aria-label={
+                                  showPassword
+                                    ? (lang === "zh" ? "隐藏密码" : "Hide password")
+                                    : (lang === "zh" ? "显示密码" : "Show password")
+                                }
+                              >
+                                {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                              </IconButton>
+                              {!isEditingCredentials && (
+                                <CopyButton onClick={() => handleCopyToClipboard(ownerCredentials.password, lang === "zh" ? "密码" : "Password")}>
+                                  <CopyIcon /> {lang === "zh" ? "复制" : "Copy"}
+                                </CopyButton>
+                              )}
+                            </CredentialButtons>
                           </CredentialRow>
+
+                          {credentialsError && (
+                            <CredentialFieldError>{credentialsError}</CredentialFieldError>
+                          )}
+
+                          {isEditingCredentials && (
+                            <CredentialEditActions>
+                              <SmallButton onClick={handleCancelEditCredentials} disabled={isSavingCredentials}>
+                                {lang === "zh" ? "取消" : "Cancel"}
+                              </SmallButton>
+                              <SmallButton $variant="save" onClick={handleSaveCredentials} disabled={isSavingCredentials}>
+                                <SaveIcon />
+                                {isSavingCredentials
+                                  ? (lang === "zh" ? "保存中..." : "Saving...")
+                                  : (lang === "zh" ? "保存" : "Save")}
+                              </SmallButton>
+                            </CredentialEditActions>
+                          )}
                         </CredentialsBox>
                       )}
 

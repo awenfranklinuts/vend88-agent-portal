@@ -11,13 +11,15 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  if (req.method !== 'POST') {
+  // POST reads the credentials, PUT changes them.
+  if (req.method !== 'POST' && req.method !== 'PUT') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
   try {
     const { id } = req.query;
-    const fullUrl = `${getBackendBaseUrl()}/portal/businesses/${id}/owner-credentials`;
+    const suffix = req.method === 'PUT' ? '/update' : '';
+    const fullUrl = `${getBackendBaseUrl()}/portal/businesses/${id}/owner-credentials${suffix}`;
     console.log('[Business Owner Credentials API] Forwarding to:', fullUrl);
 
     const response = await axios.post(fullUrl, req.body, {
