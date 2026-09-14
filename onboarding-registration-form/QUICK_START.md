@@ -107,10 +107,10 @@ See `TOKEN_VALIDATION_IMPLEMENTATION.md` for implementation details.
 **Solution:** Backend must allow your frontend domain
 
 ### Issue: "Token validation failed"
-**Solution:** Check backend API is running at `https://dev.vend88.com`
+**Solution:** Check the backend API is reachable at `https://dbapi.vend88.com` (or whatever `NEXT_PUBLIC_API_BASE_URL` is set to)
 
 ### Issue: "Network error"
-**Solution:** Check SSL certificate on `prod.vend88.com`
+**Solution:** Check the SSL certificate on `dbapi.vend88.com`
 
 ## 📊 Testing Matrix
 
@@ -133,7 +133,6 @@ http://localhost:3000?token={token}
 
 ### Production (example):
 ```
-https://register.vend88.com?token={token}
 https://form.vend88.com?token={token}
 ```
 

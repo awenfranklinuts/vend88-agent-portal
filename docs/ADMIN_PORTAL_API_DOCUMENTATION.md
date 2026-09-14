@@ -240,185 +240,34 @@ Authorization: Bearer {token}
 
 ## Registration Management APIs
 
-### 1. Generate Registration Link
+Registration endpoints are served by `https://dbapi.vend88.com`, not by the portal.
+The full, current reference is
+[agent-portal-website/docs/REGISTRATION_API_SPEC.md](../agent-portal-website/docs/REGISTRATION_API_SPEC.md).
 
-**Endpoint:** `POST /api/registration/generate`
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/registration/generate` | Create a single-use link (`https://form.vend88.com?token=<token>`, valid 30 days) |
+| `GET` | `/registration/list` | List all registrations |
+| `GET` | `/registration/:id` | Get one registration |
+| `POST` | `/registration/:id` | Correct registration details |
+| `POST` | `/registration/approve/:id` | Approve and create the customer and business |
+| `POST` | `/registration/reject/:id` | Reject a submitted registration |
+| `POST` | `/registration/revoke/:id` | Cancel a pending link |
 
-**Description:** Generate a unique registration link for a new business.
+### Approval creates the business
 
-**Request Body:**
-```json
-{
-  "generatedBy": "admin@vend88.com"
-}
-```
+Approving a `submitted` registration provisions the merchant in the same request:
 
-**Response:**
-```json
-{
-  "status_code": 200,
-  "data": {
-    "id": "reg_abc123",
-    "token": "unique-token-string",
-    "registrationUrl": "https://portal.vend88.com/register/unique-token-string",
-    "expiresAt": "2025-12-21T10:00:00Z",
-    "generatedAt": "2025-12-14T10:00:00Z",
-    "generatedBy": "admin@vend88.com",
-    "status": "pending"
-  }
-}
-```
+- **New customer:** send `account_email` and `account_password`. The backend creates
+  the owner login account (email normalised to `@vend88.com`), creates a business named
+  after the registration's `business_name` with status `setup`, and selects it as the
+  account's active business.
+- **Existing customer:** send `approval_action: "add_store"` and `customer_id`. The
+  backend creates a new business (status `setup`) owned by that customer.
 
-**⚠️ CRITICAL:** The `id` field must be unique and returned immediately for subsequent operations.
-
----
-
-### 2. Get All Registration Forms
-
-**Endpoint:** `POST /api/registration/get-form`
-
-**Description:** Retrieve all registration forms with filtering options.
-
-**Request Body:**
-```json
-{}
-```
-
-**Response:**
-```json
-{
-  "status_code": 200,
-  "status_msg": "success",
-  "forms": [
-    {
-      "_id": "reg_123456",
-      "status": "submitted",
-      "businessName": "Coffee Shop Downtown",
-      "ownerName": "John Smith",
-      "contactEmail": "john@coffeeshop.com",
-      "contactPhone": "+61412345678",
-      "abn": "12345678901",
-      "registeredAddress": "123 Main Street",
-      "registeredSuburb": "Sydney",
-      "registeredPostcode": "2000",
-      "registeredState": "NSW",
-      "registeredCountry": "Australia",
-      "token": "unique-token-123",
-      "generatedAt": "2024-01-10T10:00:00Z",
-      "submittedAt": "2024-01-15T14:30:00Z",
-      "expiresAt": "2024-01-17T10:00:00Z"
-    }
-  ]
-}
-```
-
-**Features Implemented:**
-- ✅ Status filtering (all, pending, submitted, approved, rejected, expired, revoked)
-- ✅ Date range filtering
-- ✅ Search by business name, owner, email, ABN
-- ✅ Sorting (by date, status, business name)
-- ✅ Pagination
-- ✅ Statistics cards
-- ✅ Generate new link button
-- ✅ Copy link to clipboard
-- ✅ Approve/Reject with modal confirmation
-- ✅ Revoke link with modal confirmation
-- ✅ View full form details in modal
-- ✅ Email notification to applicant
-
----
-
-### 3. Approve Registration
-
-**Endpoint:** `POST /api/registration/approve`
-
-**Description:** Approve a registration form and create customer/business records.
-
-**Request Body:**
-```json
-{
-  "id": "reg_123456"
-}
-```
-
-**Response:**
-```json
-{
-  "status_code": 200,
-  "status_msg": "Registration approved successfully",
-  "customer_id": "customer_789",
-  "business_id": "business_456"
-}
-```
-
-**Expected Behavior:**
-1. Update registration status to "approved"
-2. Create customer record from form data
-3. Create business record linked to customer
-4. Send approval email to applicant
-5. Return created customer and business IDs
-
----
-
-### 4. Reject Registration
-
-**Endpoint:** `POST /api/registration/reject`
-
-**Description:** Reject a registration form with reason.
-
-**Request Body:**
-```json
-{
-  "id": "reg_123456",
-  "reason": "Incomplete business information"
-}
-```
-
-**Response:**
-```json
-{
-  "status_code": 200,
-  "status_msg": "Registration rejected successfully"
-}
-```
-
-**Expected Behavior:**
-1. Update registration status to "rejected"
-2. Store rejection reason
-3. Send rejection email to applicant with reason
-4. Keep form data for reference
-
-**Missing API Endpoint:** Currently using TODO placeholder.
-
----
-
-### 5. Revoke Registration Link
-
-**Endpoint:** `POST /api/registration/revoke`
-
-**Description:** Revoke a registration link before it's submitted.
-
-**Request Body:**
-```json
-{
-  "id": "reg_123456"
-}
-```
-
-**Response:**
-```json
-{
-  "status_code": 200,
-  "status_msg": "Registration link revoked successfully"
-}
-```
-
-**Expected Behavior:**
-1. Update registration status to "revoked"
-2. Invalidate the token
-3. Prevent form submission with this token
-
-**Missing API Endpoint:** Currently using TODO placeholder.
+The response includes `customer_id`, `customer_email`, and the created `business`. The
+registration stores `linked_customer_id` and `linked_business_id` and becomes
+`approved`. If provisioning fails, it stays `submitted`.
 
 ---
 
@@ -605,10 +454,6 @@ Authorization: Bearer {token}
 - `GET /api/business/:id/notes` - Get notes
 - `POST /api/business/:id/notes` - Add note
 
-#### Registration Management
-- `POST /api/registration/reject` - Reject registration with reason
-- `POST /api/registration/revoke` - Revoke registration link
-
 ### 🟡 Optional - Nice to Have
 
 - `POST /api/customer/search` - Advanced customer search
@@ -616,7 +461,6 @@ Authorization: Bearer {token}
 - `GET /api/customer/:id/statistics` - Customer statistics
 - `GET /api/business/:id/statistics` - Business statistics
 - `POST /api/business/:id/export` - Export business data as PDF
-- `POST /api/registration/resend-email` - Resend notification email
 
 ---
 

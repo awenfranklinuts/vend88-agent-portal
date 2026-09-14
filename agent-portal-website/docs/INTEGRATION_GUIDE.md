@@ -1,5 +1,7 @@
 # Registration Management Integration Guide
 
+> **Superseded.** This was a planning document. For the current registration API see [REGISTRATION_API_SPEC.md](REGISTRATION_API_SPEC.md). In particular, the portal no longer uses mock APIs; it calls `https://dbapi.vend88.com` directly.
+
 ## Overview
 The registration management system is currently using **mock APIs** for development. This allows frontend development to proceed while backend APIs are being developed.
 
@@ -216,7 +218,7 @@ When creating the backend, use the schema in `docs/REGISTRATION_API_SPEC.md`:
 Add to `.env.local`:
 ```env
 # API Configuration
-NEXT_PUBLIC_API_BASE_URL=https://prod.vend88.com
+NEXT_PUBLIC_API_BASE_URL=https://dbapi.vend88.com
 
 # Feature Flags
 USE_MOCK_REGISTRATION_API=true  # Set to false when real APIs are ready

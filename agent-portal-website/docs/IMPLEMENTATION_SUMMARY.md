@@ -1,5 +1,7 @@
 # Summary: One-Time-Use Token Implementation
 
+> **Superseded.** This was a planning document. For the current registration API see [REGISTRATION_API_SPEC.md](REGISTRATION_API_SPEC.md). In particular, the link format is `https://form.vend88.com?token=<token>` and the backend is `https://dbapi.vend88.com`.
+
 ## ✅ Implementation Complete
 
 The system has been updated to **enforce one-time-use tokens** for registration forms. Once a customer submits a form using a token, that token becomes permanently invalid for any further submissions.
@@ -157,7 +159,7 @@ All files are in: `agent-portal-website/docs/`
 
 1. **Receives link from admin**
    - Email/message with unique registration link
-   - Link format: `https://form.vend88.com/register?token=abc123xyz...`
+   - Link format: `https://form.vend88.com?token=abc123xyz...`
 
 2. **Opens link (First time)**
    - ✅ System validates token

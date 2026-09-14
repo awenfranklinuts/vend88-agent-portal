@@ -1,5 +1,7 @@
 # Customer Management API Documentation
 
+> **Note.** The only API is `https://dbapi.vend88.com`; the portal has no API of its own. The endpoints below were written for the older `dev.vend88.com` backend and are not served by dbapi. On dbapi, customers are listed with `POST /portal/customers/list`, a business is added to an existing customer with `POST /portal/customers/:id/add-business`, and approving a registration (`POST /registration/approve/:id`) creates the customer and business. See [REGISTRATION_API_SPEC.md](../agent-portal-website/docs/REGISTRATION_API_SPEC.md).
+
 ## Overview
 This document describes the API endpoints for customer management, including listing customers with their associated businesses.
 

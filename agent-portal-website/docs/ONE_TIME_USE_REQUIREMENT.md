@@ -1,5 +1,7 @@
 # ⚠️ IMPORTANT: One-Time-Use Token Requirement
 
+> **Superseded.** This was a planning document. For the current registration API see [REGISTRATION_API_SPEC.md](REGISTRATION_API_SPEC.md). In particular, one-time use is enforced by the backend: `validate-token` returns `used: true` and `submit` returns 409 once a link has been submitted.
+
 ## 概述 (Overview)
 
 **Critical Security Requirement:** Registration tokens are **ONE-TIME-USE ONLY**. Once a customer submits the registration form, that token becomes invalid and cannot be used again.

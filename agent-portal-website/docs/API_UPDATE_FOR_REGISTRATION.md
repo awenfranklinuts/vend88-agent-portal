@@ -1,5 +1,7 @@
 # API Update Requirements — Registration & Customer Linking
 
+> **Superseded.** This was a planning document. For the current registration API see [REGISTRATION_API_SPEC.md](REGISTRATION_API_SPEC.md). In particular, the `link-customer` step and the "Customer must be linked before approval" rule were never built. Approval now creates the customer account and business itself.
+
 Purpose
 - Capture the backend API changes required to support the current frontend flows in `app/admin/registrations/page.tsx`.
 - Provide clear request/response examples, validation rules, and a testing checklist for backend developers.

@@ -1,5 +1,7 @@
 # Customer Linking API Documentation
 
+> **Superseded.** This was a planning document. For the current registration API see [REGISTRATION_API_SPEC.md](../agent-portal-website/docs/REGISTRATION_API_SPEC.md). In particular, there is no separate customer-linking API and no "Customer must be linked before approval" rule. `POST /registration/approve/:id` on `https://dbapi.vend88.com` creates the customer account and business (or adds a business to an existing customer with `approval_action: "add_store"`).
+
 ## Overview
 This document describes the API endpoints required for linking customers to registration forms and creating new customers during the approval process.
 

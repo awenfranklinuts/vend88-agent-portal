@@ -65,7 +65,7 @@ agent-portal-website/
 Create a `.env.local` file in the root directory:
 
 ```
-NEXT_PUBLIC_API_BASE_URL=https://prod.vend88.com
+NEXT_PUBLIC_API_BASE_URL=https://dbapi.vend88.com
 ```
 
 ## License

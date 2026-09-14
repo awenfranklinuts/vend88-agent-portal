@@ -27,7 +27,7 @@ const [tokenError, setTokenError] = useState<string | null>(null);
 
 #### Token Validation:
 ```typescript
-GET https://dev.vend88.com/registration/validate-token/{token}
+GET https://dbapi.vend88.com/registration/validate-token/{token}
 ```
 
 **Success Response:**
@@ -45,7 +45,7 @@ GET https://dev.vend88.com/registration/validate-token/{token}
 
 #### Form Submission:
 ```typescript
-POST https://dev.vend88.com/registration/submit
+POST https://dbapi.vend88.com/registration/submit
 ```
 
 **Request Body includes:**

@@ -1,16 +1,17 @@
 # Customer Management API Specification
 
+> **Note.** The only API is `https://dbapi.vend88.com`; the portal has no API of its own. The endpoints below were written for the older `dev.vend88.com` backend and are not served by dbapi. On dbapi, customers are listed with `POST /portal/customers/list`, a business is added to an existing customer with `POST /portal/customers/:id/add-business`, and approving a registration (`POST /registration/approve/:id`) creates the customer and business. See [REGISTRATION_API_SPEC.md](REGISTRATION_API_SPEC.md).
+
 ## Overview
-This document describes the Customer Management API endpoints used in the Vend88 Admin Portal. Customer management is integrated with the registration approval workflow, where admins must link customers to registrations before approval.
+This document describes the Customer Management API endpoints used in the Vend88 Admin Portal. Customers are created when a registration is approved; see REGISTRATION_API_SPEC.md.
 
 ---
 
 ## Deployment URLs
-- **Backend API**: `https://dev.vend88.com` (Development Environment)
-- **Production API**: `https://prod.vend88.com` (Not yet in use)
-- **Admin Portal**: `https://portal.vend88.com`
+- **Backend API**: `https://dbapi.vend88.com` (the only API)
+- **Admin Portal**: `https://portal.vend88.com` (web UI only, no API)
 
-**Note**: Currently using development environment (dev.vend88.com) for all backend API calls.
+The `/customer/*` endpoints below were written for the older `dev.vend88.com` backend and are not served by dbapi.
 
 ---
 
@@ -22,10 +23,8 @@ Authorization: Bearer <admin_token>
 
 ---
 
-## Frontend API Proxy
-The admin portal uses Next.js API routes as a proxy to avoid CORS issues:
-- Frontend calls: `/api/customer/*`
-- Proxied to: `https://dev.vend88.com/customer/*`
+## How the portal calls the API
+The admin portal calls `https://dbapi.vend88.com` directly, using the base URL in `NEXT_PUBLIC_API_BASE_URL`.
 
 ---
 

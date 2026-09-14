@@ -1,5 +1,7 @@
 # Generate Registration Form API Specification
 
+> **Superseded.** This was a planning document. For the current registration API see [REGISTRATION_API_SPEC.md](REGISTRATION_API_SPEC.md). In particular, the request and response shapes below are from the original plan.
+
 ## Overview
 This document specifies the API endpoint needed for the "Generate New Form" functionality in the Vend88 Agent Portal Registration Management system.
 
@@ -7,7 +9,7 @@ This document specifies the API endpoint needed for the "Generate New Form" func
 
 ## Base URL
 ```
-https://prod.vend88.com
+https://dbapi.vend88.com
 ```
 
 ---
@@ -65,7 +67,7 @@ Admin generates a unique **one-time-use** registration token and link to send to
 
 **Example Request:**
 ```bash
-curl -X POST https://prod.vend88.com/registration/generate \
+curl -X POST https://dbapi.vend88.com/registration/generate \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -86,7 +88,7 @@ curl -X POST https://prod.vend88.com/registration/generate \
   "data": {
     "id": "reg_123456789",
     "token": "abc123xyz456def789ghi012jkl345mno678",
-    "link": "https://form.vend88.com/register?token=abc123xyz456def789ghi012jkl345mno678",
+    "link": "https://form.vend88.com?token=abc123xyz456def789ghi012jkl345mno678",
     "generated_by": "admin@vend88.com",
     "generated_at": "2025-11-21T03:30:00Z",
     "expires_at": "2025-12-21T03:30:00Z",
@@ -184,7 +186,7 @@ Validates a registration token before allowing the customer to fill out the form
 
 **Example Request:**
 ```bash
-curl -X GET https://prod.vend88.com/registration/validate-token/abc123xyz456def789
+curl -X GET https://dbapi.vend88.com/registration/validate-token/abc123xyz456def789
 ```
 
 ---

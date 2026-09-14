@@ -1,1103 +1,511 @@
-# Registration Management API Specification
+# Registration Management API
 
-## Deployment URLs
-- **Backend API**: `https://dev.vend88.com` (Development Environment)
-- **Admin Portal**: `https://portal.vend88.com`
-- **Registration Form**: `https://form.vend88.com`
+How a new merchant goes from a registration link to a live customer account and
+business, and the endpoints behind each step.
 
-**Note**: Currently using development environment (dev.vend88.com) for all backend API calls.
+The source of truth is `backend/src/routes/registration.js` in the
+`vend88-dashboard-app` repo. If this document and the code disagree, the code wins.
 
-## Authentication
-All admin endpoints require a Bearer token in the Authorization header:
-```
-Authorization: Bearer <admin_token>
-```
+## Where things run
 
-## Frontend API Proxy
-The admin portal uses Next.js API routes as a proxy to avoid CORS issues:
-- Frontend calls: `/api/registration/*`
-- Proxied to: `https://dev.vend88.com/registration/*`
+| What | Host | Notes |
+| --- | --- | --- |
+| Backend API | `https://dbapi.vend88.com` | The only API. Every endpoint below lives here. |
+| Admin portal | `https://portal.vend88.com` | Web UI only. It calls `dbapi.vend88.com`; it has no API of its own. |
+| Registration form | `https://form.vend88.com` | Customer-facing form. Calls the public endpoints on `dbapi.vend88.com`. |
 
-**Current Configuration**: All API endpoints route through dev.vend88.com for testing and development.
+Both front ends read the backend host from `NEXT_PUBLIC_API_BASE_URL`, which
+should be `https://dbapi.vend88.com` in production.
 
 ---
 
-## 1. Generate Registration Token
+## The flow at a glance
 
-**Endpoint:** `POST /registration/generate`
+```
+ Admin portal                    Customer                      Admin portal
+ ────────────                    ────────                      ────────────
+ POST /registration/generate ──► opens form.vend88.com?token=… 
+   status: pending               GET  /registration/validate-token/:token
+                                 POST /registration/submit
+                                   status: submitted ─────────► POST /registration/approve/:id
+                                                                  creates customer account + business
+                                                                  status: approved
+                                                                or POST /registration/reject/:id
+                                                                  status: rejected
+ POST /registration/revoke/:id  (only while pending)
+   status: cancelled
+```
 
-**Description:** Admin generates a unique **one-time-use** registration token/link to send to a customer. **Once submitted, the token cannot be used again.**
+| Status | Meaning | Can move to |
+| --- | --- | --- |
+| `pending` | Link generated, form not yet submitted | `submitted`, `cancelled` |
+| `submitted` | Customer submitted the form, waiting for review | `approved`, `rejected` |
+| `approved` | Customer account and business created | — |
+| `rejected` | Admin turned the registration down | — |
+| `cancelled` | Admin revoked the link before it was used | — |
 
-**Request Headers:**
+There is no stored `expired` status. A `pending` link whose `expires_at` has
+passed is reported as expired by `validate-token` and refused by `submit`, but
+its status stays `pending`.
+
+---
+
+## Approval creates the business
+
+Approving a registration is what provisions the merchant. There is no separate
+"link customer" or "create business" step. The approve call does it in one
+request, and only flips the registration to `approved` once everything it
+creates exists. If provisioning fails, the registration stays `submitted` and
+can be approved again.
+
+The admin picks one of two modes in the approve dialog:
+
+### New customer (default)
+
+The admin sets the login email and password. The backend then:
+
+1. Normalises the email to the `@vend88.com` domain (`jane@cafe.com` becomes
+   `jane@vend88.com`) and checks no account already uses that email or the
+   registration's phone number.
+2. Creates the owner login account through the production account API
+   (`/admin/create_admin_direct`).
+3. Creates a **Business** named after the registration's `business_name`
+   (falling back to `contact_name`, then `New Business`), owned by that account,
+   with status `setup`.
+4. Stores the business on the account (`business_id`) and selects it as the
+   account's active business, so the owner doesn't have to pick one on first
+   login.
+5. Records `linked_customer_id` and `linked_business_id` on the registration and
+   marks it `approved`.
+
+The owner's name is split from `contact_name` (first word becomes
+`first_name`, the rest `last_name`). The registration's `contact_phone` must be
+in international format (for example `+61400000000`), or approval fails with a
+400. Correct it with `POST /registration/:id` first if needed.
+
+### Add store to an existing customer
+
+`approval_action: "add_store"` with a `customer_id`. The backend creates a new
+**Business** (status `setup`) owned by that customer, then records the IDs on the
+registration and marks it `approved`. No login account is created.
+
+### After approval
+
+The business has no shops yet. Create the first shop from the portal's business
+page (`POST /portal/shops/create`), which also sets up the warehouse and a default
+staff PIN.
+
+---
+
+## Conventions
+
+**Authentication.** Admin endpoints take the portal JWT from `POST /portal/auth/login`,
+either as `Authorization: Bearer <token>` or as `token` in the JSON body. Each
+endpoint checks one portal permission (listed per endpoint). The `admin` and
+`super_admin` roles have all of them by default.
+
+**Public endpoints.** `validate-token` and `submit` need no login; the single-use
+link token is the authorisation.
+
+**IDs.** Anywhere an endpoint takes `:id`, either the registration `_id` or its
+`form_id` (for example `V88-REG-482`) works.
+
+**Timestamps.** Stored and returned as strings in the form
+`"2026-09-14 01:30:00 +0000"`, not ISO 8601.
+
+**Errors.** Every error response has this shape:
+
+```json
+{ "status_code": 409, "status_msg": "error", "message": "Only a submitted registration can be approved (this one is pending)" }
+```
+
+---
+
+## Endpoints
+
+| Method | Path | Auth |
+| --- | --- | --- |
+| `POST` | [`/registration/generate`](#post-registrationgenerate) | `manage_registration_forms` |
+| `GET` | [`/registration/validate-token/:token`](#get-registrationvalidate-tokentoken) | Public |
+| `POST` | [`/registration/submit`](#post-registrationsubmit) | Public (link token) |
+| `GET` | [`/registration/list`](#get-registrationlist) | `view_registrations` |
+| `GET` | [`/registration/:id`](#get-registrationid) | `view_registrations` |
+| `POST` | [`/registration/:id`](#post-registrationid) | `manage_registrations` |
+| `POST` | [`/registration/approve/:id`](#post-registrationapproveid) | `manage_registrations` |
+| `POST` | [`/registration/reject/:id`](#post-registrationrejectid) | `manage_registrations` |
+| `POST` | [`/registration/revoke/:id`](#post-registrationrevokeid) | `manage_registrations` |
+| `GET` | `/registration/form-templates/list` | `manage_form_templates` |
+| `POST` | `/registration/form-templates/detail` | `manage_form_templates` |
+| `POST` | `/registration/form-templates/create` | `manage_form_templates` |
+| `POST` | `/registration/form-templates/update` | `manage_form_templates` |
+| `POST` | `/registration/form-templates/delete` | `manage_form_templates` |
+
+Interactive docs for every endpoint are at `https://dbapi.vend88.com/api-docs`.
+
+---
+
+### `POST /registration/generate`
+
+Creates a single-use registration link, valid for 30 days. The link snapshots the
+form fields at generation time, so editing the template later doesn't change a
+link that was already sent.
+
+**Request**
+
 ```json
 {
-  "Authorization": "Bearer <admin_token>",
-  "Content-Type": "application/json"
+  "template_id": "66e4f0c2a1b2c3d4e5f60718"
 }
 ```
 
-**Request Body:**
-```json
-{
-  "admin_email": "admin@vend88.com",
-  "notes": "string (optional)"
-}
-```
+| Field | Required | Description |
+| --- | --- | --- |
+| `template_id` | One of the two | Template whose fields the form will show. |
+| `form_fields` | One of the two | Explicit field list. Overrides the template's fields. |
 
-**Response (200 OK):**
+**Response 200**
+
 ```json
 {
+  "status_code": 200,
   "success": true,
+  "message": "Registration token generated successfully",
   "data": {
-    "id": "reg_123456",
-    "token": "abc123xyz456",
-    "link": "https://form.vend88.com?token=abc123xyz456",
+    "id": "66e5a1b2c3d4e5f607182930",
+    "form_id": "V88-REG-482",
+    "token": "9f1c2e7a4b8d3f60a1e2c3d4b5a69788",
+    "link": "https://form.vend88.com?token=9f1c2e7a4b8d3f60a1e2c3d4b5a69788",
     "generated_by": "admin@vend88.com",
-    "generated_at": "2025-11-20T10:30:00Z",
-    "expires_at": "2025-12-20T10:30:00Z",
+    "generated_at": "2026-09-14 01:30:00 +0000",
+    "expires_at": "2026-10-14 01:30:00 +0000",
     "status": "pending"
   }
 }
 ```
 
-**Note:** The link format is `https://form.vend88.com?token=xxx` (no `/register` path) to avoid redirect issues.
-```
-
-**Error Response (401 Unauthorized):**
-```json
-{
-  "success": false,
-  "error": "Unauthorized access"
-}
-```
+**Errors:** 400 no fields supplied · 404 template not found
 
 ---
 
-## 2. List Registration Submissions
+### `GET /registration/validate-token/:token`
 
-**Endpoint:** `GET /registration/list`
+Called by the registration form on load. Always answers 200. When the link
+can't be used, `valid` is `false` and `reason` holds a message to show the
+customer.
 
-**Description:** Retrieve all registration submissions with filtering options.
+**Response 200, usable link**
 
-**Query Parameters:**
-- `status` (optional): `pending|submitted|approved|rejected|expired|all`
-- `state` (optional): Filter by Australian state (NSW, VIC, QLD, WA, SA, TAS, ACT, NT)
-- `search` (optional): Search by business name, email, contact name, phone, or ABN
-- `page` (optional): Page number (default: 1)
-- `limit` (optional): Items per page (default: 10)
-- `sort` (optional): `created_asc|created_desc` (default: created_desc)
-
-**Request Headers:**
 ```json
 {
-  "Authorization": "Bearer <admin_token>"
-}
-```
-
-**Response (200 OK):**
-```json
-{
+  "status_code": 200,
   "success": true,
-  "data": {
-    "registrations": [
-      {
-        "id": "reg_123456",
-        "token": "abc123xyz456",
-        "generated_by": "admin@vend88.com",
-        "generated_at": "2025-11-20T10:30:00Z",
-        "status": "submitted",
-        "contact_email": "owner@coffeeshop.com",
-        "business_name": "Coffee Shop Downtown",
-        "submitted_at": "2025-11-20T14:45:00Z",
-        "linked_customer_id": "cust_123456"
-      }
-    ],
-    "pagination": {
-      "page": 1,
-      "limit": 10,
-      "total": 45,
-      "total_pages": 5
-    }
-  }
+  "valid": true,
+  "used": false,
+  "expired": false,
+  "form_id": "V88-REG-482",
+  "template_id": "66e4f0c2a1b2c3d4e5f60718",
+  "expires_at": "2026-10-14 01:30:00 +0000",
+  "form_fields": [ /* fields to render */ ]
 }
 ```
+
+**Response 200, unusable link**
+
+| Case | Extra flag | `reason` |
+| --- | --- | --- |
+| Unknown token | — | This registration link is invalid. |
+| Revoked or rejected | `revoked: true` | This registration link is no longer active. Please contact the admin for a new link. |
+| Already submitted | `used: true` | This registration form has already been submitted. Each link can only be used once. |
+| Past `expires_at` | `expired: true` | This registration link has expired. Please contact the admin for a new link. |
 
 ---
 
-## 3. Get Registration Details
+### `POST /registration/submit`
 
-**Endpoint:** `GET /registration/:id`
+Saves the customer's answers and burns the link. A second submit with the same
+token is rejected.
 
-**Description:** Retrieve full details of a specific registration submission.
+**Request**
 
-**Request Headers:**
 ```json
 {
-  "Authorization": "Bearer <admin_token>"
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "success": true,
-  "data": {
-    "id": "reg_123456",
-    "token": "abc123xyz456",
-    "generated_by": "admin@vend88.com",
-    "generated_at": "2025-11-20T10:30:00Z",
-    "status": "submitted",
-    "linked_customer_id": "cust_123456",
-    
-    "contact_email": "owner@coffeeshop.com",
-    "owner_name": "John Smith",
-    "contact_phone": "0412 345 678",
-    "messaging_app_type": "wechat",
-    "messaging_app_id": "johnsmith88",
-    
-    "quote_number": "INV-2024-001234",
-    "business_name": "Coffee Shop Downtown",
-    "abn": "12345678901",
-    
-    "registered_address": "123 Main Street",
-    "registered_suburb": "Sydney",
-    "registered_postcode": "2000",
-    "registered_state": "NSW",
-    "registered_country": "Australia",
-    
-    "eftpos_integration": "yes",
-    "alipay_option": "superpay",
-    "alipay_other": null,
-    
-    "ready_by": "End of December 2025",
-    "heard_about": "friend",
-    "heard_other": null,
-    "menu_files": [
-      {
-        "filename": "menu-english.pdf",
-        "url": "https://storage.vend88.com/registrations/reg_123456/menu-english.pdf",
-        "size": 245000,
-        "uploaded_at": "2025-11-20T14:30:00Z"
-      },
-      {
-        "filename": "menu-chinese.pdf",
-        "url": "https://storage.vend88.com/registrations/reg_123456/menu-chinese.pdf",
-        "size": 312000,
-        "uploaded_at": "2025-11-20T14:31:00Z"
-      }
-    ],
-    "menu_send_later": false,
-    "notes": "Looking to expand POS system to handle peak hours better.",
-    
-    "submitted_at": "2025-11-20T14:45:00Z",
-    "approved_at": null,
-    "approved_by": null,
-    "rejected_at": null,
-    "rejected_by": null,
-    "rejection_reason": null
-  }
-}
-```
-
-**Error Response (404 Not Found):**
-```json
-{
-  "success": false,
-  "error": "Registration not found"
-}
-```
-
----
-
-## 4. Update Registration Details
-
-**Endpoint:** `PUT /registration/:id`
-
-**Description:** Update registration details (admin can edit submitted information).
-
-**Request Headers:**
-```json
-{
-  "Authorization": "Bearer <admin_token>",
-  "Content-Type": "application/json"
-}
-```
-
-**Request Body:**
-```json
-{
-  "contact_email": "updated@email.com",
-  "owner_name": "Updated Name",
-  "contact_phone": "0412 999 888",
-  "business_name": "Updated Business Name",
-  "notes": "Updated notes",
-  "linked_customer_id": "cust_123456"
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "success": true,
-  "data": {
-    "id": "reg_123456",
-    "updated_at": "2025-11-20T15:00:00Z",
-    "updated_by": "admin@vend88.com"
-  }
-}
-```
-
----
-
-## 5. Link Customer to Registration
-
-**Endpoint:** `PUT /registration/:id/link-customer`
-
-**Description:** Link an existing customer or create a new customer for a registration. This must be done before approval.
-
-**Request Headers:**
-```json
-{
-  "Authorization": "Bearer <admin_token>",
-  "Content-Type": "application/json"
-}
-```
-
-**Request Body (Link Existing Customer):**
-```json
-{
-  "customer_id": "cust_123456"
-}
-```
-
-**Request Body (Create New Customer):**
-```json
-{
-  "create_new": true,
-  "customer_data": {
-    "name": "John Smith",
-    "email": "owner@coffeeshop.com",
-    "phone": "0412 345 678"
-  }
-}
-```
-
-**Response (200 OK - Existing Customer):**
-```json
-{
-  "success": true,
-  "data": {
-    "registration_id": "reg_123456",
-    "linked_customer_id": "cust_123456",
-    "customer_name": "John Smith",
-    "linked_at": "2025-11-20T15:30:00Z"
-  }
-}
-```
-
-**Response (200 OK - New Customer Created):**
-```json
-{
-  "success": true,
-  "data": {
-    "registration_id": "reg_123456",
-    "linked_customer_id": "cust_789012",
-    "customer_name": "John Smith",
-    "customer_created": true,
-    "linked_at": "2025-11-20T15:30:00Z"
-  }
-}
-```
-
-**Error Response (400 Bad Request):**
-```json
-{
-  "success": false,
-  "error": "Customer ID is required when create_new is false"
-}
-```
-
----
-
-## 6. Approve Registration
-
-**Endpoint:** `POST /registration/approve/:id`
-
-**Description:** Approve a submitted registration and create business account. **Customer must be linked before approval.**
-
-**Request Headers:**
-```json
-{
-  "Authorization": "Bearer <admin_token>",
-  "Content-Type": "application/json"
-}
-```
-
-**Request Body (optional):**
-```json
-{
-  "approval_notes": "string (optional)"
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "success": true,
-  "data": {
-    "registration_id": "reg_123456",
-    "business_id": "biz_789012",
-    "status": "approved",
-    "approved_at": "2025-11-20T16:00:00Z",
-    "approved_by": "admin@vend88.com"
-  }
-}
-```
-
-**Error Response (400 Bad Request - Not Submitted):**
-```json
-{
-  "success": false,
-  "error": "Registration is not in submitted status"
-}
-```
-
-**Error Response (400 Bad Request - No Customer Linked):**
-```json
-{
-  "success": false,
-  "error": "Customer must be linked before approval"
-}
-```
-
----
-
-## 7. Reject Registration
-
-**Endpoint:** `POST /registration/reject/:id`
-
-**Description:** Reject a submitted registration with optional reason.
-
-**Request Headers:**
-```json
-{
-  "Authorization": "Bearer <admin_token>",
-  "Content-Type": "application/json"
-}
-```
-
-**Request Body:**
-```json
-{
-  "reason": "Incomplete documentation" 
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "success": true,
-  "data": {
-    "registration_id": "reg_123456",
-    "status": "rejected",
-    "rejected_at": "2025-11-20T16:00:00Z",
-    "rejected_by": "admin@vend88.com",
-    "rejection_reason": "Incomplete documentation"
-  }
-}
-```
-
----
-
-## 8. Revoke Registration
-
-**Endpoint:** `POST /registration/revoke/:id`
-
-**Description:** Revoke a pending registration link that hasn't been submitted yet. This invalidates the token and changes status to 'cancelled' or 'expired'. Only applies to registrations with status 'pending'.
-
-**Request Headers:**
-```json
-{
-  "Authorization": "Bearer <admin_token>",
-  "Content-Type": "application/json"
-}
-```
-
-**Request Body (optional):**
-```json
-{
-  "reason": "Customer no longer interested (optional)"
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "success": true,
-  "data": {
-    "registration_id": "reg_123456",
-    "status": "cancelled",
-    "revoked_at": "2025-11-20T16:30:00Z",
-    "revoked_by": "admin@vend88.com",
-    "revoke_reason": "Customer no longer interested"
-  }
-}
-```
-
-**Error Response (400 Bad Request - Not Pending):**
-```json
-{
-  "success": false,
-  "error": "Can only revoke registrations with pending status"
-}
-```
-
-**Error Response (404 Not Found):**
-```json
-{
-  "success": false,
-  "error": "Registration not found"
-}
-```
-
----
-
-## 9. Submit Registration Form (Public Endpoint)
-
-**Endpoint:** `POST /registration/submit`
-
-**Description:** Customer submits registration form using the token provided by admin.
-
-**Request Headers:**
-```json
-{
-  "Content-Type": "application/json"
-}
-```
-
-**Request Body:**
-```json
-{
-  "token": "abc123xyz456",
-  
-  "contact_email": "owner@coffeeshop.com",
-  "owner_name": "John Smith",
-  "contact_phone": "0412 345 678",
-  "messaging_app_type": "wechat",
-  "messaging_app_id": "johnsmith88",
-  
-  "quote_number": "INV-2024-001234",
-  "business_name": "Coffee Shop Downtown",
+  "token": "9f1c2e7a4b8d3f60a1e2c3d4b5a69788",
+  "contact_name": "Jane Citizen",
+  "contact_email": "jane@cafe.com",
+  "contact_phone": "+61400000000",
+  "business_name": "Jane's Cafe",
   "abn": "12345678901",
-  
   "registered_address": "123 Main Street",
   "registered_suburb": "Sydney",
   "registered_postcode": "2000",
   "registered_state": "NSW",
   "registered_country": "Australia",
-  
-  "eftpos_integration": "yes",
-  "alipay_option": "superpay",
-  "alipay_other": null,
-  
-  "ready_by": "End of December 2025",
-  "heard_about": "friend",
-  "heard_other": null,
-  "menu_files": [
-    {
-      "filename": "menu-english.pdf",
-      "content": "base64_encoded_file_content",
-      "mime_type": "application/pdf"
-    }
-  ],
-  "menu_send_later": false,
-  "notes": "Additional notes"
+  "menu_files": [],
+  "menu_send_later": true,
+  "custom_fields": { "seating_capacity": "40" }
 }
 ```
 
-**Response (200 OK):**
+Only these named fields are stored as columns: `contact_email`, `contact_name`,
+`contact_phone`, `messaging_app_type`, `messaging_app_id`, `quote_number`,
+`business_name`, `abn`, `registered_address`, `registered_suburb`,
+`registered_postcode`, `registered_state`, `registered_country`,
+`eftpos_integration`, `alipay_option`, `alipay_other`, `ready_by`,
+`heard_about`, `heard_other`, `notes`. Anything else the template collects
+belongs in `custom_fields`. `contact_name` is also stored as `owner_name`.
+
+Collect `contact_phone` in international format; approval needs it that way.
+
+**Response 200**
+
 ```json
 {
+  "status_code": 200,
   "success": true,
+  "message": "Registration submitted successfully",
   "data": {
-    "registration_id": "reg_123456",
-    "status": "submitted",
-    "submitted_at": "2025-11-20T14:45:00Z",
-    "message": "Your registration has been submitted successfully. We will review and contact you soon."
+    "registration_id": "66e5a1b2c3d4e5f607182930",
+    "form_id": "V88-REG-482",
+    "status": "submitted"
   }
 }
 ```
 
-**Error Response (400 Bad Request):**
-```json
-{
-  "success": false,
-  "error": "Invalid or expired token"
-}
-```
+**Errors:** 401 missing or unknown token · 409 link already used · 410 link revoked, rejected, or expired
 
-**Error Response (409 Conflict):**
+---
+
+### `GET /registration/list`
+
+Returns every registration, newest first (by `submitted_at`, falling back to
+`generated_at`). Pending links and submitted forms come back in the same list;
+filter by `status` on the client. No pagination.
+
+**Query:** `form_id` (optional) to fetch one form's row.
+
+**Response 200**
+
 ```json
 {
-  "success": false,
-  "error": "Token has already been used"
+  "status_code": 200,
+  "status_msg": "success",
+  "data": [ /* registration objects, see below */ ]
 }
 ```
 
 ---
 
-## 10. Validate Registration Token (Public Endpoint)
+### `GET /registration/:id`
 
-**Endpoint:** `GET /registration/validate-token/:token`
+**Response 200**
 
-**Description:** Check if a registration token is valid and **not already used** before showing the form. This prevents duplicate submissions with the same token.
-
-**Response (200 OK - Valid Token):**
 ```json
 {
-  "success": true,
+  "status_code": 200,
+  "status_msg": "success",
   "data": {
-    "valid": true,
-    "expired": false,
-    "used": false,
-    "expires_at": "2025-12-20T10:30:00Z"
+    "_id": "66e5a1b2c3d4e5f607182930",
+    "id": "66e5a1b2c3d4e5f607182930",
+    "form_id": "V88-REG-482",
+    "token": "9f1c2e7a4b8d3f60a1e2c3d4b5a69788",
+    "status": "approved",
+    "template_id": "66e4f0c2a1b2c3d4e5f60718",
+    "form_fields": [],
+    "custom_fields": { "seating_capacity": "40" },
+
+    "contact_name": "Jane Citizen",
+    "owner_name": "Jane Citizen",
+    "contact_email": "jane@cafe.com",
+    "contact_phone": "+61400000000",
+    "messaging_app_type": null,
+    "messaging_app_id": null,
+
+    "business_name": "Jane's Cafe",
+    "abn": "12345678901",
+    "quote_number": null,
+    "registered_address": "123 Main Street",
+    "registered_suburb": "Sydney",
+    "registered_postcode": "2000",
+    "registered_state": "NSW",
+    "registered_country": "Australia",
+
+    "eftpos_integration": null,
+    "alipay_option": null,
+    "alipay_other": null,
+    "ready_by": null,
+    "heard_about": null,
+    "heard_other": null,
+    "menu_files": [],
+    "menu_send_later": true,
+    "notes": null,
+
+    "generated_by": "admin@vend88.com",
+    "generated_at": "2026-09-14 01:30:00 +0000",
+    "expires_at": "2026-10-14 01:30:00 +0000",
+    "submitted_at": "2026-09-15 03:12:45 +0000",
+
+    "approved_at": "2026-09-15 05:00:00 +0000",
+    "approved_by": "admin@vend88.com",
+    "linked_customer_id": "66e6b2c3d4e5f60718293041",
+    "linked_business_id": "66e6b2c3d4e5f60718293052",
+
+    "rejected_at": null,
+    "rejected_by": null,
+    "rejection_reason": null,
+    "cancelled_at": null,
+    "cancelled_by": null,
+    "cancellation_reason": null
   }
 }
 ```
 
-**Response (200 OK - Invalid Token):**
+**Errors:** 404 not found
+
+---
+
+### `POST /registration/:id`
+
+Corrects details on a registration, for example fixing a phone number before
+approving. Send only the fields to change.
+
+Editable: all the submittable fields listed under `submit`, plus `owner_name`,
+`menu_files`, `menu_send_later`, and `linked_customer_id`. `status` and the
+approval, rejection, and cancellation fields can't be set here; use the
+approve, reject, and revoke endpoints so each change records who made it.
+
+**Request**
+
+```json
+{ "contact_phone": "+61400000000" }
+```
+
+**Response 200:** `{ "status_code": 200, "status_msg": "success", "success": true, "message": "Registration updated successfully", "data": { /* registration */ } }`
+
+**Errors:** 400 no editable fields supplied · 404 not found
+
+---
+
+### `POST /registration/approve/:id`
+
+Approves a `submitted` registration and creates the customer account and
+business (see [Approval creates the business](#approval-creates-the-business)).
+
+**Request, new customer**
+
 ```json
 {
+  "approval_action": "new_customer_and_store",
+  "account_email": "jane@cafe.com",
+  "account_password": "chosen-by-admin",
+  "approval_notes": ""
+}
+```
+
+**Request, existing customer**
+
+```json
+{
+  "approval_action": "add_store",
+  "customer_id": "66e6b2c3d4e5f60718293041",
+  "approval_notes": ""
+}
+```
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `approval_action` | No | `add_store` to attach a business to an existing customer. Any other value, or none, creates a new customer. |
+| `customer_id` | With `add_store` | The existing customer (owner account) `_id`. |
+| `account_email` | For a new customer | Login email. The domain is replaced with `@vend88.com`. |
+| `account_password` | For a new customer | At least 6 characters. |
+| `approval_notes` | No | Stored on the registration. |
+
+**Response 200**
+
+```json
+{
+  "status_code": 200,
+  "status_msg": "success",
   "success": true,
-  "data": {
-    "valid": false,
-    "expired": true,
-    "used": false,
-    "reason": "Token has expired"
+  "message": "Registration approved successfully",
+  "data": { /* registration, now status "approved" with linked_customer_id and linked_business_id */ },
+  "customer_id": "66e6b2c3d4e5f60718293041",
+  "customer_email": "jane@vend88.com",
+  "business": {
+    "_id": "66e6b2c3d4e5f60718293052",
+    "name": "Jane's Cafe",
+    "owner_id": "66e6b2c3d4e5f60718293041",
+    "status": "setup",
+    "created_at": "2026-09-15T05:00:00.000Z"
   }
 }
 ```
 
-**Response (200 OK - Used Token):**
+`customer_email` is the normalised login address for a new customer, and `null`
+for `add_store`. Show it to the admin so they hand over the right login.
+
+**Errors**
+
+| Status | When |
+| --- | --- |
+| 400 | `customer_id` missing for `add_store`; `account_email` or `account_password` missing; password under 6 characters; registration phone not in international format |
+| 404 | Registration not found |
+| 409 | Registration isn't `submitted`; email or phone already used by another account |
+| 502 | The production account API failed or couldn't be reached |
+
+On any error the registration is left `submitted`.
+
+---
+
+### `POST /registration/reject/:id`
+
+Rejects a `submitted` registration. Nothing is created.
+
+**Request**
+
 ```json
-{
-  "success": true,
-  "data": {
-    "valid": false,
-    "expired": false,
-    "used": true,
-    "reason": "This registration form has already been submitted. Each link can only be used once. Please contact the admin if you need to make changes."
-  }
-}
+{ "reason": "Duplicate of V88-REG-311" }
 ```
 
----
+**Response 200:** registration in `data`, with `status: "rejected"`, `rejected_at`, `rejected_by`, and `rejection_reason` set.
 
-## Status Flow
-
-```
-pending → submitted → approved/rejected
-   ↓          ↓
-expired    expired
-```
-
-### Status Definitions:
-- **pending**: Token generated, form not yet filled
-- **submitted**: Customer submitted the form, awaiting admin review
-- **approved**: Admin approved, business account created
-- **rejected**: Admin rejected the application
-- **expired**: Token expired before submission
+**Errors:** 404 not found · 409 registration isn't `submitted`
 
 ---
 
-## Database Schema Recommendation
+### `POST /registration/revoke/:id`
 
-### Table: `registration_tokens`
-```sql
-CREATE TABLE registration_tokens (
-  id VARCHAR(50) PRIMARY KEY,
-  token VARCHAR(100) UNIQUE NOT NULL,
-  generated_by VARCHAR(255) NOT NULL,
-  generated_at TIMESTAMP NOT NULL,
-  expires_at TIMESTAMP NOT NULL,
-  status ENUM('pending', 'submitted', 'approved', 'rejected', 'expired') DEFAULT 'pending',
-  linked_customer_id VARCHAR(50),
-  notes TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-```
+Cancels a `pending` link so it can no longer be opened. Use reject for a form
+that was already submitted.
 
-### Table: `registration_submissions`
-```sql
-CREATE TABLE registration_submissions (
-  id VARCHAR(50) PRIMARY KEY,
-  token_id VARCHAR(50) NOT NULL,
-  
-  -- Contact Information
-  contact_email VARCHAR(255) NOT NULL,
-  owner_name VARCHAR(255) NOT NULL,
-  contact_phone VARCHAR(50),
-  messaging_app_type VARCHAR(20),
-  messaging_app_id VARCHAR(100),
-  
-  -- Business Information
-  quote_number VARCHAR(100),
-  business_name VARCHAR(255) NOT NULL,
-  abn VARCHAR(11),
-  
-  -- Address
-  registered_address VARCHAR(500),
-  registered_suburb VARCHAR(100),
-  registered_postcode VARCHAR(10),
-  registered_state VARCHAR(50),
-  registered_country VARCHAR(100),
-  
-  -- Payment & Integration
-  eftpos_integration ENUM('yes', 'no'),
-  alipay_option VARCHAR(50),
-  alipay_other VARCHAR(255),
-  
-  -- Additional Information
-  ready_by TEXT,
-  heard_about VARCHAR(50),
-  heard_other VARCHAR(255),
-  menu_files JSON,
-  menu_send_later BOOLEAN DEFAULT FALSE,
-  notes TEXT,
-  
-  -- Timestamps and Audit
-  submitted_at TIMESTAMP,
-  approved_at TIMESTAMP,
-  approved_by VARCHAR(255),
-  rejected_at TIMESTAMP,
-  rejected_by VARCHAR(255),
-  rejection_reason TEXT,
-  
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  
-  FOREIGN KEY (token_id) REFERENCES registration_tokens(id)
-);
-```
+**Request**
 
----
-
-## Implementation Status
-
-### Phase 1 (MVP) - ✅ COMPLETED:
-1. ✅ Generate Token (`POST /registration/generate`)
-2. ✅ Submit Form (`POST /registration/submit`)
-3. ✅ Validate Token (`GET /registration/validate-token/:token`)
-4. ✅ List Registrations (`GET /registration/list`)
-5. ✅ **Link Customer** (`PUT /registration/:id/link-customer`)
-6. ✅ Approve/Reject (`POST /registration/approve/:id`, `POST /registration/reject/:id`)
-7. ✅ Get Details (`GET /registration/:id`)
-8. ✅ Update Details (`PUT /registration/:id`)
-9. ✅ Revoke Link (`POST /registration/revoke/:id`) - Frontend implemented, awaiting backend
-
-### Phase 2 (Enhanced) - ✅ COMPLETED:
-1. ✅ Inline error handling (no alert popups)
-2. ✅ Modal overlays for rejection/revoke confirmations
-3. ✅ File upload handling for menu files
-4. ✅ Admin portal UI with customer linking workflow
-5. ✅ Registration form with file upload
-6. ✅ Status filtering (all, pending, submitted, approved, rejected, expired, revoked)
-7. ✅ Date range filtering
-8. ✅ Search by business name, owner, email, ABN
-9. ✅ Sorting (by date, status, business name)
-10. ✅ Pagination with smart page controls
-11. ✅ Statistics cards (total, pending, submitted, approved, rejected, expired)
-12. ✅ Copy link to clipboard with success feedback
-13. ✅ View full form details in modal
-14. ✅ Revoke link with modal confirmation (no browser alerts)
-15. ✅ Dark/Light theme system with persistence
-16. ✅ Theme toggle in header with moon/sun icons
-17. ✅ Auto-refresh table (30s interval, smart update on changes only)
-18. ✅ Generated column shows date and admin full name
-19. ✅ Admin name extraction from email profile (first_name + last_name)
-20. ✅ Messaging app fields (WhatsApp/WeChat) in customer management
-21. ✅ Field compatibility layer (snake_case backend ↔ camelCase frontend)
-22. ✅ Comprehensive console logging for debugging
-23. ✅ Skeleton loading states for better UX
-
-### Phase 3 (TODO) - PENDING:
-1. ⚠️ Email notifications on approval/rejection
-2. 🔴 Resend email notification (`POST /registration/resend-email/:id`)
-3. 🔴 Backend implementation of Revoke API endpoint (`POST /registration/revoke/:id`) - Spec ready, frontend implemented
-
----
-
-## Customer Management Integration
-
-### Current Implementation
-The admin portal includes comprehensive customer management features integrated with the registration system:
-
-**API Endpoints Used:**
-- `POST /customer/list` - List all customers with business counts
-- `POST /api/search/business` - Get businesses to calculate per-customer counts
-
-**Features Implemented:**
-- ✅ View toggle (grid/table)
-- ✅ Statistics cards (total customers, total businesses, recent additions)
-- ✅ Advanced search (name, ABN, address, email)
-- ✅ Sorting (by name, date, business count)
-- ✅ Pagination (12 items per page)
-- ✅ Export to CSV (all or filtered data)
-- ✅ Customer details modal with action buttons
-- ✅ Email customer action
-- ✅ Inline edit customer (frontend ready, API needed)
-- ✅ Messaging app integration (WhatsApp/WeChat ID display)
-- ✅ Messaging app icon with conditional rendering
-- ✅ Theme support (dark/light mode)
-
-**Missing API Endpoints:**
-- 🔴 `PUT /customer/:id` - Update customer information
-- 🔴 `DELETE /customer/:id` - Delete customer (soft delete recommended)
-- 🔴 `POST /customer/search` - Advanced search with filters
-- 🔴 `GET /customer/:id/businesses` - Get all businesses for a customer
-
----
-
-## Business Management Integration
-
-### Current Implementation
-The admin portal includes comprehensive business management features:
-
-**API Endpoints Used:**
-- `POST /api/search/business` - List all businesses with details
-- `POST /customer/list` - Get customer names for owner display
-- `POST /api/shop/get-permission` - Get business permissions
-- `POST /api/shop/add-permission` - Add permission
-- `POST /api/shop/update-permission` - Update permission
-- `POST /api/shop/delete-permission` - Delete permission
-
-**Features Implemented:**
-
-**Business List Page:**
-- ✅ View toggle (grid/table)
-- ✅ Statistics cards (total, active, setup, inactive)
-- ✅ Advanced search (ABN, address, owner name, date range)
-- ✅ Sorting (by name, date, status)
-- ✅ Pagination (12 items per page)
-- ✅ Bulk selection and export
-- ✅ Business details modal
-- ✅ Status change with confirmation modal
-- ✅ Export to CSV with owner information
-- ✅ Display business name and suburb prominently
-
-**Business Details Page:**
-- ✅ Business name and location prominently displayed at top
-- ✅ Statistics cards (active devices, permissions, days active, status)
-- ✅ Tab-based organization (Overview, Devices, Permissions, Activity, Notes)
-- ✅ Quick actions bar (Edit, Export CSV/PDF, Contact Owner)
-- ✅ Edit mode for business information with inline editing
-- ✅ Owner information card with customer details
-- ✅ Complete business information display (editable)
-- ✅ Address and contact information sections
-- ✅ Device management UI (display, add, edit, delete)
-- ✅ Permission management (full CRUD operations)
-- ✅ Activity log timeline with icons
-- ✅ Notes section (add and view notes)
-- ✅ Registration details link
-- ✅ Export functionality (CSV with all data)
-
-**Missing API Endpoints:**
-- 🔴 `PUT /api/business/:id` - Update business information
-- 🔴 `PUT /api/business/:id/status` - Update business status
-- 🔴 `GET /api/business/:id/devices` - Get devices for business
-- 🔴 `POST /api/business/:id/devices` - Add device
-- 🔴 `PUT /api/business/:id/devices/:deviceId` - Update device
-- 🔴 `DELETE /api/business/:id/devices/:deviceId` - Delete device
-- 🔴 `GET /api/business/:id/activity` - Get activity log
-- 🔴 `GET /api/business/:id/notes` - Get notes
-- 🔴 `POST /api/business/:id/notes` - Add note
-- 🔴 `PUT /api/business/:id/notes/:noteId` - Update note
-- 🔴 `DELETE /api/business/:id/notes/:noteId` - Delete note
-
----
-
-## Implementation Notes
-
-### Backend Requirements
-
-1. **Token Generation**: 
-   - Use cryptographically secure random strings (at least 32 characters)
-   - Format: Alphanumeric string (e.g., `XF5JzQVN5PLcecRhOQLqg6u4t7omb2Mq`)
-
-2. **Token Expiry**: 
-   - Default: 30-day expiry from generation
-   - Check expiry on both validation and submission
-
-3. **⚠️ One-Time Use Enforcement**: 
-   - Once a form is submitted (status changes to 'submitted'), the token MUST reject any subsequent submission attempts
-   - Validation endpoint should return `used: true` for any token with status 'submitted', 'approved', or 'rejected'
-   - Frontend redirects to main website when token is already used
-
-4. **⚠️ Customer Linking (MANDATORY)**: 
-   - Admin MUST link a customer before approving any registration
-   - Frontend validates customer linking before allowing approval
-   - Two workflows implemented:
-     
-     **a) Link Existing Customer**:
-     - Admin searches customer by name or email in dropdown
-     - Selects from existing customer list
-     - `linked_customer_id` is set to actual customer ID
-     
-     **b) Create New Customer**:
-     - Admin clicks "Create New" button
-     - System generates temporary customer ID with prefix `temp_` (e.g., `temp_1700000000000`)
-     - Pending customer data stored in session storage
-     - Upon approval:
-       * Create new customer account using registration contact info
-       * Update `linked_customer_id` with real customer ID
-       * Clear pending customer data from session storage
-   
-   - Frontend behavior:
-     * Shows inline error message if approve clicked without customer link
-     * Error automatically clears when customer is linked
-     * No alert popups - all errors shown inline at bottom of form
-
-5. **File Upload**: 
-   - Storage: S3, Azure Blob Storage, or similar cloud storage
-   - Path structure: `registrations/{registration_id}/{filename}`
-   - Return downloadable URLs with expiry tokens for security
-   - Supported formats: PDF, PNG, JPG, JPEG
-   - Max file size: 10MB per file
-   - Multiple files supported
-   - Store metadata: 
-     * filename
-     * url (downloadable with authentication)
-     * size (in bytes)
-     * uploaded_at timestamp
-
-6. **Email Notifications**: 
-   - Send email to customer when registration is approved/rejected
-   - Include reason if rejected
-   - Email template should match vend88 branding
-
-7. **Business Account Creation**: 
-   - On approval, automatically create business account with data from registration
-   - Link to the customer account
-   - Copy all relevant business information
-
-8. **Audit Trail**: 
-   - Log all admin actions with timestamps:
-     * Token generation (generated_by, generated_at)
-     * Customer linking (linked_at, linked_by)
-     * Approval (approved_by, approved_at)
-     * Rejection (rejected_by, rejected_at, rejection_reason)
-     * Updates (updated_by, updated_at)
-
-9. **Rate Limiting**: 
-   - Apply rate limiting on public endpoints to prevent abuse
-   - Suggested limits:
-     * Token validation: 10 requests/minute per IP
-     * Form submission: 3 requests/hour per token
-
-10. **Input Validation**: 
-    - ABN format: 11 digits
-    - Australian phone numbers: Format 04XX XXX XXX
-    - Email addresses: RFC 5322 compliant
-    - State: NSW, VIC, QLD, WA, SA, TAS, ACT, NT
-    - Postcode: 4 digits (Australian)
-
-### Frontend Implementation Notes
-
-1. **Admin Portal (portal.vend88.com)**:
-   - Built with Next.js 15, React 19, TypeScript
-   - Uses Next.js API routes as CORS proxy
-   - All API calls go through `/api/registration/*` routes
-   - No alert() popups - all feedback via inline messages or modals
-   - Copy link button shows success state (checkmark + green background)
-   - Rejection reason via modal overlay (not popup)
-   - Error messages appear inline at bottom of form
-   - Customer search with real-time filtering
-   - Generated by admin displayed as formatted name (not email)
-
-2. **Registration Form (form.vend88.com)**:
-   - Built with Next.js 16, deployed on S3+CloudFront
-   - Static export with client-side routing
-   - Token validation on page load
-   - Redirects to vend88.com.au if token invalid/used
-   - Gradient background loads immediately (no flash)
-   - File upload with preview
-   - Form validation before submission
-   - Thank you page after successful submission
-
-3. **UI/UX Guidelines**:
-   - No `alert()`, `confirm()`, or `prompt()` dialogs
-   - Use inline error messages with warning icon
-   - Modal overlays for destructive actions (reject, revoke, status change)
-   - Success states on buttons (e.g., "Copied!" with checkmark)
-   - Auto-clear errors when user fixes the issue
-   - Loading states on async operations
-   - Responsive design for mobile/tablet
-   - Theme persistence across sessions
-   - Smooth color transitions on theme changes
-
-4. **Registration Table Auto-Refresh**:
-   - Polls backend every 30 seconds for updates
-   - Smart update logic: only refreshes UI if submitted or pending counts change
-   - Prevents unnecessary re-renders when no data changes
-   - Console logging for debugging auto-refresh behavior
-   - Tracks previous counts to detect changes
-   - Manual refresh always updates (bypasses smart logic)
-
-5. **Admin Display Features**:
-   - Generated column shows formatted date and admin full name
-   - Admin names extracted from email profile (first_name + last_name)
-   - Fallback to formatted email if profile not available
-   - Format: "By John Smith" instead of email address
-   - Name caching for performance optimization
-   - Business name and suburb displayed prominently in all views
-   - Professional card layouts with hover effects
-   - Smooth transitions and animations
-   - Icon integration for better visual hierarchy
-   - Toast notifications for success/error feedback
-   - Skeleton loading states for better perceived performance
-   - Advanced search panels with collapsible sections
-   - Bulk action bars for multi-select operations
-   - Export buttons with download icons
-   - Pagination with smart ellipsis (1, 2, 3, ..., 10)
-   - View toggles (grid/table) with persistent state
-   - Sortable table headers with direction indicators
-   - Status badges with color coding
-   - Action buttons grouped logically
-   - Modal close on backdrop click
-   - Form validation with inline error display
-   - Theme-aware component styling
-   - Dark mode with carefully selected color palette
-   - Light mode with clean, professional appearance
-
----
-
-## Deployment Information
-
-## Admin Portal Features Summary
-
-### Pages Implemented
-
-1. **Dashboard** - Overview statistics and quick actions
-2. **Customers** - Full customer management with search, filter, export
-3. **Businesses** - Comprehensive business management
-4. **Business Details** - Detailed view with tabs (Overview, Devices, Permissions, Activity, Notes)
-5. **Registrations** - Registration form management with approval workflow
-6. **Admins** - Admin user management
-7. **Agents** - Agent management (future feature)
-8. **Settings** - System settings and preferences
-
-### Common Features Across All Pages
-
-- ✅ Bilingual support (English/Chinese)
-- ✅ Responsive design (mobile, tablet, desktop)
-- ✅ Professional UI with styled-components
-- ✅ Toast notifications for user feedback
-- ✅ Loading states and skeleton screens
-- ✅ Error handling with inline messages
-- ✅ Authentication with role-based access
-- ✅ Sidebar navigation with active state
-- ✅ Header with language toggle and user menu
-- ✅ Dark/Light theme system with localStorage persistence
-- ✅ Theme toggle button with animated icons (moon/sun)
-- ✅ CSS variables for consistent theming across app
-- ✅ Smooth transitions on theme changes
-- ✅ Modal patterns for confirmations
-- ✅ Export functionality (CSV)
-- ✅ Search and filter capabilities
-- ✅ Pagination with smart controls
-- ✅ Sorting with direction toggle
-- ✅ View modes (grid/table where applicable)
-- ✅ Statistics cards with real-time data
-- ✅ Action buttons with icons
-- ✅ Status badges with color coding
-- ✅ Copy to clipboard functionality
-- ✅ Email integration (mailto links)
-- ✅ Date formatting (relative and absolute)
-- ✅ Empty states with helpful messages
-- ✅ Form validation
-
----
-
-## Deployment Information
-
-### Current Deployment
-
-**Admin Portal (portal.vend88.com)**:
-- Platform: Vercel (Free tier)
-- Auto-deploy: GitHub push to main branch
-- Repository: `awenfranklinuts/vend88-agent-portal`
-- Root directory: `agent-portal-website/`
-- Build time: 1-3 minutes
-- Environment variables configured in Vercel dashboard:
-  * `NEXT_PUBLIC_API_BASE_URL=https://prod.vend88.com`
-  * `NEXT_PUBLIC_APP_NAME`
-  * `NEXT_PUBLIC_DEFAULT_LANGUAGE`
-
-**Registration Form (form.vend88.com)**:
-- Platform: AWS S3 + CloudFront
-- Distribution ID: E3UHMUQXQ9GH4M
-- Deployment: Manual via AWS CLI
-- Build command: `npm run build` (creates `out/` folder)
-- Deploy command: 
-  ```bash
-  aws s3 sync out/ s3://onboarding-registration-form --delete
-  aws cloudfront create-invalidation --distribution-id E3UHMUQXQ9GH4M --paths "/*"
-  ```
-- Cache invalidation time: 2-5 minutes
-
-### Update Workflow
-
-**Admin Portal Updates**:
-```bash
-cd d:\Github\vend88-agent-portal\agent-portal-website
-git add .
-git commit -m "Update description"
-git push origin main
-# Vercel auto-deploys in 1-3 minutes
-```
-
-**Registration Form Updates**:
-```bash
-cd d:\Github\vend88-agent-portal\onboarding-registration-form
-npm run build
-aws s3 sync out/ s3://onboarding-registration-form --delete
-aws cloudfront create-invalidation --distribution-id E3UHMUQXQ9GH4M --paths "/*"
-# Wait 2-5 minutes for cache invalidation
-```
-
-See [DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md) for detailed deployment instructions.
-
----
-
-## API Response Format
-
-All API responses follow this consistent format:
-
-**Success Response:**
 ```json
-{
-  "success": true,
-  "data": { /* response data */ }
-}
+{ "reason": "Sent to the wrong email" }
 ```
 
-**Error Response:**
-```json
-{
-  "success": false,
-  "error": "Error message description"
-}
-```
+**Response 200:** registration in `data`, with `status: "cancelled"`, `cancelled_at`, `cancelled_by`, and `cancellation_reason` set.
 
-**Error Response with Details:**
-```json
-{
-  "success": false,
-  "error": "Validation failed",
-  "details": {
-    "abn": "ABN must be 11 digits",
-    "contact_phone": "Invalid phone number format"
-  }
-}
-```
+**Errors:** 404 not found · 409 link isn't `pending`
+
+---
+
+## Form templates
+
+Templates hold reusable field lists for `generate`. Every template must include
+an email field (`id: "contact_email"` or `type: "email"`). Updating a template
+bumps its `version` and appends to `version_history`; pass `current_version` on
+update to get a 409 instead of overwriting someone else's edit. Templates don't
+affect links that were already generated.
+
+Full request and response details are in the Swagger docs at
+`https://dbapi.vend88.com/api-docs` under **Registration**.
+
+---
+
+## Storage
+
+Registrations live in the MongoDB `registration` collection, one document per
+registration covering its whole lifecycle (link and submission are the same
+document). Owner login accounts are in the `admin` collection, and businesses
+created on approval go in the `business` collection with `owner_id` pointing at
+the owner account.
