@@ -189,6 +189,69 @@ const Input = styled.input`
   }
 `;
 
+const FormSelect = styled.select`
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #e0e7ef;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #0a3655;
+  background: white;
+  transition: all 0.2s ease;
+
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+`;
+
+const FormTextarea = styled.textarea`
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #e0e7ef;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: #0a3655;
+  resize: vertical;
+  transition: all 0.2s ease;
+
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  &::placeholder {
+    color: #94a3b8;
+  }
+`;
+
+const FormSectionTitle = styled.h3`
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0a3655;
+  margin: 1.5rem 0 0.875rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e0e7ef;
+
+  &:first-of-type {
+    margin-top: 0;
+  }
+`;
+
+const FieldRow = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+`;
+
 const EmailInputGroup = styled.div`
   display: flex;
   align-items: stretch;
@@ -2164,14 +2227,31 @@ export default function BusinessManagementPage() {
 
   const PHONE_REGEX = /^\+[1-9]\d{7,14}$/;
 
-  const [newBusinessAccount, setNewBusinessAccount] = useState({
-    first_name: '',
-    last_name: '',
-    business_name: '',
-    emailPrefix: '',
+  const AU_STATES = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT'];
+
+  // Fields mirror the registration form template (all mandatory except contact name and notes), plus the
+  // owner's POS login credentials.
+  const EMPTY_BUSINESS_ACCOUNT = {
+    contact_email: '',
+    contact_name: '',
     phone: '',
+    business_name: '',
+    abn: '',
+    address: '',
+    suburb: '',
+    state: '',
+    postcode: '',
+    country: 'Australia',
+    notes: '',
+    emailPrefix: '',
     password: '',
-  });
+  };
+
+  const [newBusinessAccount, setNewBusinessAccount] = useState(EMPTY_BUSINESS_ACCOUNT);
+
+  const updateNewBusinessAccount = (field: keyof typeof EMPTY_BUSINESS_ACCOUNT, value: string) => {
+    setNewBusinessAccount((prev) => ({ ...prev, [field]: value }));
+  };
 
   const [createAccountError, setCreateAccountError] = useState('');
 
@@ -2666,7 +2746,7 @@ export default function BusinessManagementPage() {
   };
 
   const resetCreateAccountForm = () => {
-    setNewBusinessAccount({ first_name: '', last_name: '', business_name: '', emailPrefix: '', phone: '', password: '' });
+    setNewBusinessAccount(EMPTY_BUSINESS_ACCOUNT);
     setCreateAccountError('');
     setShowPassword(false);
   };
@@ -2678,23 +2758,39 @@ export default function BusinessManagementPage() {
   };
 
   const handleCreateBusinessAccount = async () => {
-    const { first_name, last_name, business_name, emailPrefix, phone, password } = newBusinessAccount;
+    const trimmed = Object.fromEntries(
+      Object.entries(newBusinessAccount).map(([key, value]) => [key, value.trim()])
+    ) as typeof newBusinessAccount;
 
-    if (!first_name || !last_name || !business_name || !emailPrefix || !phone || !password) {
+    const { notes: _optionalNotes, contact_name: _optionalContactName, ...requiredFields } = trimmed;
+    if (Object.values(requiredFields).some((value) => !value)) {
       setCreateAccountError(
         lang === 'zh' ? '请填写所有必填字段' : 'Please fill in all required fields'
       );
       return;
     }
 
-    if (!PHONE_REGEX.test(phone.trim())) {
-      setCreateAccountError(
-        lang === 'zh' ? '请输入有效的电话号码（例如 +61400000000）' : 'Please enter a valid phone number (e.g. +61400000000)'
-      );
+    const validationError =
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed.contact_email)
+        ? (lang === 'zh' ? '请输入有效的邮箱地址' : 'Please enter a valid email address')
+      : !PHONE_REGEX.test(trimmed.phone)
+        ? (lang === 'zh' ? '请输入有效的电话号码（例如 +61400000000）' : 'Please enter a valid phone number (e.g. +61400000000)')
+      : !/^\d{11}$/.test(trimmed.abn.replace(/\s+/g, ''))
+        ? (lang === 'zh' ? 'ABN 必须为 11 位数字' : 'ABN must be 11 digits')
+      : !/^\d{4}$/.test(trimmed.postcode)
+        ? (lang === 'zh' ? '邮编必须为 4 位数字' : 'Postcode must be 4 digits')
+      : '';
+
+    if (validationError) {
+      setCreateAccountError(validationError);
       return;
     }
 
-    const email = `${emailPrefix.trim().toLowerCase()}${BUSINESS_EMAIL_DOMAIN}`;
+    // The login account needs a first/last name. Contact name is optional, so
+    // fall back to the business name when it's left empty.
+    const [first_name, ...rest] = (trimmed.contact_name || trimmed.business_name).split(/\s+/);
+    const last_name = rest.join(' ') || first_name;
+    const email = `${trimmed.emailPrefix.toLowerCase()}${BUSINESS_EMAIL_DOMAIN}`;
 
     setCreateAccountError('');
     setIsCreatingAccount(true);
@@ -2702,7 +2798,24 @@ export default function BusinessManagementPage() {
     try {
       const response = await axios.post(
         '/api/businesses/create-account',
-        { token, first_name, last_name, business_name, email, phone, password },
+        {
+          token,
+          first_name,
+          last_name,
+          email,
+          phone: trimmed.phone,
+          password: newBusinessAccount.password,
+          business_name: trimmed.business_name,
+          contact_name: trimmed.contact_name,
+          contact_email: trimmed.contact_email,
+          abn: trimmed.abn,
+          address: trimmed.address,
+          suburb: trimmed.suburb,
+          state: trimmed.state,
+          postcode: trimmed.postcode,
+          country: trimmed.country,
+          notes: trimmed.notes,
+        },
         {
           headers: {
             'Content-Type': 'application/json',
@@ -4048,7 +4161,7 @@ export default function BusinessManagementPage() {
 
         <Modal $show={showCreateAccountModal} onClick={() => setShowCreateAccountModal(false)}>
 
-          <ModalContent onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+          <ModalContent onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px' }}>
 
             <ModalHeader>
 
@@ -4068,171 +4181,186 @@ export default function BusinessManagementPage() {
 
             </FieldHint>
 
+            <FormSectionTitle>{lang === 'zh' ? '客户联系信息' : 'Customer Contact Details'}</FormSectionTitle>
+
             <Section>
-
-              <DetailLabel>{lang === 'zh' ? '业务名称' : 'Business Name'} *</DetailLabel>
-
+              <DetailLabel>{lang === 'zh' ? '邮箱地址' : 'Email Address'} *</DetailLabel>
               <Input
-
-                type="text"
-
-                value={newBusinessAccount.business_name}
-
-                onChange={(e) => setNewBusinessAccount({ ...newBusinessAccount, business_name: e.target.value })}
-
-                placeholder={lang === 'zh' ? '输入业务名称' : 'Enter business name'}
-
+                type="email"
+                value={newBusinessAccount.contact_email}
+                onChange={(e) => updateNewBusinessAccount('contact_email', e.target.value)}
+                placeholder={lang === 'zh' ? '例如 john@example.com' : 'e.g. john@example.com'}
               />
-
             </Section>
 
+            <FieldRow>
             <Section>
-
-              <DetailLabel>{lang === 'zh' ? '名字' : 'First Name'} *</DetailLabel>
-
+              <DetailLabel>{lang === 'zh' ? '联系人姓名（可选）' : 'Contact Name (Optional)'}</DetailLabel>
               <Input
-
                 type="text"
-
-                value={newBusinessAccount.first_name}
-
-                onChange={(e) => setNewBusinessAccount({ ...newBusinessAccount, first_name: e.target.value })}
-
-                placeholder={lang === 'zh' ? '输入名字' : 'Enter first name'}
-
+                value={newBusinessAccount.contact_name}
+                onChange={(e) => updateNewBusinessAccount('contact_name', e.target.value)}
+                placeholder={lang === 'zh' ? '输入联系人全名' : 'Enter full name'}
               />
-
             </Section>
 
             <Section>
-
-              <DetailLabel>{lang === 'zh' ? '姓氏' : 'Last Name'} *</DetailLabel>
-
+              <DetailLabel>{lang === 'zh' ? '电话号码' : 'Phone Number'} *</DetailLabel>
               <Input
-
-                type="text"
-
-                value={newBusinessAccount.last_name}
-
-                onChange={(e) => setNewBusinessAccount({ ...newBusinessAccount, last_name: e.target.value })}
-
-                placeholder={lang === 'zh' ? '输入姓氏' : 'Enter last name'}
-
-              />
-
-            </Section>
-
-            <Section>
-
-              <DetailLabel>{lang === 'zh' ? '邮箱' : 'Email'} *</DetailLabel>
-
-              <EmailInputGroup>
-
-                <Input
-
-                  type="text"
-
-                  style={{ borderRadius: '8px 0 0 8px' }}
-
-                  value={newBusinessAccount.emailPrefix}
-
-                  onChange={(e) => setNewBusinessAccount({ ...newBusinessAccount, emailPrefix: e.target.value.toLowerCase() })}
-
-                  placeholder={lang === 'zh' ? '输入邮箱前缀' : 'Enter email prefix'}
-
-                />
-
-                <EmailSuffix>{BUSINESS_EMAIL_DOMAIN}</EmailSuffix>
-
-              </EmailInputGroup>
-
-            </Section>
-
-            <Section>
-
-              <DetailLabel>{lang === 'zh' ? '电话' : 'Phone'} *</DetailLabel>
-
-              <Input
-
                 type="tel"
-
                 value={newBusinessAccount.phone}
-
-                onChange={(e) => setNewBusinessAccount({ ...newBusinessAccount, phone: e.target.value })}
-
+                onChange={(e) => updateNewBusinessAccount('phone', e.target.value)}
                 placeholder={lang === 'zh' ? '例如 +61400000000' : 'e.g. +61400000000'}
-
               />
+            </Section>
+            </FieldRow>
 
+            <FormSectionTitle>{lang === 'zh' ? '业务信息' : 'Business Details'}</FormSectionTitle>
+
+            <FieldRow>
+            <Section>
+              <DetailLabel>{lang === 'zh' ? '业务名称' : 'Business Name'} *</DetailLabel>
+              <Input
+                type="text"
+                value={newBusinessAccount.business_name}
+                onChange={(e) => updateNewBusinessAccount('business_name', e.target.value)}
+                placeholder={lang === 'zh' ? '例如 Joe\'s Cafe' : 'e.g. Joe\'s Cafe'}
+              />
             </Section>
 
             <Section>
-
-              <DetailLabel>{lang === 'zh' ? '密码' : 'Password'} *</DetailLabel>
-
-              <PasswordFieldRow>
-
-                <PasswordInputWrapper>
-
-                  <Input
-
-                    type={showPassword ? 'text' : 'password'}
-
-                    style={{ paddingRight: '2.5rem' }}
-
-                    value={newBusinessAccount.password}
-
-                    onChange={(e) => setNewBusinessAccount({ ...newBusinessAccount, password: e.target.value })}
-
-                    placeholder={lang === 'zh' ? '输入密码' : 'Enter password'}
-
-                  />
-
-                  <ToggleVisibilityButton
-
-                    type="button"
-
-                    onClick={() => setShowPassword((prev) => !prev)}
-
-                    aria-label={showPassword ? (lang === 'zh' ? '隐藏密码' : 'Hide password') : (lang === 'zh' ? '显示密码' : 'Show password')}
-
-                  >
-
-                    {showPassword ? (
-
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-
-                        <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.6 18.6 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-
-                        <line x1="1" y1="1" x2="23" y2="23" />
-
-                      </svg>
-
-                    ) : (
-
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-
-                        <circle cx="12" cy="12" r="3" />
-
-                      </svg>
-
-                    )}
-
-                  </ToggleVisibilityButton>
-
-                </PasswordInputWrapper>
-
-                <GeneratePasswordButton type="button" onClick={handleGeneratePassword}>
-
-                  {lang === 'zh' ? '生成密码' : 'Generate'}
-
-                </GeneratePasswordButton>
-
-              </PasswordFieldRow>
-
+              <DetailLabel>ABN *</DetailLabel>
+              <Input
+                type="text"
+                inputMode="numeric"
+                value={newBusinessAccount.abn}
+                onChange={(e) => updateNewBusinessAccount('abn', e.target.value)}
+                placeholder={lang === 'zh' ? '例如 12 345 678 901' : 'e.g. 12 345 678 901'}
+              />
             </Section>
+            </FieldRow>
+
+            <FormSectionTitle>{lang === 'zh' ? '地址' : 'Address'}</FormSectionTitle>
+
+            <FieldRow>
+            <Section>
+              <DetailLabel>{lang === 'zh' ? '街道地址' : 'Street Address'} *</DetailLabel>
+              <Input
+                type="text"
+                value={newBusinessAccount.address}
+                onChange={(e) => updateNewBusinessAccount('address', e.target.value)}
+                placeholder={lang === 'zh' ? '例如 123 Main Street' : 'e.g. 123 Main Street'}
+              />
+            </Section>
+
+            <Section>
+              <DetailLabel>{lang === 'zh' ? '城市 / 区' : 'City / Suburb'} *</DetailLabel>
+              <Input
+                type="text"
+                value={newBusinessAccount.suburb}
+                onChange={(e) => updateNewBusinessAccount('suburb', e.target.value)}
+                placeholder={lang === 'zh' ? '例如 Sydney' : 'e.g. Sydney'}
+              />
+            </Section>
+            </FieldRow>
+
+            <FieldRow>
+              <Section>
+                <DetailLabel>{lang === 'zh' ? '邮编' : 'Postcode'} *</DetailLabel>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={newBusinessAccount.postcode}
+                  onChange={(e) => updateNewBusinessAccount('postcode', e.target.value)}
+                  placeholder={lang === 'zh' ? '例如 2000' : 'e.g. 2000'}
+                />
+              </Section>
+
+              <Section>
+                <DetailLabel>{lang === 'zh' ? '州' : 'State'} *</DetailLabel>
+                <FormSelect
+                  value={newBusinessAccount.state}
+                  onChange={(e) => updateNewBusinessAccount('state', e.target.value)}
+                >
+                  <option value="">{lang === 'zh' ? '选择州...' : 'Select state...'}</option>
+                  {AU_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </FormSelect>
+              </Section>
+            </FieldRow>
+
+            <Section>
+              <DetailLabel>{lang === 'zh' ? '国家' : 'Country'} *</DetailLabel>
+              <FormSelect
+                value={newBusinessAccount.country}
+                onChange={(e) => updateNewBusinessAccount('country', e.target.value)}
+              >
+                <option value="Australia">Australia</option>
+              </FormSelect>
+            </Section>
+
+            <Section>
+              <DetailLabel>{lang === 'zh' ? '备注（可选）' : 'Additional Notes (Optional)'}</DetailLabel>
+              <FormTextarea
+                rows={3}
+                value={newBusinessAccount.notes}
+                onChange={(e) => updateNewBusinessAccount('notes', e.target.value)}
+                placeholder={lang === 'zh' ? '其他信息或特殊要求' : 'Extra information or special requirements'}
+              />
+            </Section>
+
+            <FormSectionTitle>{lang === 'zh' ? '创建业务账户' : 'Create Business Account'}</FormSectionTitle>
+
+            <FieldRow>
+            <Section>
+              <DetailLabel>{lang === 'zh' ? 'VendPOS 邮箱' : 'VendPOS Email'} *</DetailLabel>
+              <EmailInputGroup>
+                <Input
+                  type="text"
+                  style={{ borderRadius: '8px 0 0 8px' }}
+                  value={newBusinessAccount.emailPrefix}
+                  onChange={(e) => updateNewBusinessAccount('emailPrefix', e.target.value.toLowerCase())}
+                  placeholder={lang === 'zh' ? '输入邮箱前缀' : 'Enter email prefix'}
+                />
+                <EmailSuffix>{BUSINESS_EMAIL_DOMAIN}</EmailSuffix>
+              </EmailInputGroup>
+            </Section>
+
+            <Section>
+              <DetailLabel>{lang === 'zh' ? '密码' : 'Password'} *</DetailLabel>
+              <PasswordFieldRow>
+                <PasswordInputWrapper>
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    style={{ paddingRight: '2.5rem' }}
+                    value={newBusinessAccount.password}
+                    onChange={(e) => updateNewBusinessAccount('password', e.target.value)}
+                    placeholder={lang === 'zh' ? '输入密码' : 'Enter password'}
+                  />
+                  <ToggleVisibilityButton
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? (lang === 'zh' ? '隐藏密码' : 'Hide password') : (lang === 'zh' ? '显示密码' : 'Show password')}
+                  >
+                    {showPassword ? (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.6 18.6 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                      </svg>
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
+                  </ToggleVisibilityButton>
+                </PasswordInputWrapper>
+                <GeneratePasswordButton type="button" onClick={handleGeneratePassword}>
+                  {lang === 'zh' ? '生成密码' : 'Generate'}
+                </GeneratePasswordButton>
+              </PasswordFieldRow>
+            </Section>
+            </FieldRow>
 
             {createAccountError && <ErrorText>{createAccountError}</ErrorText>}
 
