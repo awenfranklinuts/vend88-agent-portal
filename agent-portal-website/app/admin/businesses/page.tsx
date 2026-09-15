@@ -9,7 +9,6 @@ import { useRouter } from "next/navigation";
 import styled from "styled-components";
 
 import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
-import { generateVendPassword } from "@/lib/passwords";
 
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -2673,7 +2672,8 @@ export default function BusinessManagementPage() {
   };
 
   const handleGeneratePassword = () => {
-    setNewBusinessAccount((prev) => ({ ...prev, password: generateVendPassword() }));
+    const digits = Math.floor(1000 + Math.random() * 9000);
+    setNewBusinessAccount((prev) => ({ ...prev, password: `Vend${digits}` }));
     setShowPassword(true);
   };
 

@@ -5,7 +5,7 @@ import axios from "axios";
 import styled from "styled-components";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
-import PeriodToggle, { FixedPeriodLabel, PERIOD_SKELETON_COUNT, Period } from "./PeriodToggle";
+import PeriodToggle, { Period } from "./PeriodToggle";
 import SummaryLineChart, { ChartBucket, Granularity } from "./SummaryLineChart";
 
 interface BreakdownRow {
@@ -144,18 +144,10 @@ function formatShortCurrency(n: number): string {
   return `${sign}$${Math.round(abs).toLocaleString()}`;
 }
 
-interface Props {
-  /** Lock the card to one period and hide the Today / 7 days toggle */
-  fixedPeriod?: Period;
-  /** Show the revenue split by payment method under the chart */
-  showBreakdown?: boolean;
-}
-
-export default function RevenueSummaryCard({ fixedPeriod, showBreakdown = true }: Props) {
+export default function RevenueSummaryCard() {
   const { token } = useAuth();
   const { lang } = useLanguage();
-  const [selectedPeriod, setPeriod] = useState<Period>("today");
-  const period = fixedPeriod ?? selectedPeriod;
+  const [period, setPeriod] = useState<Period>("today");
   const [displayData, setDisplayData] = useState<SummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -208,7 +200,7 @@ export default function RevenueSummaryCard({ fixedPeriod, showBreakdown = true }
 
   const dimmed = loading && !cacheRef.current[period];
   const breakdown = displayData?.breakdown ?? [];
-  const granularity: Granularity = displayData?.granularity ?? (period === "today" ? "hour" : "day");
+  const granularity: Granularity = displayData?.granularity ?? (period === "7d" ? "day" : "hour");
   const total = displayData?.total ?? 0;
 
   return (
@@ -220,20 +212,16 @@ export default function RevenueSummaryCard({ fixedPeriod, showBreakdown = true }
           </Label>
           <Value $dimmed={dimmed}>{formatCurrency(total)}</Value>
         </div>
-        {fixedPeriod === "30d" ? (
-          <FixedPeriodLabel label={lang === "zh" ? "近30天" : "Last 30 days"} />
-        ) : (
-          <PeriodToggle
-            period={period}
-            onChange={setPeriod}
-            todayLabel={lang === "zh" ? "今天" : "Today"}
-            sevenDayLabel={lang === "zh" ? "近7天" : "Last 7 days"}
-          />
-        )}
+        <PeriodToggle
+          period={period}
+          onChange={setPeriod}
+          todayLabel={lang === "zh" ? "今天" : "Today"}
+          sevenDayLabel={lang === "zh" ? "近7天" : "Last 7 days"}
+        />
       </TopRow>
 
       <SummaryLineChart
-        gradientId={`rev-${period}`}
+        gradientId="rev"
         data={chartData}
         granularity={granularity}
         total={total}
@@ -242,10 +230,10 @@ export default function RevenueSummaryCard({ fixedPeriod, showBreakdown = true }
         seriesLabel={lang === "zh" ? "收入" : "Revenue"}
         formatValue={formatCurrency}
         formatAxisValue={formatShortCurrency}
-        skeletonCount={PERIOD_SKELETON_COUNT[period]}
+        skeletonCount={period === "7d" ? 7 : 6}
       />
 
-      {!showBreakdown ? null : breakdown.length > 0 ? (
+      {breakdown.length > 0 ? (
         <BreakdownList $dimmed={dimmed}>
           {breakdown.map((row) => {
             const negative = row.amount < 0;

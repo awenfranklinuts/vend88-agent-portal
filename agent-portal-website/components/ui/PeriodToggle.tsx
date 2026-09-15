@@ -2,8 +2,7 @@
 
 import styled from "styled-components";
 
-/** "30d" has no toggle button; it's used where a card shows a fixed period (e.g. the dashboard) */
-export type Period = "today" | "7d" | "30d";
+export type Period = "today" | "7d";
 
 const Wrap = styled.div`
   position: relative;
@@ -70,20 +69,3 @@ export default function PeriodToggle({
     </Wrap>
   );
 }
-
-const FixedChip = styled.span`
-  display: inline-block;
-  background: #eef2f7;
-  color: #1a237e;
-  border-radius: 10px;
-  padding: 0.45rem 0.85rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
-`;
-
-/** Shown instead of the toggle when a card is locked to one period */
-export function FixedPeriodLabel({ label }: { label: string }) {
-  return <FixedChip>{label}</FixedChip>;
-}
-
-export const PERIOD_SKELETON_COUNT: Record<Period, number> = { today: 6, "7d": 7, "30d": 30 };

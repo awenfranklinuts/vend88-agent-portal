@@ -3,12 +3,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import styled from "styled-components";
-import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
+import { useAuth, isAdminRole } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "@/components/layout/AdminSidebar";
-import ShopCredentialsTab from "@/components/shops/ShopCredentialsTab";
 import axios from "axios";
 import {
   getBusinessDevices,
@@ -645,8 +644,7 @@ export default function ShopDetailPage() {
   const router = useRouter();
   const businessId = params?.id as string;
   const shopId = params?.shopId as string;
-  const { token, role, isLoading: authLoading, adminProfile } = useAuth();
-  const canManageCredentials = hasPermission(adminProfile, 'manage_businesses');
+  const { token, role, isLoading: authLoading } = useAuth();
   const { lang } = useLanguage();
   const { showToast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -658,9 +656,7 @@ export default function ShopDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Null until the admin picks a tab, so the default can follow permissions once the profile loads
-  const [selectedTab, setActiveTab] = useState<'devices' | 'credentials' | 'permissions' | 'activity' | 'notes' | null>(null);
-  const activeTab = selectedTab ?? (canManageCredentials ? 'credentials' : 'devices');
+  const [activeTab, setActiveTab] = useState<'devices' | 'permissions' | 'activity' | 'notes'>('devices');
 
   const [isSavingStatus, setIsSavingStatus] = useState(false);
 
@@ -1007,11 +1003,6 @@ export default function ShopDetailPage() {
 
               <TabContainer>
                 <TabButtons>
-                  {canManageCredentials && (
-                    <TabButton $active={activeTab === 'credentials'} onClick={() => setActiveTab('credentials')}>
-                      {lang === "zh" ? "登录凭证" : "Credentials"}
-                    </TabButton>
-                  )}
                   <TabButton $active={activeTab === 'devices'} onClick={() => setActiveTab('devices')}>
                     {lang === "zh" ? "设备" : "Devices"}
                   </TabButton>
@@ -1084,8 +1075,6 @@ export default function ShopDetailPage() {
                       </AddPermissionButton>
                     </>
                   )}
-
-                  {activeTab === 'credentials' && canManageCredentials && <ShopCredentialsTab shopId={shopId} />}
 
                   {activeTab === 'permissions' && (
                     <>

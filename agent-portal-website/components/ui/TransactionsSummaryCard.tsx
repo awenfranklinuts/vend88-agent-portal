@@ -5,7 +5,7 @@ import axios from "axios";
 import styled from "styled-components";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
-import PeriodToggle, { FixedPeriodLabel, PERIOD_SKELETON_COUNT, Period } from "./PeriodToggle";
+import PeriodToggle, { Period } from "./PeriodToggle";
 import SummaryLineChart, { ChartBucket, Granularity } from "./SummaryLineChart";
 
 interface DailyBucket {
@@ -63,16 +63,10 @@ function formatCount(n: number): string {
   return `${Math.round(n).toLocaleString()}`;
 }
 
-interface Props {
-  /** Lock the card to one period and hide the Today / 7 days toggle */
-  fixedPeriod?: Period;
-}
-
-export default function TransactionsSummaryCard({ fixedPeriod }: Props) {
+export default function TransactionsSummaryCard() {
   const { token } = useAuth();
   const { lang } = useLanguage();
-  const [selectedPeriod, setPeriod] = useState<Period>("today");
-  const period = fixedPeriod ?? selectedPeriod;
+  const [period, setPeriod] = useState<Period>("today");
   const [displayData, setDisplayData] = useState<SummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -122,7 +116,7 @@ export default function TransactionsSummaryCard({ fixedPeriod }: Props) {
     () => (daily ?? []).map((d) => ({ date: d.date, value: d.count })),
     [daily]
   );
-  const granularity: Granularity = displayData?.granularity ?? (period === "today" ? "hour" : "day");
+  const granularity: Granularity = displayData?.granularity ?? (period === "7d" ? "day" : "hour");
   const total = displayData?.total ?? 0;
   const dimmed = loading && !cacheRef.current[period];
 
@@ -137,20 +131,16 @@ export default function TransactionsSummaryCard({ fixedPeriod }: Props) {
           </Label>
           <Value $dimmed={dimmed}>{total.toLocaleString()}</Value>
         </div>
-        {fixedPeriod === "30d" ? (
-          <FixedPeriodLabel label={lang === "zh" ? "近30天" : "Last 30 days"} />
-        ) : (
-          <PeriodToggle
-            period={period}
-            onChange={setPeriod}
-            todayLabel={lang === "zh" ? "今天" : "Today"}
-            sevenDayLabel={lang === "zh" ? "近7天" : "Last 7 days"}
-          />
-        )}
+        <PeriodToggle
+          period={period}
+          onChange={setPeriod}
+          todayLabel={lang === "zh" ? "今天" : "Today"}
+          sevenDayLabel={lang === "zh" ? "近7天" : "Last 7 days"}
+        />
       </TopRow>
 
       <SummaryLineChart
-        gradientId={`txn-${period}`}
+        gradientId="txn"
         data={chartData}
         granularity={granularity}
         total={total}
@@ -159,7 +149,7 @@ export default function TransactionsSummaryCard({ fixedPeriod }: Props) {
         seriesLabel={lang === "zh" ? "交易数" : "Transactions"}
         formatValue={(n) => n.toLocaleString()}
         formatAxisValue={formatCount}
-        skeletonCount={PERIOD_SKELETON_COUNT[period]}
+        skeletonCount={period === "7d" ? 7 : 6}
       />
     </Card>
   );
