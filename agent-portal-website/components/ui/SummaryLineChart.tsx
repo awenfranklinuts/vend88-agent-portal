@@ -173,6 +173,7 @@ const AxisLabels = styled.div`
 const AxisLabel = styled.div`
   flex: 1;
   text-align: center;
+  white-space: nowrap;
   font-size: 0.6875rem;
   color: #9aa7b5;
 `;
@@ -206,14 +207,18 @@ const LegendDashLine = styled.div`
   border-top: 1.5px dashed #9aa7b5;
 `;
 
-function formatDayLabel(dateStr: string, lang: string): string {
+// A week reads best as weekdays; longer ranges need the date itself.
+function formatDayLabel(dateStr: string, lang: string, style: "weekday" | "date" | "full"): string {
   const d = new Date(`${dateStr}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US", {
-    weekday: "short",
-    timeZone: "UTC",
-  });
+  const options: Intl.DateTimeFormatOptions =
+    style === "weekday" ? { weekday: "short" }
+    : style === "date" ? { day: "numeric", month: "short" }
+    : { weekday: "short", day: "numeric", month: "short" };
+  return d.toLocaleDateString(lang === "zh" ? "zh-CN" : "en-AU", { ...options, timeZone: "UTC" });
 }
+
+const WEEKDAY_LABEL_MAX_POINTS = 8;
 
 // Hour buckets come back as a naive local timestamp ("...T14:00:00") already
 // shifted to the shop's timezone, so the hour is read directly off the string
@@ -228,18 +233,24 @@ function formatHourLabel(dateStr: string): string {
   return `${hour12}${suffix}`;
 }
 
+/** Tooltip / inspector label: the full date for daily buckets */
 export function formatChartLabel(
   dateStr: string,
   granularity: Granularity,
   lang: string
 ): string {
-  return granularity === "hour" ? formatHourLabel(dateStr) : formatDayLabel(dateStr, lang);
+  return granularity === "hour" ? formatHourLabel(dateStr) : formatDayLabel(dateStr, lang, "full");
 }
 
-// Hourly charts can carry up to 24 points - showing every tick crowds the
-// axis, so only a spaced-out subset (plus the last one) gets a label.
-function shouldShowAxisLabel(index: number, count: number, granularity: Granularity): boolean {
-  if (granularity === "day" || count <= 8) return true;
+function formatAxisLabel(dateStr: string, granularity: Granularity, lang: string, count: number): string {
+  if (granularity === "hour") return formatHourLabel(dateStr);
+  return formatDayLabel(dateStr, lang, count <= WEEKDAY_LABEL_MAX_POINTS ? "weekday" : "date");
+}
+
+// Hourly charts can carry up to 24 points and monthly ones 30 - showing every
+// tick crowds the axis, so only a spaced-out subset (plus the last one) gets a label.
+function shouldShowAxisLabel(index: number, count: number): boolean {
+  if (count <= WEEKDAY_LABEL_MAX_POINTS) return true;
   const step = Math.ceil(count / 6);
   return index % step === 0 || index === count - 1;
 }
@@ -556,8 +567,8 @@ export default function SummaryLineChart({
         <AxisLabels>
           {(data.length ? data : skeleton).map((d: ChartBucket | null, i, arr) => (
             <AxisLabel key={d?.date ?? i}>
-              {d && shouldShowAxisLabel(i, arr.length, granularity)
-                ? formatChartLabel(d.date, granularity, lang)
+              {d && shouldShowAxisLabel(i, arr.length)
+                ? formatAxisLabel(d.date, granularity, lang, arr.length)
                 : ""}
             </AxisLabel>
           ))}

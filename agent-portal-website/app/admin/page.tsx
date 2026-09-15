@@ -3,9 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styled from "styled-components";
-import { useAuth, isAdminRole } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
 import { ADMIN_MODULES, canAccessModule } from "@/config/adminModules";
+import RevenueSummaryCard from "@/components/ui/RevenueSummaryCard";
+import TransactionsSummaryCard from "@/components/ui/TransactionsSummaryCard";
+import GrowthSummaryRow from "@/components/ui/GrowthSummaryRow";
+import SalesPipelineCard from "@/components/ui/SalesPipelineCard";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../components/layout/AdminSidebar";
 
@@ -162,6 +166,17 @@ const SkeletonHeaderDesc = styled.div`
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 4px;
+`;
+
+const SummaryGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 1.5rem;
+  align-items: start;
+
+  @media (max-width: 1280px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
 `;
 
 const Grid = styled.div`
@@ -326,6 +341,17 @@ export default function AdminDashboard() {
                 : "Select an option to manage your businesses, customers, agents, and more."}
             </PageDescription>
           </ContentHeader>
+
+          {hasPermission(adminProfile, "view_reports") && (
+            <>
+              <SummaryGrid>
+                <RevenueSummaryCard fixedPeriod="30d" showBreakdown={false} />
+                <TransactionsSummaryCard fixedPeriod="30d" />
+              </SummaryGrid>
+              <GrowthSummaryRow period="30d" activePeriod="7d" />
+              <SalesPipelineCard period="30d" />
+            </>
+          )}
 
           <Grid>
             {ADMIN_MODULES.filter(module => canAccessModule(adminProfile, module)).map(module => {
