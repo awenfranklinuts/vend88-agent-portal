@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styled from "styled-components";
-import { useAuth, isAdminRole } from "@/context/AuthContext";
+import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../components/layout/AdminSidebar";
@@ -82,7 +82,7 @@ export default function ReportsPage() {
     return null;
   }
 
-  if (!adminProfile?.permissions?.includes('view_reports')) {
+  if (!hasPermission(adminProfile, 'view_reports')) {
     router.push('/admin');
     return null;
   }

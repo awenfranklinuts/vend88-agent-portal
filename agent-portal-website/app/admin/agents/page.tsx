@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styled from "styled-components";
-import { useAuth, isAdminRole } from "@/context/AuthContext";
+import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../components/layout/AdminSidebar";
@@ -80,7 +80,7 @@ export default function AgentManagementPage() {
     return null;
   }
 
-  if (!adminProfile?.permissions?.includes('manage_agents')) {
+  if (!hasPermission(adminProfile, 'manage_agents')) {
     router.push('/admin');
     return null;
   }

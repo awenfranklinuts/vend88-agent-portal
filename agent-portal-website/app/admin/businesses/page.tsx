@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 
 import styled from "styled-components";
 
-import { useAuth, isAdminRole } from "@/context/AuthContext";
+import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
 
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -3118,7 +3118,7 @@ export default function BusinessManagementPage() {
 
 
 
-  if (!adminProfile?.permissions?.includes('manage_businesses')) {
+  if (!hasPermission(adminProfile, 'manage_businesses')) {
 
     router.push('/admin');
 

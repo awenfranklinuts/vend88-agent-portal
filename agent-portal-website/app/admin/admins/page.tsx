@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import styled from "styled-components";
 import axios from "axios";
-import { useAuth, isAdminRole } from "@/context/AuthContext";
+import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import MainLayout from "@/components/layout/MainLayout";
@@ -914,7 +914,7 @@ export default function AdminManagementPage() {
 
   if (!token || !isAdminRole(role)) return null;
 
-  if (!adminProfile?.permissions?.includes('manage_admins')) {
+  if (!hasPermission(adminProfile, 'manage_admins')) {
     router.push('/admin');
     return null;
   }

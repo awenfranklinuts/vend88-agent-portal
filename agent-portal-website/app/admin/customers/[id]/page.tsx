@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import styled from "styled-components";
-import { useAuth, isAdminRole } from "@/context/AuthContext";
+import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import { dict } from "@/i18n/translations";
@@ -753,7 +753,7 @@ export default function CustomerDetailPage() {
     return null;
   }
 
-  if (!adminProfile?.permissions?.includes('manage_customers')) {
+  if (!hasPermission(adminProfile, 'manage_customers')) {
     router.push('/admin');
     return null;
   }

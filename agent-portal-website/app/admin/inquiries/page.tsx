@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import styled from "styled-components";
-import { useAuth, isAdminRole } from "@/context/AuthContext";
+import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import { getApiUrl, API_CONFIG } from "@/config/api";
@@ -313,7 +313,7 @@ export default function InquiriesPage() {
     }
   }, [token, role, isLoading, router]);
 
-  const hasPermission = adminProfile?.permissions?.includes("manage_inquiries");
+  const canManageInquiries = hasPermission(adminProfile, "manage_inquiries");
 
   const fetchInquiries = useCallback(async () => {
     if (!token) return;
@@ -339,13 +339,13 @@ export default function InquiriesPage() {
   }, [token, page, statusFilter, search, lang, showToast]);
 
   useEffect(() => {
-    if (hasPermission) fetchInquiries();
+    if (canManageInquiries) fetchInquiries();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasPermission, page, statusFilter]);
+  }, [canManageInquiries, page, statusFilter]);
 
   // Debounce free-text search
   useEffect(() => {
-    if (!hasPermission) return;
+    if (!canManageInquiries) return;
     const t = setTimeout(() => {
       setPage(1);
       fetchInquiries();
@@ -396,7 +396,7 @@ export default function InquiriesPage() {
     return null;
   }
 
-  if (!hasPermission) {
+  if (!canManageInquiries) {
     router.push("/admin");
     return null;
   }

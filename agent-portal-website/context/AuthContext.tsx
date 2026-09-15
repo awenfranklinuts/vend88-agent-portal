@@ -57,6 +57,12 @@ export type UserRole = "agent" | "admin" | "super_admin";
 // Returns true for roles that access the /admin dashboard
 export const isAdminRole = (role: string | null): boolean => role === "admin" || role === "super_admin";
 
+// Super admins have every permission; other admins need it granted explicitly
+export const hasPermission = (
+  profile: Pick<AdminProfile, "role" | "permissions"> | null | undefined,
+  permission: string
+): boolean => profile?.role === "super_admin" || (profile?.permissions?.includes(permission) ?? false);
+
   interface AuthContextType {
   token: string | null;
   userEmail: string | null;

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import styled from "styled-components";
 import axios from "axios";
 import MainLayout from "@/components/layout/MainLayout";
-import { useAuth, isAdminRole } from "@/context/AuthContext";
+import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import { API_CONFIG, getApiUrl } from "@/config/api";
@@ -1520,7 +1520,7 @@ export default function RegistrationDetailsPage() {
     );
   };
 
-  if (!adminProfile?.permissions?.includes('manage_registration_forms')) {
+  if (!hasPermission(adminProfile, 'manage_registration_forms')) {
     router.push('/admin');
     return null;
   }

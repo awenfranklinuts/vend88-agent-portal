@@ -4,11 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import styled from "styled-components";
 import axios from "axios";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, hasPermission } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../../components/layout/AdminSidebar";
+import { ADMIN_MODULES, ALL_PERMISSION_IDS, getModulePermissions } from "@/config/adminModules";
 
 /* ─── Types ─── */
 interface Admin {
@@ -60,105 +61,20 @@ const ROLE_LABELS: Record<string, { en: string; zh: string }> = {
   super_admin: { en: 'Super Admin', zh: '超级管理员' },
 };
 
-const AVAILABLE_PERMISSIONS: Record<string, PermissionCategory[]> = {
-  admin: [
-    {
-      category_en: 'Business Management',
-      category_zh: '业务管理',
-      permissions: [
-        { id: 'manage_businesses', name_en: 'Business Management', name_zh: '业务管理', enabled: true },
-      ],
-    },
-    {
-      category_en: 'Customer Management',
-      category_zh: '客户管理',
-      permissions: [
-        { id: 'manage_customers', name_en: 'Customer Management', name_zh: '客户管理', enabled: true },
-      ],
-    },
-    {
-      category_en: 'Agent Management',
-      category_zh: '代理管理',
-      permissions: [
-        { id: 'manage_agents', name_en: 'Agent Management', name_zh: '代理管理', enabled: true },
-      ],
-    },
-    {
-      category_en: 'Registration Management',
-      category_zh: '注册管理',
-      permissions: [
-        { id: 'manage_registration_forms', name_en: 'Registration Forms', name_zh: '注册表单', enabled: true },
-        { id: 'manage_form_templates', name_en: 'Form Templates', name_zh: '表单模板', enabled: true },
-      ],
-    },
-    {
-      category_en: 'Reports & Analytics',
-      category_zh: '报告与分析',
-      permissions: [
-        { id: 'view_reports', name_en: 'Reports & Analytics', name_zh: '报告与分析', enabled: true },
-      ],
-    },
-    {
-      category_en: 'System Settings',
-      category_zh: '系统设置',
-      permissions: [
-        { id: 'manage_system_settings', name_en: 'System Settings', name_zh: '系统设置', enabled: true },
-      ],
-    },
-  ],
-  super_admin: [
-    {
-      category_en: 'Business Management',
-      category_zh: '业务管理',
-      permissions: [
-        { id: 'manage_businesses', name_en: 'Business Management', name_zh: '业务管理', enabled: true },
-      ],
-    },
-    {
-      category_en: 'Customer Management',
-      category_zh: '客户管理',
-      permissions: [
-        { id: 'manage_customers', name_en: 'Customer Management', name_zh: '客户管理', enabled: true },
-      ],
-    },
-    {
-      category_en: 'Agent Management',
-      category_zh: '代理管理',
-      permissions: [
-        { id: 'manage_agents', name_en: 'Agent Management', name_zh: '代理管理', enabled: true },
-      ],
-    },
-    {
-      category_en: 'Registration Management',
-      category_zh: '注册管理',
-      permissions: [
-        { id: 'manage_registration_forms', name_en: 'Registration Forms', name_zh: '注册表单', enabled: true },
-        { id: 'manage_form_templates', name_en: 'Form Templates', name_zh: '表单模板', enabled: true },
-      ],
-    },
-    {
-      category_en: 'Admin Management',
-      category_zh: '管理员管理',
-      permissions: [
-        { id: 'manage_admins', name_en: 'Admin Management', name_zh: '管理员管理', enabled: true },
-      ],
-    },
-    {
-      category_en: 'Reports & Analytics',
-      category_zh: '报告与分析',
-      permissions: [
-        { id: 'view_reports', name_en: 'Reports & Analytics', name_zh: '报告与分析', enabled: true },
-      ],
-    },
-    {
-      category_en: 'System Settings',
-      category_zh: '系统设置',
-      permissions: [
-        { id: 'manage_system_settings', name_en: 'System Settings', name_zh: '系统设置', enabled: true },
-      ],
-    },
-  ]
-};
+// Super admins have every permission, so only regular admins get a grantable list
+const buildPermissionCategories = (role: string, enabledIds: string[]): PermissionCategory[] =>
+  role !== 'admin'
+    ? []
+    : ADMIN_MODULES.filter(module => !module.superAdminOnly).map(module => ({
+        category_en: module.label.en,
+        category_zh: module.label.zh,
+        permissions: getModulePermissions(module).map(p => ({
+          id: p.id,
+          name_en: p.label.en,
+          name_zh: p.label.zh,
+          enabled: enabledIds.includes(p.id),
+        })),
+      }));
 
 /* ─── Styled Components ─── */
 
@@ -967,17 +883,7 @@ export default function AdminDetailPage() {
   useEffect(() => {
     if (token && admin) {
       fetchAuditLogs();
-      // Initialize permissions based on admin role
-      const roleCategories = AVAILABLE_PERMISSIONS[admin.role] || [];
-      const enabledPermIds = admin.permissions || [];
-      const categoriesWithStatus = roleCategories.map(category => ({
-        ...category,
-        permissions: category.permissions.map(p => ({
-          ...p,
-          enabled: enabledPermIds.includes(p.id)
-        }))
-      }));
-      setPermissionCategories(categoriesWithStatus);
+      setPermissionCategories(buildPermissionCategories(admin.role, admin.permissions || []));
     }
   }, [token, admin, fetchAuditLogs]);
 
@@ -993,17 +899,7 @@ export default function AdminDetailPage() {
       password: '',
       confirm_password: '',
     });
-    // Initialize edit mode permissions based on current admin permissions
-    const roleCategories = AVAILABLE_PERMISSIONS[admin.role] || [];
-    const enabledPermIds = admin.permissions || [];
-    const categoriesWithStatus = roleCategories.map(category => ({
-      ...category,
-      permissions: category.permissions.map(p => ({
-        ...p,
-        enabled: enabledPermIds.includes(p.id)
-      }))
-    }));
-    setEditModePermissions(categoriesWithStatus);
+    setEditModePermissions(buildPermissionCategories(admin.role, admin.permissions || []));
     setFormErrors({});
     setShowPassword(false);
     setShowConfirmPassword(false);
@@ -1021,16 +917,7 @@ export default function AdminDetailPage() {
     if (formErrors[field]) setFormErrors(prev => ({ ...prev, [field]: undefined }));
     // When role changes, reinitialize edit mode permissions for the new role
     if (field === 'role' && admin) {
-      const roleCategories = AVAILABLE_PERMISSIONS[value] || [];
-      const enabledPermIds = admin.permissions || [];
-      const categoriesWithStatus = roleCategories.map(category => ({
-        ...category,
-        permissions: category.permissions.map(p => ({
-          ...p,
-          enabled: enabledPermIds.includes(p.id)
-        }))
-      }));
-      setEditModePermissions(categoriesWithStatus);
+      setEditModePermissions(buildPermissionCategories(value, admin.permissions || []));
     }
   };
 
@@ -1085,8 +972,14 @@ export default function AdminDetailPage() {
 
       await axios.post('/api/admin/update', payload);
       
-      // Save permissions if edit mode permissions exist
-      if (editModePermissions.length > 0) {
+      // Super admins are stored with every permission so the backend agrees with the portal
+      if (formData.role === 'super_admin') {
+        await axios.post('/api/admin/permissions', {
+          token,
+          user_id: admin.id,
+          permissions: ALL_PERMISSION_IDS
+        });
+      } else if (editModePermissions.length > 0) {
         const enabledPermissions = editModePermissions
           .flatMap(cat => cat.permissions)
           .filter(p => p.enabled)
@@ -1175,7 +1068,7 @@ export default function AdminDetailPage() {
     );
   }
 
-  if (!myProfile?.permissions?.includes('manage_admins')) {
+  if (!hasPermission(myProfile, 'manage_admins')) {
     router.push('/admin');
     return null;
   }
@@ -1364,6 +1257,13 @@ export default function AdminDetailPage() {
             <CardTitle>
               {lang === 'zh' ? '权限管理' : 'Permission Management'}
             </CardTitle>
+            {(isEditing ? formData.role : admin.role) === 'super_admin' && (
+              <p style={{ color: '#5c6b7a' }}>
+                {lang === 'zh'
+                  ? '超级管理员自动拥有所有权限，无需单独分配。'
+                  : 'Super Admins automatically have every permission. No individual permissions need to be assigned.'}
+              </p>
+            )}
             <PermissionSectionsGrid>
               {(isEditing ? editModePermissions : permissionCategories).map((category, catIdx) => (
                 <PermissionSection key={catIdx}>

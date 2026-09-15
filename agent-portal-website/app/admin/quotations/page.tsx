@@ -54,7 +54,7 @@ const LoadingText = styled.div`
   padding: 4rem;
 `;
 
-export default function SettingsPage() {
+export default function QuotationManagementPage() {
   const router = useRouter();
   const { token, role, isLoading, adminProfile } = useAuth();
   const { lang } = useLanguage();
@@ -80,25 +80,25 @@ export default function SettingsPage() {
     return null;
   }
 
-  if (!hasPermission(adminProfile, 'manage_system_settings')) {
+  if (!hasPermission(adminProfile, 'manage_quotations')) {
     router.push('/admin');
     return null;
   }
 
   return (
-    <MainLayout currentPage={lang === "zh" ? "系统设置" : "System Settings"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
+    <MainLayout currentPage={lang === "zh" ? "报价管理" : "Quotation Management"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
       <Container>
         <AdminSidebar mobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
         <MainContent>
           <ContentHeader>
-            <PageTitle>{lang === "zh" ? "系统设置" : "System Settings"}</PageTitle>
+            <PageTitle>{lang === "zh" ? "报价管理" : "Quotation Management"}</PageTitle>
             <PageDescription>
               {lang === "zh"
-                ? "配置系统设置、用户权限和应用程序偏好。"
-                : "Configure system settings, user permissions, and application preferences."}
+                ? "创建、发送和跟踪客户报价。"
+                : "Create, send, and track quotations for customers."}
             </PageDescription>
           </ContentHeader>
-          {/* Add your settings content here */}
+          {/* Add your quotation management content here */}
         </MainContent>
       </Container>
     </MainLayout>
