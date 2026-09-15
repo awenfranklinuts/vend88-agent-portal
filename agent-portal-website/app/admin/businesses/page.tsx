@@ -2838,14 +2838,12 @@ export default function BusinessManagementPage() {
         throw new Error(response.data.message || 'Create failed');
       }
     } catch (error: any) {
-      if (error?.response?.status === 409) {
-        setCreateAccountError(lang === 'zh' ? '邮箱已存在' : 'Email already exists');
-      } else {
-        setCreateAccountError(
-          error?.response?.data?.message ||
-          (lang === 'zh' ? '创建账户失败，请重试' : 'Failed to create account, please try again')
-        );
-      }
+      // Show the backend's own message - a 409 can be a duplicate email, a
+      // duplicate phone, or a rejection passed through from the POS API.
+      setCreateAccountError(
+        error?.response?.data?.message ||
+        (lang === 'zh' ? '创建账户失败，请重试' : 'Failed to create account, please try again')
+      );
     } finally {
       setIsCreatingAccount(false);
     }
