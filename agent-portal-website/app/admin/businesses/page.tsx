@@ -2789,7 +2789,8 @@ export default function BusinessManagementPage() {
     // The login account needs a first/last name. Contact name is optional, so
     // fall back to the business name when it's left empty.
     const [first_name, ...rest] = (trimmed.contact_name || trimmed.business_name).split(/\s+/);
-    const last_name = rest.join(' ') || first_name;
+    // A single-word name has no surname - repeating it gave owners like "John John".
+    const last_name = rest.join(' ') || 'Owner';
     const email = `${trimmed.emailPrefix.toLowerCase()}${BUSINESS_EMAIL_DOMAIN}`;
 
     setCreateAccountError('');

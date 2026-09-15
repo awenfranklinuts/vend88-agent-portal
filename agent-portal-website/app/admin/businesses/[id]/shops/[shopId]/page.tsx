@@ -630,6 +630,70 @@ interface Shop {
   status?: string;
 }
 
+const TabIntro = styled.p`
+  font-size: 0.875rem;
+  color: #5c6b7a;
+  margin: -0.75rem 0 1.25rem;
+`;
+
+const CredentialValueRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+`;
+
+const CredentialText = styled.span`
+  font-family: monospace;
+  font-size: 0.9375rem;
+  color: #0a3655;
+  overflow-wrap: anywhere;
+`;
+
+const SmallIconButton = styled.button`
+  flex-shrink: 0;
+  padding: 0.3rem 0.45rem;
+  background: white;
+  border: 1px solid #e0e7ef;
+  border-radius: 6px;
+  color: #374151;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+
+  &:hover {
+    background: #f3f4f6;
+  }
+`;
+
+const CopyIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+);
+
+const EyeIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+const EyeOffIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+    <line x1="1" y1="1" x2="23" y2="23" />
+  </svg>
+);
+
+interface ShopCredential {
+  _id: string;
+  username: string;
+  password: string;
+  created_at: string | null;
+}
+
 const SHOP_STATUSES = ['active', 'inactive', 'test', 'suspended'] as const;
 
 const SHOP_STATUS_LABELS: Record<string, { en: string; zh: string }> = {
@@ -656,7 +720,17 @@ export default function ShopDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'devices' | 'permissions' | 'activity' | 'notes'>('devices');
+  const [activeTab, setActiveTab] = useState<'devices' | 'permissions' | 'activity' | 'notes' | 'credentials'>('credentials');
+
+  // Store logins (shop_admin rows) - loaded the first time the Credentials tab opens,
+  // which is on page load since it's the default tab.
+  const [credentials, setCredentials] = useState<ShopCredential[] | null>(null);
+  const [credentialsLoadError, setCredentialsLoadError] = useState('');
+  const [visiblePasswordIds, setVisiblePasswordIds] = useState<Set<string>>(new Set());
+  const [showAddCredentialModal, setShowAddCredentialModal] = useState(false);
+  const [credentialForm, setCredentialForm] = useState({ username: '', password: '' });
+  const [credentialFormError, setCredentialFormError] = useState('');
+  const [isSavingCredential, setIsSavingCredential] = useState(false);
 
   const [isSavingStatus, setIsSavingStatus] = useState(false);
 
@@ -752,6 +826,107 @@ export default function ShopDetailPage() {
       setError(lang === "zh" ? "加载失败" : "Failed to load shop details");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'credentials' && credentials === null && token && shopId) {
+      fetchCredentials();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, token, shopId]);
+
+  const fetchCredentials = async () => {
+    setCredentialsLoadError('');
+    try {
+      const response = await axios.post(
+        `/api/shops/${shopId}/credentials`,
+        { token },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      if (response.data.status_code === 200) {
+        setCredentials(response.data.data || []);
+      } else {
+        setCredentialsLoadError(response.data.message || (lang === "zh" ? "加载失败" : "Failed to load credentials"));
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch shop credentials:', err);
+      setCredentialsLoadError(err?.response?.data?.message || (lang === "zh" ? "加载失败" : "Failed to load credentials"));
+    }
+  };
+
+  const togglePasswordVisible = (id: string) => {
+    setVisiblePasswordIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleCopy = async (value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      showToast(lang === "zh" ? `${label}已复制` : `${label} copied to clipboard`, 'success');
+    } catch {
+      showToast(lang === "zh" ? "复制失败" : "Failed to copy", 'error');
+    }
+  };
+
+  const openAddCredentialModal = () => {
+    setCredentialForm({ username: '', password: '' });
+    setCredentialFormError('');
+    setShowAddCredentialModal(true);
+  };
+
+  const handleGenerateCredentialPassword = () => {
+    const digits = Math.floor(1000 + Math.random() * 9000);
+    setCredentialForm((prev) => ({ ...prev, password: `Vend${digits}` }));
+  };
+
+  const handleAddCredential = async () => {
+    const username = credentialForm.username.trim();
+    const { password } = credentialForm;
+
+    // Same rules the backend enforces, checked here for a faster error.
+    if (!/^\S{3,50}$/.test(username)) {
+      setCredentialFormError(lang === "zh" ? "用户名需为 3-50 个字符，且不能包含空格" : "Username must be 3-50 characters with no spaces");
+      return;
+    }
+    if (password.length < 6) {
+      setCredentialFormError(lang === "zh" ? "密码至少需要 6 个字符" : "Password must be at least 6 characters");
+      return;
+    }
+
+    setCredentialFormError('');
+    setIsSavingCredential(true);
+    try {
+      const response = await axios.put(
+        `/api/shops/${shopId}/credentials`,
+        { token, username, password },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      if (response.data.status_code === 200 && response.data.data) {
+        setCredentials((prev) => [...(prev || []), response.data.data]);
+        setShowAddCredentialModal(false);
+        showToast(lang === "zh" ? "登录账户已添加" : "Login added successfully", 'success');
+      } else {
+        setCredentialFormError(response.data.message || (lang === "zh" ? "添加失败" : "Failed to add login"));
+      }
+    } catch (err: any) {
+      setCredentialFormError(err?.response?.data?.message || (lang === "zh" ? "添加失败" : "Failed to add login"));
+    } finally {
+      setIsSavingCredential(false);
     }
   };
 
@@ -915,6 +1090,14 @@ export default function ShopDetailPage() {
     return date.toLocaleDateString();
   };
 
+  // shop_admin.created_at is a naive UTC timestamp with microseconds
+  // ("2026-09-15T10:00:00.000000"), so mark it as UTC before parsing.
+  const formatCredentialDate = (value: string | null) => {
+    if (!value) return 'N/A';
+    const date = new Date(`${value.slice(0, 23)}Z`);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  };
+
   const formatShopLocation = (location: any) => {
     if (typeof location === 'string' && location.trim()) return location;
     return lang === "zh" ? "未设置地址" : "No address set";
@@ -1003,6 +1186,9 @@ export default function ShopDetailPage() {
 
               <TabContainer>
                 <TabButtons>
+                  <TabButton $active={activeTab === 'credentials'} onClick={() => setActiveTab('credentials')}>
+                    {lang === "zh" ? "登录凭据" : "Credentials"}
+                  </TabButton>
                   <TabButton $active={activeTab === 'devices'} onClick={() => setActiveTab('devices')}>
                     {lang === "zh" ? "设备" : "Devices"}
                   </TabButton>
@@ -1167,6 +1353,94 @@ export default function ShopDetailPage() {
                       </NotesSection>
                     </>
                   )}
+
+                  {activeTab === 'credentials' && (
+                    <>
+                      <CardTitle>{lang === "zh" ? "店铺登录凭据" : "Store Logins"}</CardTitle>
+                      <TabIntro>
+                        {lang === "zh"
+                          ? "用于在此店铺登录 VendPOS 的账户。"
+                          : "Accounts used to sign in to VendPOS at this shop."}
+                      </TabIntro>
+
+                      {credentialsLoadError ? (
+                        <InfoValue style={{ textAlign: 'center', padding: '2rem', color: '#991b1b' }}>
+                          {credentialsLoadError}
+                        </InfoValue>
+                      ) : credentials === null ? (
+                        <InfoValue style={{ textAlign: 'center', padding: '2rem' }}>
+                          {lang === "zh" ? "加载中..." : "Loading..."}
+                        </InfoValue>
+                      ) : credentials.length > 0 ? (
+                        <PermissionList>
+                          {credentials.map((cred) => {
+                            const passwordVisible = visiblePasswordIds.has(cred._id);
+                            return (
+                              <PermissionCard key={cred._id}>
+                                <PermissionDetails>
+                                  <PermissionDetailItem>
+                                    <PermissionLabel>{lang === "zh" ? "用户名" : "Username"}</PermissionLabel>
+                                    <CredentialValueRow>
+                                      <CredentialText>{cred.username || 'N/A'}</CredentialText>
+                                      {cred.username && (
+                                        <SmallIconButton
+                                          onClick={() => handleCopy(cred.username, lang === "zh" ? "用户名" : "Username")}
+                                          title={lang === "zh" ? "复制用户名" : "Copy username"}
+                                          aria-label={lang === "zh" ? "复制用户名" : "Copy username"}
+                                        >
+                                          <CopyIcon />
+                                        </SmallIconButton>
+                                      )}
+                                    </CredentialValueRow>
+                                  </PermissionDetailItem>
+                                  <PermissionDetailItem>
+                                    <PermissionLabel>{lang === "zh" ? "密码" : "Password"}</PermissionLabel>
+                                    <CredentialValueRow>
+                                      <CredentialText>
+                                        {!cred.password ? 'N/A' : passwordVisible ? cred.password : '••••••••••••'}
+                                      </CredentialText>
+                                      {cred.password && (
+                                        <>
+                                          <SmallIconButton
+                                            onClick={() => togglePasswordVisible(cred._id)}
+                                            title={passwordVisible ? (lang === "zh" ? "隐藏密码" : "Hide password") : (lang === "zh" ? "显示密码" : "Show password")}
+                                            aria-label={passwordVisible ? (lang === "zh" ? "隐藏密码" : "Hide password") : (lang === "zh" ? "显示密码" : "Show password")}
+                                          >
+                                            {passwordVisible ? <EyeOffIcon /> : <EyeIcon />}
+                                          </SmallIconButton>
+                                          <SmallIconButton
+                                            onClick={() => handleCopy(cred.password, lang === "zh" ? "密码" : "Password")}
+                                            title={lang === "zh" ? "复制密码" : "Copy password"}
+                                            aria-label={lang === "zh" ? "复制密码" : "Copy password"}
+                                          >
+                                            <CopyIcon />
+                                          </SmallIconButton>
+                                        </>
+                                      )}
+                                    </CredentialValueRow>
+                                  </PermissionDetailItem>
+                                  <PermissionDetailItem>
+                                    <PermissionLabel>{lang === "zh" ? "创建时间" : "Created"}</PermissionLabel>
+                                    <PermissionValue>{formatCredentialDate(cred.created_at)}</PermissionValue>
+                                  </PermissionDetailItem>
+                                </PermissionDetails>
+                              </PermissionCard>
+                            );
+                          })}
+                        </PermissionList>
+                      ) : (
+                        <InfoValue style={{ textAlign: 'center', padding: '2rem' }}>
+                          {lang === "zh" ? "暂无登录账户" : "No logins for this shop yet"}
+                        </InfoValue>
+                      )}
+
+                      {credentials !== null && !credentialsLoadError && (
+                        <AddPermissionButton onClick={openAddCredentialModal}>
+                          {lang === "zh" ? "添加登录账户" : "Add Login"}
+                        </AddPermissionButton>
+                      )}
+                    </>
+                  )}
                 </TabContent>
               </TabContainer>
             </>
@@ -1322,6 +1596,52 @@ export default function ShopDetailPage() {
             </ModalButton>
             <ModalButton $primary onClick={handleDeleteDeviceSubmit}>
               {lang === "zh" ? "删除" : "Delete"}
+            </ModalButton>
+          </ModalActions>
+        </ModalContent>
+      </Modal>
+
+      {/* Add Store Login Modal */}
+      <Modal $show={showAddCredentialModal} onClick={() => !isSavingCredential && setShowAddCredentialModal(false)}>
+        <ModalContent onClick={(e) => e.stopPropagation()}>
+          <ModalTitle>{lang === "zh" ? "添加登录账户" : "Add Login"}</ModalTitle>
+          <FormGroup>
+            <Label>{lang === "zh" ? "用户名" : "Username"} *</Label>
+            <Input
+              value={credentialForm.username}
+              autoComplete="off"
+              disabled={isSavingCredential}
+              onChange={(e) => setCredentialForm({ ...credentialForm, username: e.target.value })}
+              placeholder={lang === "zh" ? "3-50 个字符，不含空格" : "3-50 characters, no spaces"}
+            />
+          </FormGroup>
+          <FormGroup>
+            <Label>{lang === "zh" ? "密码" : "Password"} *</Label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <Input
+                type="text"
+                value={credentialForm.password}
+                autoComplete="new-password"
+                disabled={isSavingCredential}
+                onChange={(e) => setCredentialForm({ ...credentialForm, password: e.target.value })}
+                placeholder={lang === "zh" ? "至少 6 个字符" : "At least 6 characters"}
+              />
+              <ModalButton type="button" onClick={handleGenerateCredentialPassword} disabled={isSavingCredential}>
+                {lang === "zh" ? "生成" : "Generate"}
+              </ModalButton>
+            </div>
+          </FormGroup>
+          {credentialFormError && (
+            <p style={{ color: '#dc2626', fontSize: '0.8125rem', marginBottom: '1rem' }}>{credentialFormError}</p>
+          )}
+          <ModalActions>
+            <ModalButton onClick={() => setShowAddCredentialModal(false)} disabled={isSavingCredential}>
+              {lang === "zh" ? "取消" : "Cancel"}
+            </ModalButton>
+            <ModalButton $primary onClick={handleAddCredential} disabled={isSavingCredential}>
+              {isSavingCredential
+                ? (lang === "zh" ? "添加中..." : "Adding...")
+                : (lang === "zh" ? "添加" : "Add")}
             </ModalButton>
           </ModalActions>
         </ModalContent>

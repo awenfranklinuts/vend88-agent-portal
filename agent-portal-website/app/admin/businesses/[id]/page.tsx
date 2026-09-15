@@ -36,7 +36,7 @@ const BackButton = styled.button`
   padding: 0.75rem 1.25rem;
   background: white;
   border: 2px solid #e0e7ef;
-  border-radius: 8px;
+  border-radius: 2px;
   color: #0a3655;
   font-size: 0.9375rem;
   font-weight: 600;
@@ -51,27 +51,33 @@ const BackButton = styled.button`
   }
 `;
 
-const QuickActionsBar = styled.div`
-  background: white;
-  border-radius: 12px;
-  padding: 1rem;
-  box-shadow: 0 4px 16px rgba(30, 64, 175, 0.08);
-  margin-bottom: 1.5rem;
+const PageHeader = styled.div`
   display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+`;
+
+const TitleRow = styled.div`
+  display: flex;
+  align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+`;
 
-  @media (max-width: 968px) {
-    flex-direction: column;
-  }
+const HeaderActions = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 `;
 
 const QuickActionButton = styled.button<{ $variant?: 'primary' | 'secondary' | 'success' | 'danger' }>`
-  flex: 1;
-  min-width: 150px;
-  padding: 0.75rem 1rem;
+  padding: 0.65rem 1.1rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 2px;
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
@@ -87,25 +93,26 @@ const QuickActionButton = styled.button<{ $variant?: 'primary' | 'secondary' | '
         return `
           background: #3b82f6;
           color: white;
-          &:hover { background: #2563eb; transform: translateY(-2px); }
+          &:hover { background: #2563eb; }
         `;
       case 'success':
         return `
           background: #10b981;
           color: white;
-          &:hover { background: #059669; transform: translateY(-2px); }
+          &:hover { background: #059669; }
         `;
       case 'danger':
         return `
           background: #ef4444;
           color: white;
-          &:hover { background: #dc2626; transform: translateY(-2px); }
+          &:hover { background: #dc2626; }
         `;
       default:
         return `
-          background: #f3f4f6;
+          background: white;
           color: #374151;
-          &:hover { background: #e5e7eb; }
+          box-shadow: inset 0 0 0 1px #e0e7ef;
+          &:hover { background: #f3f4f6; }
         `;
     }
   }}
@@ -116,7 +123,7 @@ const AddShopButton = styled.button`
   background: #3b82f6;
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 2px;
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
@@ -128,48 +135,135 @@ const AddShopButton = styled.button`
 
   &:hover {
     background: #2563eb;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
   }
 `;
 
-const TabContainer = styled.div`
+// Main column holds the business; the fixed-width side column holds owner,
+// login and IDs. Collapses to one column once the sidebar squeezes it.
+const DetailLayout = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 1.5rem;
+  align-items: start;
+
+  @media (max-width: 1280px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+`;
+
+const Column = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+`;
+
+const Card = styled.section`
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 16px rgba(30, 64, 175, 0.08);
-  overflow: hidden;
-  margin-bottom: 1.5rem;
+  border: 1px solid #e0e7ef;
+  border-radius: 2px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  padding: 1.5rem;
 `;
 
-const TabContent = styled.div`
-  padding: 2rem;
-
-  @media (max-width: 968px) {
-    padding: 1.5rem;
-  }
-`;
-
-const CardTitle = styled.h2`
-  font-size: 1.5rem;
+const CardHeading = styled.h2`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.125rem;
   font-weight: 700;
   color: #0a3655;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #e0e7ef;
+  margin-bottom: 1.25rem;
 `;
 
-const SectionHeaderRow = styled.div`
+const CardHeadingRow = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #e0e7ef;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
 
-  ${CardTitle} {
+  ${CardHeading} {
     margin-bottom: 0;
-    padding-bottom: 0;
-    border-bottom: none;
+  }
+`;
+
+const SubHeading = styled.h3`
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0a3655;
+  margin: 1.5rem 0 1rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #eef2f7;
+`;
+
+const FieldGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.25rem 1.5rem;
+`;
+
+const NotesBox = styled.div`
+  background: #f7faff;
+  border: 1px solid #e0e7ef;
+  border-radius: 2px;
+  padding: 0.875rem 1rem;
+  font-size: 0.9375rem;
+  color: #0a3655;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+`;
+
+const NotesTextarea = styled.textarea`
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 2px;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  color: #0a3655;
+  resize: vertical;
+
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  &::placeholder {
+    color: #94a3b8;
+  }
+`;
+
+const WarningCard = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 2px;
+  padding: 1rem 1.25rem;
+  font-size: 0.875rem;
+  color: #92400e;
+
+  strong {
+    font-size: 0.9375rem;
+    color: #78350f;
+  }
+`;
+
+const MutedText = styled.div`
+  font-size: 0.9375rem;
+  color: #94a3b8;
+`;
+
+const ValueLink = styled.a`
+  color: #2563eb;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+
+  &:hover {
+    text-decoration: underline;
   }
 `;
 
@@ -177,7 +271,6 @@ const BusinessName = styled.h1`
   font-size: 2rem;
   font-weight: 700;
   color: #0a3655;
-  margin-bottom: 0.5rem;
 `;
 
 const BusinessLocation = styled.div`
@@ -186,7 +279,6 @@ const BusinessLocation = styled.div`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 1rem;
   font-weight: 500;
 
   svg {
@@ -194,20 +286,15 @@ const BusinessLocation = styled.div`
   }
 `;
 
-const InfoGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
-`;
-
 const InfoItem = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.35rem;
+  min-width: 0;
 `;
 
 const InfoLabel = styled.div`
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: #5c6b7a;
   text-transform: uppercase;
@@ -220,12 +307,13 @@ const InfoValue = styled.div`
   font-weight: 500;
 `;
 
-const StatusBadge = styled.span<{ $status: string }>`
+const StatusBadge = styled.span<{ $status: string; $large?: boolean }>`
   display: inline-block;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 600;
+  padding: ${p => (p.$large ? '0.4rem 0.85rem' : '0.3rem 0.75rem')};
+  border-radius: 2px;
+  font-size: ${p => (p.$large ? '0.8125rem' : '0.75rem')};
+  font-weight: 700;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
 
   ${p => {
@@ -261,7 +349,7 @@ const ErrorText = styled.div`
   color: #991b1b;
   padding: 4rem;
   background: #fee2e2;
-  border-radius: 12px;
+  border-radius: 2px;
   margin: 2rem 0;
 `;
 
@@ -273,7 +361,7 @@ const PermissionList = styled.div`
 const PermissionCard = styled.div`
   background: #f7faff;
   padding: 1.25rem;
-  border-radius: 12px;
+  border-radius: 2px;
   border: 1px solid #e0e7ef;
   transition: all 0.2s ease;
   cursor: pointer;
@@ -291,9 +379,9 @@ const PermissionName = styled.div`
   margin-bottom: 0.75rem;
 `;
 
-const PermissionDetails = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+const ShopMeta = styled.div`
+  display: flex;
+  justify-content: space-between;
   gap: 1rem;
   font-size: 0.875rem;
   color: #5c6b7a;
@@ -323,7 +411,7 @@ const Modal = styled.div<{ $show: boolean }>`
 
 const ModalContent = styled.div`
   background: white;
-  border-radius: 16px;
+  border-radius: 2px;
   padding: 2rem;
   max-width: 500px;
   width: 100%;
@@ -340,7 +428,7 @@ const Input = styled.input`
   width: 100%;
   padding: 0.75rem;
   border: 2px solid #e0e7ef;
-  border-radius: 8px;
+  border-radius: 2px;
   font-size: 0.9375rem;
   color: #0a3655;
 
@@ -356,12 +444,13 @@ const Input = styled.input`
   }
 `;
 
-const Select = styled.select`
-  width: 100%;
-  padding: 0.75rem;
-  border: 2px solid #e0e7ef;
-  border-radius: 8px;
-  font-size: 0.9375rem;
+// Sits next to the business name in edit mode, in place of the status badge.
+const StatusSelect = styled.select`
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 2px;
+  font-size: 0.8125rem;
+  font-weight: 600;
   color: #0a3655;
   background: white;
   cursor: pointer;
@@ -383,7 +472,7 @@ const ModalActions = styled.div`
 const ModalButton = styled.button<{ $primary?: boolean }>`
   padding: 0.75rem 1.5rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 2px;
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
@@ -394,7 +483,7 @@ const ModalButton = styled.button<{ $primary?: boolean }>`
     color: white;
     &:hover {
       background: #2563eb;
-      transform: translateY(-1px);
+     
       box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
     }
   ` : `
@@ -404,52 +493,41 @@ const ModalButton = styled.button<{ $primary?: boolean }>`
   `}
 `;
 
-const OwnerCard = styled.div`
-  background: #f7faff;
-  border: 1px solid #e0e7ef;
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
-`;
-
-const OwnerName = styled.h3`
-  font-size: 1.25rem;
+const OwnerPrimary = styled.div`
+  font-size: 1.125rem;
   font-weight: 700;
   color: #0a3655;
-  margin-bottom: 1rem;
+  margin-bottom: 0.25rem;
 `;
 
-const OwnerActions = styled.div`
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  flex-wrap: wrap;
+const OwnerLine = styled.div`
+  font-size: 0.9375rem;
+  color: #5c6b7a;
 `;
 
-const CredentialsBox = styled.div`
-  background: white;
-  border: 1px solid #e0e7ef;
-  border-radius: 8px;
-  padding: 1rem;
-  margin-top: 1rem;
+const CredentialsList = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
 `;
 
-const CredentialsHeader = styled.div`
+const IdRow = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  padding: 0.625rem 0;
+  border-bottom: 1px solid #eef2f7;
+
+  &:last-of-type {
+    border-bottom: none;
+  }
 `;
 
-const CredentialsTitle = styled.div`
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #5c6b7a;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+const IdText = styled.div`
+  font-size: 0.875rem;
+  font-family: monospace;
+  color: #0a3655;
 `;
 
 const CredentialRow = styled.div`
@@ -463,7 +541,7 @@ const CredentialInput = styled.input`
   width: 100%;
   padding: 0.5rem 0.65rem;
   border: 2px solid #e0e7ef;
-  border-radius: 6px;
+  border-radius: 2px;
   font-size: 0.9375rem;
   font-family: monospace;
   color: #0a3655;
@@ -492,7 +570,7 @@ const IconButton = styled.button`
   padding: 0.4rem 0.55rem;
   background: #f3f4f6;
   border: 1px solid #e0e7ef;
-  border-radius: 6px;
+  border-radius: 2px;
   color: #374151;
   cursor: pointer;
   display: flex;
@@ -508,7 +586,7 @@ const CredentialFieldError = styled.div`
   font-size: 0.8125rem;
   color: #c0392b;
   background: #fdecea;
-  border-radius: 6px;
+  border-radius: 2px;
   padding: 0.5rem 0.65rem;
 `;
 
@@ -521,7 +599,7 @@ const CredentialEditActions = styled.div`
 const SmallButton = styled.button<{ $variant?: 'save' | 'cancel' }>`
   padding: 0.45rem 0.9rem;
   border: 1px solid ${p => (p.$variant === 'save' ? 'transparent' : '#e0e7ef')};
-  border-radius: 6px;
+  border-radius: 2px;
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
@@ -563,68 +641,7 @@ const CredentialValue = styled.div`
   font-size: 0.9375rem;
   font-family: monospace;
   color: #0a3655;
-  overflow-wrap: break-word;
-`;
-
-const CopyButton = styled.button`
-  flex-shrink: 0;
-  padding: 0.4rem 0.75rem;
-  background: #f3f4f6;
-  border: 1px solid #e0e7ef;
-  border-radius: 6px;
-  color: #374151;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: #e5e7eb;
-  }
-`;
-
-const EditActions = styled.div`
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 2px solid #e0e7ef;
-
-  @media (max-width: 968px) {
-    flex-direction: column;
-  }
-`;
-
-const EditButton = styled.button<{ $variant?: 'save' | 'cancel' }>`
-  flex: 1;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-
-  ${p => p.$variant === 'save' ? `
-    background: #10b981;
-    color: white;
-    &:hover {
-      background: #059669;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-    }
-  ` : `
-    background: #e5e7eb;
-    color: #374151;
-    &:hover { background: #d1d5db; }
-  `}
+  overflow-wrap: anywhere;
 `;
 
 // Icon Components
@@ -695,6 +712,8 @@ interface Business {
   contact_email?: string;
   contactPhone?: string;
   contact_phone?: string;
+  contact_name?: string;
+  notes?: string;
   eftposIntegration?: string;
   alipayOption?: string;
   alipayOther?: string;
@@ -718,6 +737,7 @@ export default function BusinessDetailPage() {
   const [originalBusiness, setOriginalBusiness] = useState<Business | null>(null);
   const [owner, setOwner] = useState<any>(null);
   const [ownerCredentials, setOwnerCredentials] = useState<{ email: string; password: string } | null>(null);
+  const [ownerAccountMissing, setOwnerAccountMissing] = useState(false);
   const [shops, setShops] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -730,7 +750,6 @@ export default function BusinessDetailPage() {
   const [newShop, setNewShop] = useState({ name: '', location: '' });
   const [addShopError, setAddShopError] = useState('');
   const [isAddingShop, setIsAddingShop] = useState(false);
-  const [showEmail, setShowEmail] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isEditingCredentials, setIsEditingCredentials] = useState(false);
   const [credentialsDraft, setCredentialsDraft] = useState({ email: '', password: '' });
@@ -820,8 +839,14 @@ export default function BusinessDetailPage() {
             if (credentialsResponse.data.status_code === 200) {
               setOwnerCredentials(credentialsResponse.data.data);
             }
-          } catch (err) {
-            console.error('Failed to fetch owner credentials:', err);
+          } catch (err: any) {
+            // 404 = the business's owner_id has no matching admin account. That's
+            // a data problem shown on the page, not an error worth logging.
+            if (err?.response?.status === 404) {
+              setOwnerAccountMissing(true);
+            } else {
+              console.error('Failed to fetch owner credentials:', err);
+            }
           }
 
           // Fetch shops linked to this business
@@ -869,10 +894,15 @@ export default function BusinessDetailPage() {
     if (!business) return;
 
     try {
-      if (business.status !== originalBusiness?.status) {
+      const changes: { status?: string; notes?: string } = {};
+      if (business.status !== originalBusiness?.status) changes.status = business.status;
+      const notes = (business.notes || '').trim();
+      if (notes !== (originalBusiness?.notes || '')) changes.notes = notes;
+
+      if (Object.keys(changes).length) {
         await axios.post(
           '/api/businesses/update',
-          { token, id: business._id, status: business.status },
+          { token, id: business._id, ...changes },
           {
             headers: {
               "Content-Type": "application/json",
@@ -882,9 +912,11 @@ export default function BusinessDetailPage() {
         );
       }
 
-      // TODO: persist the remaining editable fields (name, abn, etc.) - only
-      // status is wired up to a real endpoint so far.
-      setOriginalBusiness(business);
+      // TODO: persist the remaining editable fields (name, abn) - only status
+      // and notes are wired up to a real endpoint so far.
+      const saved = { ...business, notes };
+      setBusiness(saved);
+      setOriginalBusiness(saved);
       setIsEditMode(false);
       showToast(
         lang === 'zh' ? '业务信息已更新' : 'Business information updated',
@@ -1088,10 +1120,25 @@ export default function BusinessDetailPage() {
       .toUpperCase();
   };
 
+  // Shops are created with a placeholder [0, 0] coordinate - that isn't an address.
   const formatShopLocation = (location: any) => {
-    if (typeof location === 'string' && location.trim()) return location;
-    return null;
+    if (typeof location !== 'string' || !location.trim()) return null;
+    if (/^\[\s*-?[\d.]+\s*,\s*-?[\d.]+\s*\]$/.test(location.trim())) return null;
+    return location;
   };
+
+  const formatAddress = (b: Business) => {
+    const locality = [b.suburb, [b.state, b.postcode].filter(Boolean).join(' ')].filter(Boolean).join(' ');
+    return [b.address, locality, b.country].filter(Boolean).join(', ');
+  };
+
+  // 12345678901 -> 12 345 678 901
+  const formatAbn = (abn?: string) => {
+    const digits = (abn || '').replace(/\s+/g, '');
+    return /^\d{11}$/.test(digits) ? digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3 $4') : abn;
+  };
+
+  const shortenId = (id: string) => (id.length > 12 ? `${id.slice(0, 6)}…${id.slice(-4)}` : id);
 
   if (authLoading) {
     return (
@@ -1104,6 +1151,10 @@ export default function BusinessDetailPage() {
   if (!token || !isAdminRole(role)) {
     return null;
   }
+
+  const contactEmail = business?.contact_email || business?.contactEmail;
+  const contactPhone = business?.contact_phone || business?.contactPhone;
+  const customerId = business?.customer_id || business?.owner_id || owner?._id;
 
   return (
     <MainLayout
@@ -1124,328 +1175,353 @@ export default function BusinessDetailPage() {
             <ErrorText>{error}</ErrorText>
           ) : business ? (
             <>
-              {/* Business Name Header */}
-              <BusinessName>{business.name || 'N/A'}</BusinessName>
-              {(business.suburb || business.state || business.address) && (
-                <BusinessLocation>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                    <circle cx="12" cy="10" r="3"/>
-                  </svg>
-                  {business.address && `${business.address}, `}
-                  {business.suburb && `${business.suburb}`}
-                  {business.state && `, ${business.state}`}
-                  {business.postcode && ` ${business.postcode}`}
-                </BusinessLocation>
-              )}
-
-              {/* Quick Actions Bar */}
-              <QuickActionsBar>
-                {!isEditMode ? (
-                  <QuickActionButton $variant="primary" onClick={handleEditBusiness}>
-                    <EditIcon />
-                    {lang === "zh" ? "编辑业务" : "Edit Business"}
-                  </QuickActionButton>
-                ) : (
-                  <QuickActionButton $variant="success" onClick={handleSaveBusiness}>
-                    <SaveIcon />
-                    {lang === "zh" ? "保存更改" : "Save Changes"}
-                  </QuickActionButton>
-                )}
-                {owner && (
-                  <QuickActionButton onClick={handleEmailOwner}>
-                    <MailIcon />
-                    {lang === "zh" ? "联系所有者" : "Contact Owner"}
-                  </QuickActionButton>
-                )}
-              </QuickActionsBar>
-
-              <TabContainer>
-                <TabContent>
-                  {/* Owner Information Card */}
-                  {owner && (
-                    <OwnerCard>
-                      <OwnerName>
-                        <UserIcon /> {lang === "zh" ? "业务所有者" : "Business Owner"}
-                      </OwnerName>
-                      <InfoGrid>
-                        <InfoItem>
-                          <InfoLabel>{lang === "zh" ? "姓名" : "Name"}</InfoLabel>
-                          <InfoValue>{owner.name || 'N/A'}</InfoValue>
-                        </InfoItem>
-                        <InfoItem>
-                          <InfoLabel>{lang === "zh" ? "电话" : "Phone"}</InfoLabel>
-                          <InfoValue>{owner.phone || 'N/A'}</InfoValue>
-                        </InfoItem>
-                        <InfoItem>
-                          <InfoLabel>{lang === "zh" ? "客户 ID" : "Customer ID"}</InfoLabel>
-                          <InfoValue>{owner._id || 'N/A'}</InfoValue>
-                        </InfoItem>
-                      </InfoGrid>
-
-                      {ownerCredentials && (
-                        <CredentialsBox>
-                          <CredentialsHeader>
-                            <CredentialsTitle>
-                              {lang === "zh" ? "登录信息" : "Login Credentials"}
-                            </CredentialsTitle>
-                            {!isEditingCredentials && (
-                              <SmallButton onClick={handleStartEditCredentials}>
-                                <EditIcon /> {lang === "zh" ? "编辑" : "Edit"}
-                              </SmallButton>
-                            )}
-                          </CredentialsHeader>
-
-                          <CredentialRow>
-                            <CredentialInfo style={{ flex: 1 }}>
-                              <CredentialLabel>{lang === "zh" ? "邮箱" : "Email"}</CredentialLabel>
-                              {isEditingCredentials ? (
-                                <CredentialInput
-                                  type="email"
-                                  value={credentialsDraft.email}
-                                  disabled={isSavingCredentials}
-                                  autoComplete="off"
-                                  onChange={(e) =>
-                                    setCredentialsDraft({ ...credentialsDraft, email: e.target.value })
-                                  }
-                                />
-                              ) : (
-                                <CredentialValue>
-                                  {!ownerCredentials.email
-                                    ? 'N/A'
-                                    : showEmail
-                                      ? ownerCredentials.email
-                                      : MASKED_VALUE}
-                                </CredentialValue>
-                              )}
-                            </CredentialInfo>
-                            {!isEditingCredentials && (
-                              <CredentialButtons>
-                                <IconButton
-                                  onClick={() => setShowEmail(!showEmail)}
-                                  title={
-                                    showEmail
-                                      ? (lang === "zh" ? "隐藏邮箱" : "Hide email")
-                                      : (lang === "zh" ? "显示邮箱" : "Show email")
-                                  }
-                                  aria-label={
-                                    showEmail
-                                      ? (lang === "zh" ? "隐藏邮箱" : "Hide email")
-                                      : (lang === "zh" ? "显示邮箱" : "Show email")
-                                  }
-                                >
-                                  {showEmail ? <EyeOffIcon /> : <EyeIcon />}
-                                </IconButton>
-                                <CopyButton onClick={() => handleCopyToClipboard(ownerCredentials.email, lang === "zh" ? "邮箱" : "Email")}>
-                                  <CopyIcon /> {lang === "zh" ? "复制" : "Copy"}
-                                </CopyButton>
-                              </CredentialButtons>
-                            )}
-                          </CredentialRow>
-
-                          <CredentialRow>
-                            <CredentialInfo style={{ flex: 1 }}>
-                              <CredentialLabel>{lang === "zh" ? "密码" : "Password"}</CredentialLabel>
-                              {isEditingCredentials ? (
-                                <CredentialInput
-                                  type={showPassword ? "text" : "password"}
-                                  value={credentialsDraft.password}
-                                  disabled={isSavingCredentials}
-                                  autoComplete="new-password"
-                                  onChange={(e) =>
-                                    setCredentialsDraft({ ...credentialsDraft, password: e.target.value })
-                                  }
-                                />
-                              ) : (
-                                <CredentialValue>
-                                  {!ownerCredentials.password
-                                    ? 'N/A'
-                                    : showPassword
-                                      ? ownerCredentials.password
-                                      : MASKED_VALUE}
-                                </CredentialValue>
-                              )}
-                            </CredentialInfo>
-                            <CredentialButtons>
-                              <IconButton
-                                onClick={() => setShowPassword(!showPassword)}
-                                title={
-                                  showPassword
-                                    ? (lang === "zh" ? "隐藏密码" : "Hide password")
-                                    : (lang === "zh" ? "显示密码" : "Show password")
-                                }
-                                aria-label={
-                                  showPassword
-                                    ? (lang === "zh" ? "隐藏密码" : "Hide password")
-                                    : (lang === "zh" ? "显示密码" : "Show password")
-                                }
-                              >
-                                {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                              </IconButton>
-                              {!isEditingCredentials && (
-                                <CopyButton onClick={() => handleCopyToClipboard(ownerCredentials.password, lang === "zh" ? "密码" : "Password")}>
-                                  <CopyIcon /> {lang === "zh" ? "复制" : "Copy"}
-                                </CopyButton>
-                              )}
-                            </CredentialButtons>
-                          </CredentialRow>
-
-                          {credentialsError && (
-                            <CredentialFieldError>{credentialsError}</CredentialFieldError>
-                          )}
-
-                          {isEditingCredentials && (
-                            <CredentialEditActions>
-                              <SmallButton onClick={handleCancelEditCredentials} disabled={isSavingCredentials}>
-                                {lang === "zh" ? "取消" : "Cancel"}
-                              </SmallButton>
-                              <SmallButton $variant="save" onClick={handleSaveCredentials} disabled={isSavingCredentials}>
-                                <SaveIcon />
-                                {isSavingCredentials
-                                  ? (lang === "zh" ? "保存中..." : "Saving...")
-                                  : (lang === "zh" ? "保存" : "Save")}
-                              </SmallButton>
-                            </CredentialEditActions>
-                          )}
-                        </CredentialsBox>
-                      )}
-
-                      <OwnerActions>
-                        <QuickActionButton onClick={handleEmailOwner}>
-                          <MailIcon />
-                          {lang === "zh" ? "发送邮件" : "Send Email"}
-                        </QuickActionButton>
-                        <QuickActionButton onClick={handleViewOwner}>
-                          <UserIcon />
-                          {lang === "zh" ? "查看客户资料" : "View Profile"}
-                        </QuickActionButton>
-                      </OwnerActions>
-                    </OwnerCard>
+              {/* Header: name, status, address and page-level actions */}
+              <PageHeader>
+                <div style={{ minWidth: 0 }}>
+                  <TitleRow>
+                    <BusinessName>{business.name || 'N/A'}</BusinessName>
+                    {isEditMode ? (
+                      <StatusSelect
+                        value={business.status || ''}
+                        onChange={(e) => handleBusinessChange('status', e.target.value)}
+                        aria-label={lang === "zh" ? "状态" : "Status"}
+                      >
+                        <option value="active">Active</option>
+                        <option value="setup">Setup</option>
+                        <option value="in_setup">In Setup</option>
+                        <option value="test">Test</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="suspended">Suspended</option>
+                      </StatusSelect>
+                    ) : (
+                      <StatusBadge $status={business.status || 'N/A'} $large>
+                        {formatStatus(business.status || 'inactive')}
+                      </StatusBadge>
+                    )}
+                  </TitleRow>
+                  {formatAddress(business) && (
+                    <BusinessLocation>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                        <circle cx="12" cy="10" r="3"/>
+                      </svg>
+                      {formatAddress(business)}
+                    </BusinessLocation>
                   )}
+                </div>
 
-                  {/* Business Information Section */}
-                  <CardTitle>{lang === "zh" ? "业务信息" : "Business Information"}</CardTitle>
-                  <InfoGrid>
-                    <InfoItem>
-                      <InfoLabel>{lang === "zh" ? "业务 ID" : "Business ID"}</InfoLabel>
-                      <InfoValue>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                          <span>{business._id}</span>
-                          {(business.registrationId || business.registration_id) && (
-                            <button
-                              onClick={handleViewRegistration}
-                              style={{
-                                padding: '0.4rem 0.75rem',
-                                fontSize: '0.75rem',
-                                background: '#3b82f6',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                whiteSpace: 'nowrap'
-                              }}
-                            >
-                              📋 {lang === "zh" ? "查看注册表单" : "View Form"}
-                            </button>
-                          )}
-                        </div>
-                      </InfoValue>
-                    </InfoItem>
-                    <InfoItem>
-                      <InfoLabel>{lang === "zh" ? "业务名称" : "Business Name"}</InfoLabel>
-                      {isEditMode ? (
-                        <Input
-                          value={business.name || ''}
-                          onChange={(e) => handleBusinessChange('name', e.target.value)}
-                        />
-                      ) : (
-                        <InfoValue>{business.name || 'N/A'}</InfoValue>
-                      )}
-                    </InfoItem>
-                    <InfoItem>
-                      <InfoLabel>{lang === "zh" ? "ABN" : "ABN"}</InfoLabel>
-                      {isEditMode ? (
-                        <Input
-                          value={business.abn || ''}
-                          onChange={(e) => handleBusinessChange('abn', e.target.value)}
-                        />
-                      ) : (
-                        <InfoValue>{business.abn || 'N/A'}</InfoValue>
-                      )}
-                    </InfoItem>
-                    <InfoItem>
-                      <InfoLabel>{lang === "zh" ? "状态" : "Status"}</InfoLabel>
-                      {isEditMode ? (
-                        <Select
-                          value={business.status || ''}
-                          onChange={(e) => handleBusinessChange('status', e.target.value)}
-                        >
-                          <option value="active">Active</option>
-                          <option value="setup">Setup</option>
-                          <option value="in_setup">In Setup</option>
-                          <option value="test">Test</option>
-                          <option value="inactive">Inactive</option>
-                          <option value="suspended">Suspended</option>
-                        </Select>
-                      ) : (
-                        <StatusBadge $status={business.status || 'N/A'}>
-                          {formatStatus(business.status || 'inactive')}
-                        </StatusBadge>
-                      )}
-                    </InfoItem>
-                  </InfoGrid>
-
-                  {/* Shops Section */}
-                  <SectionHeaderRow style={{ marginTop: '2rem' }}>
-                    <CardTitle>
-                      {lang === "zh" ? `店铺 (${shops.length})` : `Shops (${shops.length})`}
-                    </CardTitle>
-                    <AddShopButton onClick={() => { resetAddShopForm(); setShowAddShopModal(true); }}>
-                      + {lang === "zh" ? "添加店铺" : "Add Shop"}
-                    </AddShopButton>
-                  </SectionHeaderRow>
-                  {shops.length > 0 ? (
-                    <PermissionList>
-                      {shops.map((shop) => (
-                        <PermissionCard
-                          key={shop._id}
-                          onClick={() => router.push(`/admin/businesses/${business._id}/shops/${shop._id}`)}
-                        >
-                          <ShopCardHeader>
-                            <PermissionName style={{ marginBottom: 0 }}>{shop.store_name || shop.name || 'N/A'}</PermissionName>
-                            {shop.status && (
-                              <StatusBadge $status={shop.status}>
-                                {formatStatus(shop.status)}
-                              </StatusBadge>
-                            )}
-                          </ShopCardHeader>
-                          <PermissionDetails>
-                            {formatShopLocation(shop.location)
-                              ? formatShopLocation(shop.location)
-                              : (lang === "zh" ? "未设置地址" : "No address set")}
-                            {shop.phone ? ` · ${shop.phone}` : ''}
-                          </PermissionDetails>
-                        </PermissionCard>
-                      ))}
-                    </PermissionList>
-                  ) : (
-                    <InfoValue>{lang === "zh" ? "暂无店铺" : "No shops linked to this business"}</InfoValue>
-                  )}
-
-                  {/* Edit Mode Actions */}
-                  {isEditMode && (
-                    <EditActions>
-                      <EditButton $variant="save" onClick={handleSaveBusiness}>
+                <HeaderActions>
+                  {isEditMode ? (
+                    <>
+                      <QuickActionButton onClick={handleCancelEdit}>
+                        {lang === "zh" ? "取消" : "Cancel"}
+                      </QuickActionButton>
+                      <QuickActionButton $variant="success" onClick={handleSaveBusiness}>
                         <SaveIcon />
                         {lang === "zh" ? "保存更改" : "Save Changes"}
-                      </EditButton>
-                      <EditButton onClick={handleCancelEdit}>
-                        {lang === "zh" ? "取消" : "Cancel"}
-                      </EditButton>
-                    </EditActions>
+                      </QuickActionButton>
+                    </>
+                  ) : (
+                    <QuickActionButton $variant="primary" onClick={handleEditBusiness}>
+                      <EditIcon />
+                      {lang === "zh" ? "编辑" : "Edit"}
+                    </QuickActionButton>
                   )}
-                </TabContent>
-              </TabContainer>
+                  {owner?.email && (
+                    <QuickActionButton onClick={handleEmailOwner}>
+                      <MailIcon />
+                      {lang === "zh" ? "联系所有者" : "Contact Owner"}
+                    </QuickActionButton>
+                  )}
+                </HeaderActions>
+              </PageHeader>
+
+              <DetailLayout>
+                {/* Main column: the business itself */}
+                <Column>
+                  <Card>
+                    <CardHeading>{lang === "zh" ? "业务信息" : "Business Details"}</CardHeading>
+                    <FieldGrid>
+                      <InfoItem>
+                        <InfoLabel>{lang === "zh" ? "业务名称" : "Business Name"}</InfoLabel>
+                        {isEditMode ? (
+                          <Input
+                            value={business.name || ''}
+                            onChange={(e) => handleBusinessChange('name', e.target.value)}
+                          />
+                        ) : (
+                          <InfoValue>{business.name || 'N/A'}</InfoValue>
+                        )}
+                      </InfoItem>
+                      <InfoItem>
+                        <InfoLabel>ABN</InfoLabel>
+                        {isEditMode ? (
+                          <Input
+                            value={business.abn || ''}
+                            onChange={(e) => handleBusinessChange('abn', e.target.value)}
+                          />
+                        ) : (
+                          <InfoValue>{formatAbn(business.abn) || 'N/A'}</InfoValue>
+                        )}
+                      </InfoItem>
+                      <InfoItem>
+                        <InfoLabel>{lang === "zh" ? "地址" : "Address"}</InfoLabel>
+                        <InfoValue>{formatAddress(business) || 'N/A'}</InfoValue>
+                      </InfoItem>
+                    </FieldGrid>
+
+                    <SubHeading>{lang === "zh" ? "客户联系信息" : "Customer Contact"}</SubHeading>
+                    <FieldGrid>
+                      <InfoItem>
+                        <InfoLabel>{lang === "zh" ? "姓名" : "Name"}</InfoLabel>
+                        <InfoValue>{business.contact_name || 'N/A'}</InfoValue>
+                      </InfoItem>
+                      <InfoItem>
+                        <InfoLabel>{lang === "zh" ? "邮箱" : "Email"}</InfoLabel>
+                        <InfoValue>
+                          {contactEmail ? <ValueLink href={`mailto:${contactEmail}`}>{contactEmail}</ValueLink> : 'N/A'}
+                        </InfoValue>
+                      </InfoItem>
+                      <InfoItem>
+                        <InfoLabel>{lang === "zh" ? "电话" : "Phone"}</InfoLabel>
+                        <InfoValue>
+                          {contactPhone ? <ValueLink href={`tel:${contactPhone}`}>{contactPhone}</ValueLink> : 'N/A'}
+                        </InfoValue>
+                      </InfoItem>
+                    </FieldGrid>
+
+                    <SubHeading>{lang === "zh" ? "备注" : "Notes"}</SubHeading>
+                    {isEditMode ? (
+                      <NotesTextarea
+                        rows={4}
+                        value={business.notes || ''}
+                        onChange={(e) => handleBusinessChange('notes', e.target.value)}
+                        placeholder={lang === "zh" ? "其他信息或特殊要求" : "Extra information or special requirements"}
+                      />
+                    ) : business.notes ? (
+                      <NotesBox>{business.notes}</NotesBox>
+                    ) : (
+                      <MutedText>{lang === "zh" ? "暂无备注" : "No notes"}</MutedText>
+                    )}
+                  </Card>
+
+                  <Card>
+                    <CardHeadingRow>
+                      <CardHeading>
+                        {lang === "zh" ? `店铺 (${shops.length})` : `Shops (${shops.length})`}
+                      </CardHeading>
+                      <AddShopButton onClick={() => { resetAddShopForm(); setShowAddShopModal(true); }}>
+                        + {lang === "zh" ? "添加店铺" : "Add Shop"}
+                      </AddShopButton>
+                    </CardHeadingRow>
+                    {shops.length > 0 ? (
+                      <PermissionList>
+                        {shops.map((shop) => (
+                          <PermissionCard
+                            key={shop._id}
+                            onClick={() => router.push(`/admin/businesses/${business._id}/shops/${shop._id}`)}
+                          >
+                            <ShopCardHeader>
+                              <PermissionName style={{ marginBottom: 0 }}>{shop.store_name || shop.name || 'N/A'}</PermissionName>
+                              {shop.status && (
+                                <StatusBadge $status={shop.status}>
+                                  {formatStatus(shop.status)}
+                                </StatusBadge>
+                              )}
+                            </ShopCardHeader>
+                            <ShopMeta>
+                              <span>
+                                {formatShopLocation(shop.location)
+                                  || (lang === "zh" ? "未设置地址" : "No address set")}
+                                {shop.phone ? ` · ${shop.phone}` : ''}
+                              </span>
+                              <span aria-hidden="true">→</span>
+                            </ShopMeta>
+                          </PermissionCard>
+                        ))}
+                      </PermissionList>
+                    ) : (
+                      <MutedText>{lang === "zh" ? "暂无店铺" : "No shops linked to this business"}</MutedText>
+                    )}
+                  </Card>
+                </Column>
+
+                {/* Side column: who owns it and how they log in */}
+                <Column>
+                  {ownerAccountMissing && (
+                    <WarningCard role="status">
+                      <strong>{lang === "zh" ? "未找到所有者账户" : "Owner account not found"}</strong>
+                      {lang === "zh"
+                        ? "此业务关联的所有者账户在 admin 集合中不存在，因此无法显示 VendPOS 登录信息，也无法添加店铺登录账户。"
+                        : "The owner account linked to this business doesn't exist in the admin collection, so VendPOS login details can't be shown and store logins can't be added."}
+                    </WarningCard>
+                  )}
+
+                  {owner && (
+                    <Card>
+                      <CardHeading>
+                        <UserIcon /> {lang === "zh" ? "业务所有者" : "Business Owner"}
+                      </CardHeading>
+                      <OwnerPrimary>{owner.name || 'N/A'}</OwnerPrimary>
+                      {owner.phone && <OwnerLine>{owner.phone}</OwnerLine>}
+                      <SmallButton onClick={handleViewOwner} style={{ marginTop: '0.75rem' }}>
+                        <UserIcon /> {lang === "zh" ? "查看客户资料" : "View Profile"}
+                      </SmallButton>
+                    </Card>
+                  )}
+
+                  {ownerCredentials && (
+                    <Card>
+                      <CardHeadingRow>
+                        <CardHeading>{lang === "zh" ? "VendPOS 登录" : "VendPOS Login"}</CardHeading>
+                        {!isEditingCredentials && (
+                          <SmallButton onClick={handleStartEditCredentials}>
+                            <EditIcon /> {lang === "zh" ? "编辑" : "Edit"}
+                          </SmallButton>
+                        )}
+                      </CardHeadingRow>
+
+                      <CredentialsList>
+                        <CredentialRow>
+                          <CredentialInfo style={{ flex: 1 }}>
+                            <CredentialLabel>{lang === "zh" ? "邮箱" : "Email"}</CredentialLabel>
+                            {isEditingCredentials ? (
+                              <CredentialInput
+                                type="email"
+                                value={credentialsDraft.email}
+                                disabled={isSavingCredentials}
+                                autoComplete="off"
+                                onChange={(e) =>
+                                  setCredentialsDraft({ ...credentialsDraft, email: e.target.value })
+                                }
+                              />
+                            ) : (
+                              <CredentialValue>{ownerCredentials.email || 'N/A'}</CredentialValue>
+                            )}
+                          </CredentialInfo>
+                          {!isEditingCredentials && ownerCredentials.email && (
+                            <CredentialButtons>
+                              <IconButton
+                                onClick={() => handleCopyToClipboard(ownerCredentials.email, lang === "zh" ? "邮箱" : "Email")}
+                                title={lang === "zh" ? "复制邮箱" : "Copy email"}
+                                aria-label={lang === "zh" ? "复制邮箱" : "Copy email"}
+                              >
+                                <CopyIcon />
+                              </IconButton>
+                            </CredentialButtons>
+                          )}
+                        </CredentialRow>
+
+                        <CredentialRow>
+                          <CredentialInfo style={{ flex: 1 }}>
+                            <CredentialLabel>{lang === "zh" ? "密码" : "Password"}</CredentialLabel>
+                            {isEditingCredentials ? (
+                              <CredentialInput
+                                type={showPassword ? "text" : "password"}
+                                value={credentialsDraft.password}
+                                disabled={isSavingCredentials}
+                                autoComplete="new-password"
+                                onChange={(e) =>
+                                  setCredentialsDraft({ ...credentialsDraft, password: e.target.value })
+                                }
+                              />
+                            ) : (
+                              <CredentialValue>
+                                {!ownerCredentials.password
+                                  ? 'N/A'
+                                  : showPassword
+                                    ? ownerCredentials.password
+                                    : MASKED_VALUE}
+                              </CredentialValue>
+                            )}
+                          </CredentialInfo>
+                          <CredentialButtons>
+                            <IconButton
+                              onClick={() => setShowPassword(!showPassword)}
+                              title={
+                                showPassword
+                                  ? (lang === "zh" ? "隐藏密码" : "Hide password")
+                                  : (lang === "zh" ? "显示密码" : "Show password")
+                              }
+                              aria-label={
+                                showPassword
+                                  ? (lang === "zh" ? "隐藏密码" : "Hide password")
+                                  : (lang === "zh" ? "显示密码" : "Show password")
+                              }
+                            >
+                              {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                            </IconButton>
+                            {!isEditingCredentials && (
+                              <IconButton
+                                onClick={() => handleCopyToClipboard(ownerCredentials.password, lang === "zh" ? "密码" : "Password")}
+                                title={lang === "zh" ? "复制密码" : "Copy password"}
+                                aria-label={lang === "zh" ? "复制密码" : "Copy password"}
+                              >
+                                <CopyIcon />
+                              </IconButton>
+                            )}
+                          </CredentialButtons>
+                        </CredentialRow>
+
+                        {credentialsError && (
+                          <CredentialFieldError>{credentialsError}</CredentialFieldError>
+                        )}
+
+                        {isEditingCredentials && (
+                          <CredentialEditActions>
+                            <SmallButton onClick={handleCancelEditCredentials} disabled={isSavingCredentials}>
+                              {lang === "zh" ? "取消" : "Cancel"}
+                            </SmallButton>
+                            <SmallButton $variant="save" onClick={handleSaveCredentials} disabled={isSavingCredentials}>
+                              <SaveIcon />
+                              {isSavingCredentials
+                                ? (lang === "zh" ? "保存中..." : "Saving...")
+                                : (lang === "zh" ? "保存" : "Save")}
+                            </SmallButton>
+                          </CredentialEditActions>
+                        )}
+                      </CredentialsList>
+                    </Card>
+                  )}
+
+                  <Card>
+                    <CardHeading>{lang === "zh" ? "系统 ID" : "System IDs"}</CardHeading>
+                    <IdRow>
+                      <CredentialInfo>
+                        <CredentialLabel>{lang === "zh" ? "业务 ID" : "Business ID"}</CredentialLabel>
+                        <IdText title={business._id}>{shortenId(business._id)}</IdText>
+                      </CredentialInfo>
+                      <IconButton
+                        onClick={() => handleCopyToClipboard(business._id, lang === "zh" ? "业务 ID" : "Business ID")}
+                        title={lang === "zh" ? "复制业务 ID" : "Copy business ID"}
+                        aria-label={lang === "zh" ? "复制业务 ID" : "Copy business ID"}
+                      >
+                        <CopyIcon />
+                      </IconButton>
+                    </IdRow>
+                    {customerId && (
+                      <IdRow>
+                        <CredentialInfo>
+                          <CredentialLabel>{lang === "zh" ? "客户 ID" : "Customer ID"}</CredentialLabel>
+                          <IdText title={customerId}>{shortenId(customerId)}</IdText>
+                        </CredentialInfo>
+                        <IconButton
+                          onClick={() => handleCopyToClipboard(customerId, lang === "zh" ? "客户 ID" : "Customer ID")}
+                          title={lang === "zh" ? "复制客户 ID" : "Copy customer ID"}
+                          aria-label={lang === "zh" ? "复制客户 ID" : "Copy customer ID"}
+                        >
+                          <CopyIcon />
+                        </IconButton>
+                      </IdRow>
+                    )}
+                    {(business.registrationId || business.registration_id) && (
+                      <SmallButton onClick={handleViewRegistration} style={{ marginTop: '0.75rem' }}>
+                        {lang === "zh" ? "查看注册表单" : "View Registration Form"}
+                      </SmallButton>
+                    )}
+                  </Card>
+                </Column>
+              </DetailLayout>
             </>
           ) : (
             <ErrorText>{lang === "zh" ? "未找到业务" : "Business not found"}</ErrorText>
