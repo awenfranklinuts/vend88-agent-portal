@@ -73,6 +73,18 @@ export const API_CONFIG = {
     INQUIRIES_LIST: "/portal/inquiries/list",
     INQUIRIES_UPDATE: "/portal/inquiries/update",
     INQUIRIES_DELETE: "/portal/inquiries/delete",
+
+    // Quotation Management
+    QUOTATIONS_LIST: "/portal/quotations/list",
+    QUOTATIONS_DETAIL: "/portal/quotations/detail",
+    QUOTATIONS_CREATE: "/portal/quotations/create",
+    QUOTATIONS_UPDATE: "/portal/quotations/update",
+    QUOTATIONS_STATUS: "/portal/quotations/status",
+    QUOTATIONS_REVISE: "/portal/quotations/revise",
+    QUOTATIONS_DUPLICATE: "/portal/quotations/duplicate",
+    QUOTATIONS_DELETE: "/portal/quotations/delete",
+    QUOTATION_CATALOGUE_LIST: "/portal/quotation-catalogue/list",
+    QUOTATION_CATALOGUE_SAVE: "/portal/quotation-catalogue/save",
   }
 } as const;
 

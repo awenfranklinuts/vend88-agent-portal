@@ -288,6 +288,20 @@ const CloseButton = styled.button`
   font-size: 0.9rem;
 `;
 
+const CreateQuoteButton = styled.button`
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  border: none;
+  background: #3b82f6;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.9rem;
+  &:hover {
+    background: #2563eb;
+  }
+`;
+
 const LIMIT = 20;
 
 export default function InquiriesPage() {
@@ -575,6 +589,23 @@ export default function InquiriesPage() {
             </DetailRow>
 
             <ModalActions>
+              {hasPermission(adminProfile, "manage_quotations") && (
+                <CreateQuoteButton
+                  onClick={() => {
+                    const params = new URLSearchParams({
+                      inquiryId: selected._id,
+                      contactName: selected.full_name || "",
+                      companyName: selected.company_name || "",
+                      email: selected.email || "",
+                      mobile: selected.mobile || "",
+                      state: selected.state || "",
+                    });
+                    router.push(`/admin/quotations/new?${params.toString()}`);
+                  }}
+                >
+                  {lang === "zh" ? "创建报价" : "Create Quotation"}
+                </CreateQuoteButton>
+              )}
               <CloseButton onClick={() => setSelected(null)}>{lang === "zh" ? "关闭" : "Close"}</CloseButton>
             </ModalActions>
           </ModalCard>
