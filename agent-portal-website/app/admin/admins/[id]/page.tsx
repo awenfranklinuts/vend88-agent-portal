@@ -871,7 +871,7 @@ export default function AdminDetailPage() {
     if (!token || !adminId) return;
     setLoadingAuditLogs(true);
     try {
-      const res = await axios.get(`/api/admin/audit-log/${adminId}?token=${token}`);
+      const res = await axios.post('/api/admin/audit-log', { token, user_id: adminId });
       setAuditLogs(res.data?.audit_log || []);
     } catch (err) {
       console.error('Failed to fetch audit logs:', err);

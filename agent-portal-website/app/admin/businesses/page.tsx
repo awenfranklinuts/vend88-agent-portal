@@ -2293,6 +2293,26 @@ export default function BusinessManagementPage() {
 
 
 
+  // axios rejects on any non-2xx, which would abort fetchBusinesses before it
+  // renders anything. This hands the failed response back instead, so the
+  // caller's own status_code checks decide what to do with it.
+  const optionalPost = async (url: string): Promise<{ data: any }> => {
+    try {
+      return await axios.post(
+        url,
+        { token },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+    } catch (error: any) {
+      return { data: { status_code: error?.response?.status || 502 } };
+    }
+  };
+
   const fetchBusinesses = async () => {
 
     if (!token) return;
@@ -2326,51 +2346,12 @@ export default function BusinessManagementPage() {
 
       
 
-      // Fetch customers from API
+      // Customers and shops only enrich the business rows - they aren't needed to
+      // render the list. An admin granted businesses but not customers still sees
+      // their businesses, so neither call is allowed to abort the fetch.
+      const customerResponse = await optionalPost('/api/customer/list');
 
-      const customerResponse = await axios.post(
-
-        '/api/customer/list',
-
-        { token },
-
-        {
-
-          headers: {
-
-            "Content-Type": "application/json",
-
-            Authorization: `Bearer ${token}`,
-
-          },
-
-        }
-
-      );
-
-
-
-      // Fetch shops from API
-
-      const shopResponse = await axios.post(
-
-        '/api/shops/list',
-
-        { token },
-
-        {
-
-          headers: {
-
-            "Content-Type": "application/json",
-
-            Authorization: `Bearer ${token}`,
-
-          },
-
-        }
-
-      );
+      const shopResponse = await optionalPost('/api/shops/list');
 
 
 
@@ -2498,13 +2479,13 @@ export default function BusinessManagementPage() {
 
       const ownerQuery = searchByOwner.toLowerCase();
 
-      filtered = filtered.filter(b => {
+      // Matches the resolved name, so searching by owner still works when the
+      // customers list couldn't be loaded.
+      filtered = filtered.filter(b =>
 
-        const owner = customers.find(c => c._id === b.owner_id);
+        getBusinessOwnerName(b).toLowerCase().includes(ownerQuery)
 
-        return owner?.name?.toLowerCase().includes(ownerQuery);
-
-      });
+      );
 
     }
 
@@ -2863,7 +2844,7 @@ export default function BusinessManagementPage() {
 
         'Name': business.name || 'N/A',
 
-        'Owner': owner?.name || business.owner_id || 'N/A',
+        'Owner': getBusinessOwnerName(business) || business.owner_id || 'N/A',
 
         'Owner Email': owner?.email || 'N/A',
 
@@ -3682,7 +3663,7 @@ export default function BusinessManagementPage() {
 
                       <Td style={{ fontWeight: 600 }}>{business.name || 'N/A'}</Td>
 
-                      <Td>{getOwnerName(business.owner_id)}</Td>
+                      <Td>{getBusinessOwnerName(business)}</Td>
 
                       <Td>
 
