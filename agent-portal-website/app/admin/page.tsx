@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styled from "styled-components";
-import { useAuth, isAdminRole } from "@/context/AuthContext";
+import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { ADMIN_MODULES, canAccessModule } from "@/config/adminModules";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../components/layout/AdminSidebar";
+import DashboardStatsRow from "@/components/ui/DashboardStatsRow";
 
 const Container = styled.div`
   min-height: 100vh;
@@ -326,6 +327,10 @@ export default function AdminDashboard() {
                 : "Select an option to manage your businesses, customers, agents, and more."}
             </PageDescription>
           </ContentHeader>
+
+          {/* Both summary endpoints require view_reports, so admins without it
+              never mount the row rather than collecting 403s. */}
+          {hasPermission(adminProfile, 'view_reports') && <DashboardStatsRow />}
 
           <Grid>
             {ADMIN_MODULES.filter(module => canAccessModule(adminProfile, module)).map(module => {

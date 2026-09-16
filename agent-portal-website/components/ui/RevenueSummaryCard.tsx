@@ -200,7 +200,7 @@ export default function RevenueSummaryCard() {
 
   const dimmed = loading && !cacheRef.current[period];
   const breakdown = displayData?.breakdown ?? [];
-  const granularity: Granularity = displayData?.granularity ?? (period === "7d" ? "day" : "hour");
+  const granularity: Granularity = displayData?.granularity ?? (period === "today" ? "hour" : "day");
   const total = displayData?.total ?? 0;
 
   return (
@@ -215,8 +215,10 @@ export default function RevenueSummaryCard() {
         <PeriodToggle
           period={period}
           onChange={setPeriod}
-          todayLabel={lang === "zh" ? "今天" : "Today"}
-          sevenDayLabel={lang === "zh" ? "近7天" : "Last 7 days"}
+          options={[
+            { value: "today", label: lang === "zh" ? "今天" : "Today" },
+            { value: "7d", label: lang === "zh" ? "近7天" : "Last 7 days" },
+          ]}
         />
       </TopRow>
 

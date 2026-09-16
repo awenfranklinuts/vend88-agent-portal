@@ -2,28 +2,44 @@
 
 import styled from "styled-components";
 
-export type Period = "today" | "7d";
+export type Period = "today" | "7d" | "30d";
 
-const Wrap = styled.div`
+export interface PeriodOption {
+  value: Period;
+  label: string;
+}
+
+const TRACK_PAD = 3;
+const GAP = 2;
+
+const Wrap = styled.div<{ $count: number }>`
   position: relative;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(${({ $count }) => $count}, 1fr);
   background: #eef2f7;
   border-radius: 10px;
-  padding: 3px;
-  gap: 2px;
+  padding: ${TRACK_PAD}px;
+  gap: ${GAP}px;
 `;
 
-const Pill = styled.div<{ $index: number }>`
+// One track wide, slid across by whole tracks. A track is
+// (100% - 2*pad - gap*(n-1)) / n, which folds into the percentage below; the
+// transform is a percentage of the pill's own width, so it moves track + gap.
+const Pill = styled.div<{ $index: number; $count: number }>`
   position: absolute;
-  top: 3px;
-  bottom: 3px;
-  left: 3px;
-  width: calc(50% - 4px);
+  top: ${TRACK_PAD}px;
+  bottom: ${TRACK_PAD}px;
+  left: ${TRACK_PAD}px;
+  width: calc(
+    ${({ $count }) => 100 / $count}% -
+      ${({ $count }) => (TRACK_PAD * 2 + GAP * ($count - 1)) / $count}px
+  );
   border-radius: 8px;
   background: #1a237e;
   transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-  transform: translateX(${({ $index }) => ($index === 0 ? "0" : "calc(100% + 2px)")});
+  transform: translateX(
+    calc((100% + ${GAP}px) * ${({ $index }) => $index})
+  );
 `;
 
 const Button = styled.button<{ $active: boolean }>`
@@ -37,6 +53,7 @@ const Button = styled.button<{ $active: boolean }>`
   padding: 0.4rem 0.85rem;
   border-radius: 8px;
   transition: color 0.2s ease;
+  white-space: nowrap;
   color: ${({ $active }) => ($active ? "white" : "#5c6b7a")};
 
   &:hover {
@@ -47,25 +64,27 @@ const Button = styled.button<{ $active: boolean }>`
 interface PeriodToggleProps {
   period: Period;
   onChange: (period: Period) => void;
-  todayLabel: string;
-  sevenDayLabel: string;
+  options: PeriodOption[];
 }
 
-export default function PeriodToggle({
-  period,
-  onChange,
-  todayLabel,
-  sevenDayLabel,
-}: PeriodToggleProps) {
+export default function PeriodToggle({ period, onChange, options }: PeriodToggleProps) {
+  const activeIndex = Math.max(
+    options.findIndex((o) => o.value === period),
+    0
+  );
+
   return (
-    <Wrap>
-      <Pill $index={period === "today" ? 0 : 1} />
-      <Button $active={period === "today"} onClick={() => onChange("today")}>
-        {todayLabel}
-      </Button>
-      <Button $active={period === "7d"} onClick={() => onChange("7d")}>
-        {sevenDayLabel}
-      </Button>
+    <Wrap $count={options.length}>
+      <Pill $index={activeIndex} $count={options.length} />
+      {options.map((option) => (
+        <Button
+          key={option.value}
+          $active={option.value === period}
+          onClick={() => onChange(option.value)}
+        >
+          {option.label}
+        </Button>
+      ))}
     </Wrap>
   );
 }
