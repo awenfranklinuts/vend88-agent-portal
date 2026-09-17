@@ -1099,8 +1099,10 @@ export default function CustomerManagementPage() {
         // Map businesses to their owners using customer_id (for new businesses) or owner_id (for old ones)
         const customersWithBusinesses = customersList.map((customer: any) => ({
           ...customer,
-          businesses: businessesList.filter((business: any) => 
-            business.customer_id === customer._id || business.owner_id === customer._id
+          // A business belongs to a customer through customer_id only. owner_id
+          // is its VendPOS login, which lives in a different collection.
+          businesses: businessesList.filter((business: any) =>
+            business.customer_id && String(business.customer_id) === String(customer._id)
           )
         }));
 

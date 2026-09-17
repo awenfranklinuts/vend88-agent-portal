@@ -103,6 +103,57 @@ const InfoValue = styled.div`
   font-weight: 500;
 `;
 
+const AddressEditRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+`;
+
+const AddressInput = styled.input`
+  flex: 1;
+  min-width: 220px;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid #e0e7ef;
+  border-radius: 8px;
+  font-size: 1rem;
+  color: #0a3655;
+  font-family: inherit;
+
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  &:disabled {
+    background: #f3f4f6;
+    cursor: not-allowed;
+  }
+`;
+
+const AddressButton = styled.button<{ $primary?: boolean }>`
+  padding: 0.5rem 0.875rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s ease;
+  background: ${p => p.$primary ? '#3b82f6' : '#eef2f7'};
+  color: ${p => p.$primary ? 'white' : '#374151'};
+
+  &:hover:not(:disabled) {
+    background: ${p => p.$primary ? '#2563eb' : '#e0e7ef'};
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+`;
+
 const Card = styled.div`
   background: white;
   border-radius: 16px;
@@ -969,6 +1020,51 @@ export default function ShopDetailPage() {
     }
   };
 
+  // Address lives in `location` on the shop. The collection also holds [lng, lat]
+  // pairs the POS writes when no address was given, so an array counts as unset.
+  const addressOf = (location: any) => (typeof location === 'string' ? location : '');
+
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [addressDraft, setAddressDraft] = useState('');
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+
+  const startEditAddress = () => {
+    setAddressDraft(addressOf(shop?.location));
+    setIsEditingAddress(true);
+  };
+
+  const handleSaveAddress = async () => {
+    if (!shop) return;
+    const next = addressDraft.trim();
+    if (next === addressOf(shop.location)) { setIsEditingAddress(false); return; }
+    setIsSavingAddress(true);
+    try {
+      const response = await axios.post(
+        `/api/shops/update`,
+        { token, id: shop._id, location: next },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.status_code === 200) {
+        setShop(response.data.data || { ...shop, location: next });
+        setIsEditingAddress(false);
+        showToast(lang === "zh" ? "地址已更新" : "Address updated", 'success');
+      } else {
+        showToast(response.data.message || (lang === "zh" ? "更新失败" : "Failed to update address"), 'error');
+      }
+    } catch (err: any) {
+      console.error('Failed to update shop address:', err);
+      showToast(err?.response?.data?.message || (lang === "zh" ? "更新失败" : "Failed to update address"), 'error');
+    } finally {
+      setIsSavingAddress(false);
+    }
+  };
+
   const handleEditClick = (permission: string) => {
     setSelectedPermission(permission);
     showToast(lang === "zh" ? "权限为只读" : "Permissions are read-only", 'info');
@@ -1166,6 +1262,41 @@ export default function ShopDetailPage() {
                   <InfoItem>
                     <InfoLabel>{lang === "zh" ? "电话" : "Phone"}</InfoLabel>
                     <InfoValue>{shop.phone || 'N/A'}</InfoValue>
+                  </InfoItem>
+                  <InfoItem style={{ gridColumn: '1 / -1' }}>
+                    <InfoLabel>{lang === "zh" ? "地址" : "Address"}</InfoLabel>
+                    {isEditingAddress ? (
+                      <AddressEditRow>
+                        <AddressInput
+                          value={addressDraft}
+                          onChange={(e) => setAddressDraft(e.target.value)}
+                          placeholder={lang === "zh" ? "例如：191 Parramatta Rd, Auburn, NSW" : "e.g. 191 Parramatta Rd, Auburn, NSW"}
+                          disabled={isSavingAddress}
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveAddress();
+                            if (e.key === 'Escape') setIsEditingAddress(false);
+                          }}
+                        />
+                        <AddressButton $primary onClick={handleSaveAddress} disabled={isSavingAddress}>
+                          {isSavingAddress ? (lang === "zh" ? "保存中..." : "Saving...") : (lang === "zh" ? "保存" : "Save")}
+                        </AddressButton>
+                        <AddressButton onClick={() => setIsEditingAddress(false)} disabled={isSavingAddress}>
+                          {lang === "zh" ? "取消" : "Cancel"}
+                        </AddressButton>
+                      </AddressEditRow>
+                    ) : (
+                      <AddressEditRow>
+                        <InfoValue style={{ flex: 1, minWidth: 0 }}>
+                          {addressOf(shop.location) || (
+                            <span style={{ color: '#9ca3af' }}>{lang === "zh" ? "未设置地址" : "No address set"}</span>
+                          )}
+                        </InfoValue>
+                        <AddressButton onClick={startEditAddress}>
+                          {addressOf(shop.location) ? (lang === "zh" ? "编辑" : "Edit") : (lang === "zh" ? "添加地址" : "Add address")}
+                        </AddressButton>
+                      </AddressEditRow>
+                    )}
                   </InfoItem>
                   {isInternal && (
                     <InfoItem>

@@ -602,8 +602,9 @@ export default function CustomerDetailPage() {
         if (foundCustomer) {
           const customerWithBusinesses = {
             ...foundCustomer,
-            businesses: businessesList.filter((business: any) => 
-              business.customer_id === foundCustomer._id || business.owner_id === foundCustomer._id
+            // Linked through customer_id only - owner_id is the VendPOS login
+            businesses: businessesList.filter((business: any) =>
+              business.customer_id && String(business.customer_id) === String(foundCustomer._id)
             )
           };
           setCustomer(customerWithBusinesses);
