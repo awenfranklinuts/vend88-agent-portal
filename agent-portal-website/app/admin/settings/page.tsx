@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styled from "styled-components";
-import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
+import { useAuth, isPortalUser, hasPermission } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../components/layout/AdminSidebar";
@@ -63,8 +63,8 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!isLoading && !token) {
       router.push("/login");
-    } else if (!isLoading && token && !isAdminRole(role)) {
-      router.push("/agent");
+    } else if (!isLoading && token && !isPortalUser(role)) {
+      router.push("/login");
     }
   }, [token, role, isLoading, router]);
 
@@ -76,7 +76,7 @@ export default function SettingsPage() {
     );
   }
 
-  if (!token || !isAdminRole(role)) {
+  if (!token || !isPortalUser(role)) {
     return null;
   }
 

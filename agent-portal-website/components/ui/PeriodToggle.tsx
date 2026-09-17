@@ -2,7 +2,7 @@
 
 import styled from "styled-components";
 
-export type Period = "today" | "7d" | "30d";
+export type Period = "today" | "7d" | "30d" | "1y" | "all";
 
 export interface PeriodOption {
   value: Period;

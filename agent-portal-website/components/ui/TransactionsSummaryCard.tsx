@@ -63,21 +63,31 @@ function formatCount(n: number): string {
   return `${Math.round(n).toLocaleString()}`;
 }
 
-export default function TransactionsSummaryCard() {
+/** Administrators can narrow a report to one team ('house' = unattributed) or one person; ignored for team users */
+export interface ReportFilter {
+  team_id?: string;
+  owner_user_id?: string;
+}
+
+const filterKey = (period: string, filter?: ReportFilter) =>
+  `${period}|${filter?.team_id ?? ""}|${filter?.owner_user_id ?? ""}`;
+
+export default function TransactionsSummaryCard({ filter }: { filter?: ReportFilter } = {}) {
   const { token } = useAuth();
   const { lang } = useLanguage();
   const [period, setPeriod] = useState<Period>("today");
   const [displayData, setDisplayData] = useState<SummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const cacheRef = useRef<Partial<Record<Period, SummaryResponse>>>({});
+  const cacheRef = useRef<Record<string, SummaryResponse>>({});
+  const key = filterKey(period, filter);
 
   useEffect(() => {
     if (!token) return;
 
     // Once a period has been fetched, switching back to it is instant -
     // no reload, no flicker, that's what actually makes the toggle feel smooth.
-    const cached = cacheRef.current[period];
+    const cached = cacheRef.current[key];
     if (cached) {
       setDisplayData(cached);
       setLoading(false);
@@ -89,11 +99,11 @@ export default function TransactionsSummaryCard() {
     setError(false);
 
     axios
-      .post("/api/reports/transactions-summary", { token, period })
+      .post("/api/reports/transactions-summary", { token, period, ...filter })
       .then((res) => {
         if (cancelled) return;
         if (res.data?.status_code === 200) {
-          cacheRef.current[period] = res.data;
+          cacheRef.current[key] = res.data;
           setDisplayData(res.data);
         } else {
           setError(true);
@@ -109,16 +119,17 @@ export default function TransactionsSummaryCard() {
     return () => {
       cancelled = true;
     };
-  }, [token, period]);
+  }, [token, period, key]);
 
   const daily = displayData?.daily;
   const chartData: ChartBucket[] = useMemo(
     () => (daily ?? []).map((d) => ({ date: d.date, value: d.count })),
     [daily]
   );
-  const granularity: Granularity = displayData?.granularity ?? (period === "today" ? "hour" : "day");
+  const granularity: Granularity = displayData?.granularity
+    ?? (period === "today" ? "hour" : period === "1y" || period === "all" ? "month" : "day");
   const total = displayData?.total ?? 0;
-  const dimmed = loading && !cacheRef.current[period];
+  const dimmed = loading && !cacheRef.current[key];
 
   if (error) return null;
 
@@ -135,8 +146,11 @@ export default function TransactionsSummaryCard() {
           period={period}
           onChange={setPeriod}
           options={[
+            { value: "all", label: lang === "zh" ? "全部" : "All time" },
+            { value: "1y", label: lang === "zh" ? "近1年" : "1 year" },
+            { value: "30d", label: lang === "zh" ? "近30天" : "30 days" },
+            { value: "7d", label: lang === "zh" ? "近7天" : "7 days" },
             { value: "today", label: lang === "zh" ? "今天" : "Today" },
-            { value: "7d", label: lang === "zh" ? "近7天" : "Last 7 days" },
           ]}
         />
       </TopRow>
@@ -151,7 +165,7 @@ export default function TransactionsSummaryCard() {
         seriesLabel={lang === "zh" ? "交易数" : "Transactions"}
         formatValue={(n) => n.toLocaleString()}
         formatAxisValue={formatCount}
-        skeletonCount={period === "7d" ? 7 : 6}
+        skeletonCount={period === "7d" ? 7 : period === "30d" ? 10 : period === "1y" ? 12 : 6}
       />
     </Card>
   );

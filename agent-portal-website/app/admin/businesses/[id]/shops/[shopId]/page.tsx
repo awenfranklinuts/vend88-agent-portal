@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import styled from "styled-components";
-import { useAuth, isAdminRole } from "@/context/AuthContext";
+import { useAuth, isPortalUser, canSeeAllTeams } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import MainLayout from "@/components/layout/MainLayout";
@@ -708,7 +708,9 @@ export default function ShopDetailPage() {
   const router = useRouter();
   const businessId = params?.id as string;
   const shopId = params?.shopId as string;
-  const { token, role, isLoading: authLoading } = useAuth();
+  const { token, role, isLoading: authLoading, adminProfile } = useAuth();
+  // Shop ids, keys and store logins are Vend88 internals, hidden from team users
+  const isInternal = canSeeAllTeams(adminProfile);
   const { lang } = useLanguage();
   const { showToast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -721,6 +723,10 @@ export default function ShopDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<'devices' | 'permissions' | 'activity' | 'notes' | 'credentials'>('credentials');
+  // The credentials tab is the default for internal staff; team users never see it
+  useEffect(() => {
+    if (adminProfile && !isInternal && activeTab === 'credentials') setActiveTab('devices');
+  }, [adminProfile, isInternal, activeTab]);
 
   // Store logins (shop_admin rows) - loaded the first time the Credentials tab opens,
   // which is on page load since it's the default tab.
@@ -764,8 +770,8 @@ export default function ShopDetailPage() {
   useEffect(() => {
     if (!authLoading && !token) {
       router.push("/login");
-    } else if (!authLoading && token && !isAdminRole(role)) {
-      router.push("/agent");
+    } else if (!authLoading && token && !isPortalUser(role)) {
+      router.push("/login");
     }
   }, [token, role, authLoading, router]);
 
@@ -1111,7 +1117,7 @@ export default function ShopDetailPage() {
     );
   }
 
-  if (!token || !isAdminRole(role)) {
+  if (!token || !isPortalUser(role)) {
     return null;
   }
 
@@ -1147,10 +1153,12 @@ export default function ShopDetailPage() {
               <Card>
                 <CardTitle>{lang === "zh" ? "店铺信息" : "Shop Information"}</CardTitle>
                 <InfoGrid>
-                  <InfoItem>
-                    <InfoLabel>{lang === "zh" ? "店铺 ID" : "Shop ID"}</InfoLabel>
-                    <InfoValue>{shop._id}</InfoValue>
-                  </InfoItem>
+                  {isInternal && (
+                    <InfoItem>
+                      <InfoLabel>{lang === "zh" ? "店铺 ID" : "Shop ID"}</InfoLabel>
+                      <InfoValue>{shop._id}</InfoValue>
+                    </InfoItem>
+                  )}
                   <InfoItem>
                     <InfoLabel>{lang === "zh" ? "店铺名称" : "Shop Name"}</InfoLabel>
                     <InfoValue>{shop.store_name || shop.name || 'N/A'}</InfoValue>
@@ -1159,10 +1167,12 @@ export default function ShopDetailPage() {
                     <InfoLabel>{lang === "zh" ? "电话" : "Phone"}</InfoLabel>
                     <InfoValue>{shop.phone || 'N/A'}</InfoValue>
                   </InfoItem>
-                  <InfoItem>
-                    <InfoLabel>{lang === "zh" ? "店铺密钥" : "Shop Key"}</InfoLabel>
-                    <InfoValue>{shop.shop_key || 'N/A'}</InfoValue>
-                  </InfoItem>
+                  {isInternal && (
+                    <InfoItem>
+                      <InfoLabel>{lang === "zh" ? "店铺密钥" : "Shop Key"}</InfoLabel>
+                      <InfoValue>{shop.shop_key || 'N/A'}</InfoValue>
+                    </InfoItem>
+                  )}
                   <InfoItem>
                     <InfoLabel>{lang === "zh" ? "状态" : "Status"}</InfoLabel>
                     <StatusSelectWrapper>
@@ -1186,9 +1196,11 @@ export default function ShopDetailPage() {
 
               <TabContainer>
                 <TabButtons>
-                  <TabButton $active={activeTab === 'credentials'} onClick={() => setActiveTab('credentials')}>
-                    {lang === "zh" ? "登录凭据" : "Credentials"}
-                  </TabButton>
+                  {isInternal && (
+                    <TabButton $active={activeTab === 'credentials'} onClick={() => setActiveTab('credentials')}>
+                      {lang === "zh" ? "登录凭据" : "Credentials"}
+                    </TabButton>
+                  )}
                   <TabButton $active={activeTab === 'devices'} onClick={() => setActiveTab('devices')}>
                     {lang === "zh" ? "设备" : "Devices"}
                   </TabButton>
@@ -1354,7 +1366,7 @@ export default function ShopDetailPage() {
                     </>
                   )}
 
-                  {activeTab === 'credentials' && (
+                  {isInternal && activeTab === 'credentials' && (
                     <>
                       <CardTitle>{lang === "zh" ? "店铺登录凭据" : "Store Logins"}</CardTitle>
                       <TabIntro>

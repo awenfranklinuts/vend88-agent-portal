@@ -10,7 +10,7 @@ const httpsAgent = new https.Agent({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { token, period } = body;
+    const { token, period, team_id, owner_user_id } = body;
 
     if (!token) {
       return NextResponse.json(
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     try {
       const response = await axios.post(
         `${getBackendBaseUrl()}/portal/revenue/summary`,
-        { token, period },
+        { token, period, team_id, owner_user_id },
         {
           headers: {
             'Content-Type': 'application/json',

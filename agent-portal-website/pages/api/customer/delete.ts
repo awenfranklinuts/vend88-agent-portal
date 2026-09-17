@@ -1,22 +1,20 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
 import https from 'https';
-import { getBackendBaseUrl } from '../../../../config/server';
+import { getBackendBaseUrl } from '../../../config/server';
 
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
-// Businesses linked to a customer record: /portal/customers/:id/businesses
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
-  const { customer_id } = req.query;
   try {
-    const response = await axios.post(
-      `${getBackendBaseUrl()}/portal/customers/${encodeURIComponent(String(customer_id))}/businesses`,
-      req.body,
-      { headers: { 'Content-Type': 'application/json' }, timeout: 15000, httpsAgent }
-    );
+    const response = await axios.post(`${getBackendBaseUrl()}/portal/customers/delete`, req.body, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 15000,
+      httpsAgent,
+    });
     return res.status(response.status).json(response.data);
   } catch (error: any) {
     if (error.response) {

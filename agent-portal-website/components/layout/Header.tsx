@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import React from "react";
 import styled from "styled-components";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, isAdminRole, isPortalUser } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { dict } from "@/i18n/translations";
 import { formatRole } from "@/lib/roleFormatter";
@@ -383,7 +383,7 @@ export default function Header({ currentPage = "Home", onMenuToggle }: HeaderPro
   
   // Fetch admin profile on mount if role is admin
   React.useEffect(() => {
-    if (token && (role === "admin" || role === "super_admin") && !adminProfile) {
+    if (token && isPortalUser(role) && !adminProfile) {
       fetchAdminProfile();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -449,11 +449,7 @@ export default function Header({ currentPage = "Home", onMenuToggle }: HeaderPro
           
           <LogoSection onClick={() => {
             if (token) {
-              if (role === "admin" || role === "super_admin") {
-                router.push("/admin");
-              } else if (role === "agent") {
-                router.push("/agent");
-              }
+              router.push("/admin");
             } else {
               router.push("/");
             }
@@ -470,7 +466,7 @@ export default function Header({ currentPage = "Home", onMenuToggle }: HeaderPro
           
           {token && (
             <Breadcrumbs>
-              <BreadcrumbItem>{(role === "admin" || role === "super_admin") ? t("admin") : t("agent")}</BreadcrumbItem>
+              <BreadcrumbItem>{isAdminRole(role) ? t("admin") : (adminProfile?.team?.name || t("team"))}</BreadcrumbItem>
               <BreadcrumbItem $active>{currentPage}</BreadcrumbItem>
             </Breadcrumbs>
           )}

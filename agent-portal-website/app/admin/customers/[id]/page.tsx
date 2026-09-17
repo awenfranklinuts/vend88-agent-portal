@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import styled from "styled-components";
-import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
+import { useAuth, isPortalUser, hasPermission, canSeeAllTeams } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import { dict } from "@/i18n/translations";
@@ -547,13 +547,13 @@ export default function CustomerDetailPage() {
   useEffect(() => {
     if (!isLoading && !token) {
       router.push("/login");
-    } else if (!isLoading && token && !isAdminRole(role)) {
-      router.push("/agent");
+    } else if (!isLoading && token && !isPortalUser(role)) {
+      router.push("/login");
     }
   }, [token, role, isLoading, router]);
 
   useEffect(() => {
-    if (token && isAdminRole(role) && customerId) {
+    if (token && isPortalUser(role) && customerId) {
       fetchCustomerDetail();
     }
   }, [token, role, customerId]);
@@ -632,9 +632,8 @@ export default function CustomerDetailPage() {
     if (!editedCustomer) return;
     
     try {
-      const updateUrl = getApiUrl(API_CONFIG.ENDPOINTS.CUSTOMERS_UPDATE.replace(':id', editedCustomer._id));
       const response = await fetch(
-        updateUrl,
+        '/api/customer/update',
         {
           method: 'POST',
           headers: {
@@ -643,6 +642,7 @@ export default function CustomerDetailPage() {
           },
           body: JSON.stringify({
             token: token,
+            id: editedCustomer._id,
             name: editedCustomer.name,
             email: editedCustomer.email,
             phone: editedCustomer.phone,
@@ -687,6 +687,28 @@ export default function CustomerDetailPage() {
   const handleEmailCustomer = () => {
     if (customer?.email) {
       window.location.href = `mailto:${customer.email}`;
+    }
+  };
+
+  // Permanent delete - administrators only. A customer is the contact record:
+  // deleting it leaves their businesses (and VendPOS logins) in place, unlinked.
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const handleDeleteCustomer = async () => {
+    if (!customer) return;
+    setIsDeleting(true);
+    try {
+      const response = await axios.post('/api/customer/delete', { token, id: customer._id });
+      if (response.data?.status_code === 200) {
+        showToast(lang === 'zh' ? '客户已删除' : 'Customer deleted', 'success');
+        router.push('/admin/customers');
+      } else {
+        showToast(response.data?.message || (lang === 'zh' ? '删除失败' : 'Failed to delete customer'), 'error');
+        setIsDeleting(false);
+      }
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || (lang === 'zh' ? '删除失败' : 'Failed to delete customer'), 'error');
+      setIsDeleting(false);
     }
   };
 
@@ -749,11 +771,11 @@ export default function CustomerDetailPage() {
     );
   }
 
-  if (!token || !isAdminRole(role)) {
+  if (!token || !isPortalUser(role)) {
     return null;
   }
 
-  if (!hasPermission(adminProfile, 'manage_customers')) {
+  if (!hasPermission(adminProfile, 'view_customers')) {
     router.push('/admin');
     return null;
   }
@@ -799,10 +821,12 @@ export default function CustomerDetailPage() {
           <DetailSection>
             <SectionTitle>{lang === "zh" ? "客户信息" : "Customer Information"}</SectionTitle>
             <DetailGrid>
-              <DetailItem>
-                <DetailLabel>{lang === "zh" ? "客户 ID" : "Customer ID"}</DetailLabel>
-                <DetailValue>{customer._id}</DetailValue>
-              </DetailItem>
+              {canSeeAllTeams(adminProfile) && (
+                <DetailItem>
+                  <DetailLabel>{lang === "zh" ? "客户 ID" : "Customer ID"}</DetailLabel>
+                  <DetailValue>{customer._id}</DetailValue>
+                </DetailItem>
+              )}
               <DetailItem>
                 <DetailLabel>{lang === "zh" ? "姓名" : "Name"}</DetailLabel>
                 {isEditMode ? (
@@ -887,6 +911,11 @@ export default function CustomerDetailPage() {
                     <EmailIcon />
                     {lang === 'zh' ? '发送邮件' : 'Send Email'}
                   </ActionButton>
+                  {canSeeAllTeams(adminProfile) && (
+                    <ActionButton onClick={() => setShowDeleteModal(true)} style={{ background: '#fee2e2', color: '#991b1b' }}>
+                      {lang === 'zh' ? '删除' : 'Delete'}
+                    </ActionButton>
+                  )}
                 </>
               )}
               {isEditMode && (
@@ -904,6 +933,37 @@ export default function CustomerDetailPage() {
               )}
             </ActionButtons>
           </DetailSection>
+
+          {/* Delete customer - administrators only */}
+          <Modal $show={showDeleteModal} onClick={() => !isDeleting && setShowDeleteModal(false)}>
+            <ModalContent onClick={(e) => e.stopPropagation()}>
+              <ModalTitle>{lang === 'zh' ? '删除客户' : 'Delete Customer'}</ModalTitle>
+              <p style={{ fontSize: '0.875rem', color: '#5c6b7a', margin: '0.75rem 0 1rem', lineHeight: 1.6 }}>
+                {customer.businesses && customer.businesses.length > 0
+                  ? (lang === 'zh'
+                      ? `确定要永久删除客户 "${customer.name}" 吗？其 ${customer.businesses.length} 个业务及其 VendPOS 登录会保留，只是不再关联任何客户。`
+                      : `Permanently delete the customer "${customer.name}"? Their ${customer.businesses.length} business${customer.businesses.length === 1 ? '' : 'es'} and VendPOS logins are kept - they'll simply have no customer linked.`)
+                  : (lang === 'zh'
+                      ? `确定要永久删除客户 "${customer.name}" 吗？`
+                      : `Permanently delete the customer "${customer.name}"?`)}
+              </p>
+              <p style={{ fontSize: '0.8125rem', color: '#991b1b', background: '#fee2e2', padding: '0.75rem 1rem', borderRadius: 8, marginBottom: '1.25rem' }}>
+                {lang === 'zh' ? '此操作无法撤销。' : 'This cannot be undone.'}
+              </p>
+              <ModalActions>
+                <ModalButton onClick={() => setShowDeleteModal(false)} disabled={isDeleting}>
+                  {lang === 'zh' ? '取消' : 'Cancel'}
+                </ModalButton>
+                <ModalButton
+                  onClick={handleDeleteCustomer}
+                  disabled={isDeleting}
+                  style={{ background: '#ef4444', color: 'white' }}
+                >
+                  {isDeleting ? (lang === 'zh' ? '删除中...' : 'Deleting...') : (lang === 'zh' ? '永久删除' : 'Delete Permanently')}
+                </ModalButton>
+              </ModalActions>
+            </ModalContent>
+          </Modal>
 
           <DetailSection>
             <SectionHeaderRow>

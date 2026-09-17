@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import styled from "styled-components";
 import axios from "axios";
 import MainLayout from "@/components/layout/MainLayout";
-import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
+import { useAuth, isPortalUser, hasPermission, canSeeAllTeams } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import { API_CONFIG, getApiUrl } from "@/config/api";
@@ -910,6 +910,25 @@ export default function RegistrationDetailsPage() {
   const [registration, setRegistration] = useState<Registration | null>(null);
   const [loading, setLoading] = useState(true);
   const [isActing, setIsActing] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const handleDelete = async () => {
+    if (!registration) return;
+    setIsDeleting(true);
+    try {
+      const response = await axios.post('/api/registration/delete', { token, id: registration.id });
+      if (response.data?.status_code === 200) {
+        showToast(lang === 'zh' ? '注册已删除' : 'Registration deleted', 'success');
+        router.push('/admin/registrations');
+      } else {
+        showToast(response.data?.message || (lang === 'zh' ? '删除失败' : 'Failed to delete registration'), 'error');
+        setIsDeleting(false);
+      }
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || (lang === 'zh' ? '删除失败' : 'Failed to delete registration'), 'error');
+      setIsDeleting(false);
+    }
+  };
   const [error, setError] = useState("");
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
@@ -945,8 +964,8 @@ export default function RegistrationDetailsPage() {
       return;
     }
 
-    if (!isLoading && token && !isAdminRole(role)) {
-      router.push("/agent");
+    if (!isLoading && token && !isPortalUser(role)) {
+      router.push("/login");
     }
   }, [isLoading, token, role, router]);
 
@@ -1064,7 +1083,7 @@ export default function RegistrationDetailsPage() {
     if (!token) return;
 
     try {
-      const endpoint = getApiUrl(`/customers/${customerId}/businesses`);
+      const endpoint = `/api/customers/${customerId}/businesses`;
       const response = await fetch(endpoint, {
         method: "POST",
         headers: {
@@ -1519,6 +1538,11 @@ export default function RegistrationDetailsPage() {
       </Field>
     );
   };
+
+  // Approve/reject stay administrative; team users may only view their own registrations
+  const canApprove = hasPermission(adminProfile, 'manage_registrations');
+  // Permanent delete is administrators only, whatever the registration's status
+  const canDelete = canApprove && canSeeAllTeams(adminProfile);
 
   if (!hasPermission(adminProfile, 'manage_registration_forms')) {
     router.push('/admin');
@@ -1999,7 +2023,7 @@ export default function RegistrationDetailsPage() {
                     </>
                   ) : (
                     <>
-                      {registration.status === "submitted" && (
+                      {registration.status === "submitted" && canApprove && (
                         <>
                           <ActionButton $variant="danger" disabled={isActing} onClick={handleReject}>
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2017,7 +2041,7 @@ export default function RegistrationDetailsPage() {
                         </>
                       )}
 
-                      {registration.status === "rejected" && (
+                      {registration.status === "rejected" && canApprove && (
                         <ActionButton $variant="primary" disabled={isActing} onClick={handleApproveClick}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <polyline points="20 6 9 17 4 12"/>
@@ -2034,6 +2058,12 @@ export default function RegistrationDetailsPage() {
                           {lang === "zh" ? "撤销链接" : "Revoke Link"}
                         </ActionButton>
                       )}
+
+                      {canDelete && (
+                        <ActionButton $variant="danger" disabled={isActing || isDeleting} onClick={() => setShowDeleteModal(true)}>
+                          {lang === "zh" ? "删除" : "Delete"}
+                        </ActionButton>
+                      )}
                     </>
                   )}
                 </BottomActions>
@@ -2042,6 +2072,27 @@ export default function RegistrationDetailsPage() {
           </DetailsCard>
         </MainContent>
       </Container>
+
+      {showDeleteModal && (
+        <Modal $show={showDeleteModal} onClick={() => !isDeleting && setShowDeleteModal(false)}>
+          <ModalContent onClick={e => e.stopPropagation()}>
+            <ModalTitle>{lang === 'zh' ? '删除注册' : 'Delete Registration'}</ModalTitle>
+            <ModalText>
+              {lang === 'zh'
+                ? `确定要永久删除此注册记录${registration?.businessName ? `（${registration.businessName}）` : ''}吗？已从中创建的业务不受影响。此操作无法撤销。`
+                : `Permanently delete this registration${registration?.businessName ? ` for "${registration.businessName}"` : ''}? A business already created from it is not affected. This cannot be undone.`}
+            </ModalText>
+            <ModalActions>
+              <ModalButton onClick={() => setShowDeleteModal(false)} disabled={isDeleting}>
+                {lang === 'zh' ? '取消' : 'Cancel'}
+              </ModalButton>
+              <ModalButton onClick={handleDelete} disabled={isDeleting} style={{ background: '#ef4444', color: 'white' }}>
+                {isDeleting ? (lang === 'zh' ? '删除中...' : 'Deleting...') : (lang === 'zh' ? '永久删除' : 'Delete Permanently')}
+              </ModalButton>
+            </ModalActions>
+          </ModalContent>
+        </Modal>
+      )}
 
       {showRejectModal && (
         <Modal $show={showRejectModal} onClick={() => setShowRejectModal(false)}>

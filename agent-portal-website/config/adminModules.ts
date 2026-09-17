@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { hasPermission } from "@/context/AuthContext";
+import { hasPermission, canSeeAllTeams, type AdminProfile } from "@/context/AuthContext";
 import {
   AdminIcon,
   AgentIcon,
@@ -19,6 +19,10 @@ import {
  * The sidebar, the dashboard home cards and the admin permission editor all
  * read from this list. To add a module: add an entry here, create its page
  * under app/admin, and gate that page with hasPermission(adminProfile, <permission>).
+ *
+ * The same registry serves team users (BDMs, agents, organisation members):
+ * they simply hold fewer permissions, and the API scopes what each screen
+ * returns. Nothing here needs to know which kind of user is looking.
  */
 
 export interface LocalizedText {
@@ -51,9 +55,18 @@ export interface AdminModule {
   icon: ComponentType;
   /** Required for modules without children. Modules with children are visible if any child is. */
   permission?: string;
+  /**
+   * Lets a user with only read access into the module. The permission editor
+   * still stores `permission`; this only widens who can open the page.
+   */
+  viewPermission?: string;
   children?: AdminSubModule[];
   /** Permission cannot be granted to regular admins (super admins always have it). */
   superAdminOnly?: boolean;
+  /** Only for team users - administrators (who see every team) don't need it. */
+  teamOnly?: boolean;
+  /** Not offered in the admin permission editor (implied by another permission). */
+  editorHidden?: boolean;
 }
 
 export const ADMIN_MODULES: AdminModule[] = [
@@ -95,6 +108,7 @@ export const ADMIN_MODULES: AdminModule[] = [
     href: "/admin/businesses",
     icon: BusinessIcon,
     permission: "manage_businesses",
+    viewPermission: "view_businesses",
   },
   {
     id: "customers",
@@ -107,18 +121,33 @@ export const ADMIN_MODULES: AdminModule[] = [
     href: "/admin/customers",
     icon: CustomersIcon,
     permission: "manage_customers",
+    viewPermission: "view_customers",
   },
   {
-    id: "agents",
+    id: "teams",
     section: "accounts",
     label: { en: "Team Management", zh: "团队管理" },
     description: {
-      en: "Manage agent accounts and permissions. Assign business access rights.",
-      zh: "管理代理账户和权限。分配业务访问权限。",
+      en: "Manage partner organisations, individual agents and internal sales teams, their members, and which clients belong to each.",
+      zh: "管理合作组织、独立代理和内部销售团队及其成员，以及每个团队所属的客户。",
     },
-    href: "/admin/agents",
+    href: "/admin/teams",
     icon: AgentIcon,
-    permission: "manage_agents",
+    permission: "manage_teams",
+  },
+  {
+    id: "my-team",
+    section: "accounts",
+    label: { en: "My Team", zh: "我的团队" },
+    description: {
+      en: "Manage your team's member logins and see everything attributed to your team.",
+      zh: "管理您团队的成员登录，并查看归属于您团队的所有内容。",
+    },
+    href: "/admin/teams/mine",
+    icon: AgentIcon,
+    permission: "manage_team_members",
+    teamOnly: true,
+    editorHidden: true,
   },
   {
     id: "registrations",
@@ -188,7 +217,7 @@ export const ADMIN_MODULES: AdminModule[] = [
   },
 ];
 
-type ProfileLike = Parameters<typeof hasPermission>[0];
+type ProfileLike = Pick<AdminProfile, "role" | "permissions" | "scope_level"> | null | undefined;
 
 /** Permissions a module controls, with display names for the permission editor. */
 export const getModulePermissions = (module: AdminModule): { id: string; label: LocalizedText }[] =>
@@ -198,7 +227,13 @@ export const getModulePermissions = (module: AdminModule): { id: string; label: 
       ? [{ id: module.permission, label: module.label }]
       : [];
 
+/** Modules the admin permission editor offers toggles for. */
+export const EDITOR_MODULES: AdminModule[] = ADMIN_MODULES.filter(m => !m.superAdminOnly && !m.editorHidden);
+
 export const ALL_PERMISSION_IDS: string[] = ADMIN_MODULES.flatMap(m => getModulePermissions(m).map(p => p.id));
 
-export const canAccessModule = (profile: ProfileLike, module: AdminModule): boolean =>
-  getModulePermissions(module).some(p => hasPermission(profile, p.id));
+export const canAccessModule = (profile: ProfileLike, module: AdminModule): boolean => {
+  if (module.teamOnly && canSeeAllTeams(profile)) return false;
+  if (module.viewPermission && hasPermission(profile, module.viewPermission)) return true;
+  return getModulePermissions(module).some(p => hasPermission(profile, p.id));
+};

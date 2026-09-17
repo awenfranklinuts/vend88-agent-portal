@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import styled from "styled-components";
 import axios from "axios";
-import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
+import { useAuth, isPortalUser, hasPermission } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import MainLayout from "@/components/layout/MainLayout";
@@ -533,8 +533,8 @@ export default function AdminManagementPage() {
   useEffect(() => {
     if (!isLoading && !token) {
       router.push("/login");
-    } else if (!isLoading && token && !isAdminRole(role)) {
-      router.push("/agent");
+    } else if (!isLoading && token && !isPortalUser(role)) {
+      router.push("/login");
     }
   }, [token, role, isLoading, router]);
 
@@ -912,7 +912,7 @@ export default function AdminManagementPage() {
     );
   }
 
-  if (!token || !isAdminRole(role)) return null;
+  if (!token || !isPortalUser(role)) return null;
 
   if (!hasPermission(adminProfile, 'manage_admins')) {
     router.push('/admin');

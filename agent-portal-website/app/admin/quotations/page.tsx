@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth, canSeeAllTeams } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import QuotationShell from "@/components/quotations/QuotationShell";
@@ -53,9 +54,11 @@ export default function QuotationManagementPage() {
 
 function QuotationList() {
   const router = useRouter();
+  const { adminProfile } = useAuth();
   const { lang } = useLanguage();
   const { showToast } = useToast();
   const zh = lang === "zh";
+  const showTeamColumn = canSeeAllTeams(adminProfile);
 
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [total, setTotal] = useState(0);
@@ -144,6 +147,7 @@ function QuotationList() {
                 <tr>
                   <Th>{zh ? "报价编号" : "Quote"}</Th>
                   <Th>{zh ? "客户" : "Customer"}</Th>
+                  {showTeamColumn && <Th>{zh ? "团队" : "Team"}</Th>}
                   <Th>{zh ? "一次性合计" : "One-off"}</Th>
                   <Th>{zh ? "每月合计" : "Monthly"}</Th>
                   <Th>{zh ? "有效期至" : "Valid until"}</Th>
@@ -161,6 +165,12 @@ function QuotationList() {
                         <div>{customerDisplayName(quote.customer)}</div>
                         {quote.customer.companyName && quote.customer.contactName && <Muted>{quote.customer.contactName}</Muted>}
                       </Td>
+                      {showTeamColumn && (
+                        <Td>
+                          <div>{quote.teamName || <Muted>Vend88</Muted>}</div>
+                          {quote.attributedToName && <Muted>{quote.attributedToName}</Muted>}
+                        </Td>
+                      )}
                       <Td>{totals.once.total ? formatMoney(totals.once.total) : "—"}</Td>
                       <Td>{totals.monthly.total ? formatMoney(totals.monthly.total) : "—"}</Td>
                       <Td>{new Date(`${quote.validUntil}T00:00:00`).toLocaleDateString()}</Td>

@@ -54,6 +54,10 @@ interface ApiQuotation {
   notes?: string;
   terms?: string;
   created_by?: string;
+  owner_user_id?: string | null;
+  attributed_to_name?: string;
+  team_id?: string | null;
+  team_name?: string;
   created_at: string;
   updated_at: string;
   sent_at?: string;
@@ -107,6 +111,10 @@ const fromApiQuotation = (q: ApiQuotation): Quotation => ({
   notes: q.notes || "",
   terms: q.terms || "",
   createdBy: q.created_by || "",
+  ownerUserId: q.owner_user_id ?? null,
+  attributedToName: q.attributed_to_name || "",
+  teamId: q.team_id ?? null,
+  teamName: q.team_name || "",
   createdAt: q.created_at,
   updatedAt: q.updated_at,
   sentAt: q.sent_at,

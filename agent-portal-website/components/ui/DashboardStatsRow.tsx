@@ -5,6 +5,7 @@ import axios from "axios";
 import styled from "styled-components";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
+import type { ReportFilter } from "@/components/ui/RevenueSummaryCard";
 import PeriodToggle, { Period } from "./PeriodToggle";
 import Sparkline from "./Sparkline";
 import { ChartBucket, Granularity } from "./SummaryLineChart";
@@ -274,21 +275,30 @@ interface TileSpec {
   sub?: string | null;
 }
 
-export default function DashboardStatsRow() {
+interface DashboardStatsRowProps {
+  filter?: ReportFilter;
+  /** Hide the revenue/transactions band; the pipeline tiles still show. Off on Reports, where the full charts sit below. */
+  showHeadline?: boolean;
+  /** Section heading; defaults to "Overview" */
+  title?: string;
+}
+
+export default function DashboardStatsRow({ filter, showHeadline = true, title }: DashboardStatsRowProps = {}) {
   const { token } = useAuth();
   const { lang } = useLanguage();
   const [period, setPeriod] = useState<Period>("30d");
   const [headline, setHeadline] = useState<Headline | null>(null);
   const [funnel, setFunnel] = useState<Funnel | null>(null);
   const [loading, setLoading] = useState(true);
-  const headlineCache = useRef<Partial<Record<Period, Headline>>>({});
-  const funnelCache = useRef<Partial<Record<Period, Funnel>>>({});
+  const headlineCache = useRef<Record<string, Headline>>({});
+  const funnelCache = useRef<Record<string, Funnel>>({});
+  const key = `${period}|${filter?.team_id ?? ""}|${filter?.owner_user_id ?? ""}`;
 
   useEffect(() => {
     if (!token) return;
 
-    const cachedHeadline = headlineCache.current[period];
-    const cachedFunnel = funnelCache.current[period];
+    const cachedHeadline = headlineCache.current[key];
+    const cachedFunnel = funnelCache.current[key];
     if (cachedHeadline && cachedFunnel) {
       setHeadline(cachedHeadline);
       setFunnel(cachedFunnel);
@@ -300,16 +310,18 @@ export default function DashboardStatsRow() {
     setLoading(true);
 
     const post = (path: string, extra: Record<string, unknown> = {}) =>
-      axios.post(path, { token, period, ...extra }).then((res) => {
+      axios.post(path, { token, period, ...filter, ...extra }).then((res) => {
         if (res.data?.status_code !== 200) throw new Error(res.data?.message || "request failed");
         return res.data;
       });
 
     // allSettled, not all: the two bands fail independently, so a broken revenue
     // call still leaves the funnel counts on screen.
+    // Without the headline band there is no reason to fetch the two heavier revenue calls
+    const skip = () => Promise.reject(new Error("skipped"));
     Promise.allSettled([
-      post("/api/reports/revenue-summary"),
-      post("/api/reports/transactions-summary"),
+      showHeadline ? post("/api/reports/revenue-summary") : skip(),
+      showHeadline ? post("/api/reports/transactions-summary") : skip(),
       post("/api/reports/pipeline-summary"),
       // Active businesses get their own window on the backend; matching it to the
       // toggle keeps every tile describing the same stretch of time.
@@ -333,7 +345,7 @@ export default function DashboardStatsRow() {
               buckets: (transactions.daily ?? []).map((d) => ({ date: d.date, value: d.count })),
             },
           };
-          headlineCache.current[period] = next;
+          headlineCache.current[key] = next;
           setHeadline(next);
         } else {
           setHeadline(null);
@@ -344,7 +356,7 @@ export default function DashboardStatsRow() {
             pipeline: pipelineRes.value as PipelineResponse,
             growth: growthRes.value as GrowthResponse,
           };
-          funnelCache.current[period] = next;
+          funnelCache.current[key] = next;
           setFunnel(next);
         } else {
           setFunnel(null);
@@ -357,10 +369,10 @@ export default function DashboardStatsRow() {
     return () => {
       cancelled = true;
     };
-  }, [token, period]);
+  }, [token, period, key, showHeadline]);
 
-  const headlineDimmed = loading && !headlineCache.current[period];
-  const funnelDimmed = loading && !funnelCache.current[period];
+  const headlineDimmed = showHeadline && loading && !headlineCache.current[key];
+  const funnelDimmed = loading && !funnelCache.current[key];
 
   // Matches the summary cards on Reports: a failed panel leaves the page alone
   // rather than showing a broken shell.
@@ -417,19 +429,21 @@ export default function DashboardStatsRow() {
   return (
     <Card>
       <TopRow>
-        <SectionLabel>{lang === "zh" ? "概览" : "Overview"}</SectionLabel>
+        <SectionLabel>{title ?? (lang === "zh" ? "概览" : "Overview")}</SectionLabel>
         <PeriodToggle
           period={period}
           onChange={setPeriod}
           options={[
+            { value: "all", label: lang === "zh" ? "全部" : "All time" },
+            { value: "1y", label: lang === "zh" ? "近1年" : "1 year" },
+            { value: "30d", label: lang === "zh" ? "近30天" : "30 days" },
+            { value: "7d", label: lang === "zh" ? "近7天" : "7 days" },
             { value: "today", label: lang === "zh" ? "今天" : "Today" },
-            { value: "7d", label: lang === "zh" ? "近7天" : "Last 7 days" },
-            { value: "30d", label: lang === "zh" ? "近30天" : "Last 30 days" },
           ]}
         />
       </TopRow>
 
-      {(headline || headlineDimmed) && (
+      {showHeadline && (headline || headlineDimmed) && (
         <HeadlineBand $dimmed={headlineDimmed}>
           <Tile>
             <TileLabel>

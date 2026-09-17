@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styled from "styled-components";
 import axios from "axios";
-import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
+import { useAuth, isPortalUser, hasPermission, canSeeAllTeams } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import MainLayout from "@/components/layout/MainLayout";
@@ -983,6 +983,11 @@ interface Registration {
   token?: string;
   generated_by?: string;
   generatedBy?: string; // Keep for backwards compatibility
+  // Attribution: the portal user credited with this registration, and their team
+  owner_user_id?: string | null;
+  attributed_to_name?: string;
+  team_id?: string | null;
+  team_name?: string;
   generated_at?: string;
   generatedAt?: string; // Keep for backwards compatibility
   expires_at?: string;
@@ -1298,8 +1303,8 @@ export default function RegistrationsPage() {
   useEffect(() => {
     if (!isLoading && !token) {
       router.push("/login");
-    } else if (!isLoading && token && !isAdminRole(role)) {
-      router.push("/agent");
+    } else if (!isLoading && token && !isPortalUser(role)) {
+      router.push("/login");
     }
   }, [token, role, isLoading, router]);
 
@@ -2144,7 +2149,7 @@ export default function RegistrationsPage() {
     );
   }
 
-  if (!token || !isAdminRole(role)) {
+  if (!token || !isPortalUser(role)) {
     return null;
   }
 
@@ -2152,6 +2157,11 @@ export default function RegistrationsPage() {
     router.push('/admin');
     return null;
   }
+
+  // Approval provisions a real account and stays with administrators; team
+  // users generate and revoke their own links only.
+  const canApprove = hasPermission(adminProfile, 'manage_registrations');
+  const showTeamColumn = canSeeAllTeams(adminProfile);
 
   return (
     <MainLayout currentPage={lang === "zh" ? "注册管理" : "Registration Management"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
@@ -2226,6 +2236,7 @@ export default function RegistrationsPage() {
                       <CheckboxTh />
                       <Th>{lang === "zh" ? "业务名称" : "Business Name"}</Th>
                       <Th>{lang === "zh" ? "联系邮箱" : "Contact Email"}</Th>
+                      {showTeamColumn && <Th>{lang === "zh" ? "团队" : "Team"}</Th>}
                       <Th>{lang === "zh" ? "生成时间" : "Generated"}</Th>
                       <Th>{lang === "zh" ? "状态" : "Status"}</Th>
                       <Th>{lang === "zh" ? "操作" : "Actions"}</Th>
@@ -2293,7 +2304,7 @@ export default function RegistrationsPage() {
                       {selectedRows.size} {lang === "zh" ? "已选择" : "selected"}
                     </BulkActionText>
                     <BulkActionButtons>
-                      {activeTab === 'submitted' && (
+                      {activeTab === 'submitted' && canApprove && (
                         <>
                           <ActionButton $variant="approve" onClick={() => {
                             selectedRows.forEach(id => handleApprove(id));
@@ -2321,6 +2332,7 @@ export default function RegistrationsPage() {
                       )}
                       {activeTab === 'all' && (
                         <>
+                          {canApprove && (
                           <ActionButton $variant="approve" onClick={() => {
                             const submittedIds = paginatedRegistrations
                               .filter(r => selectedRows.has(r.id) && r.status === 'submitted')
@@ -2330,6 +2342,8 @@ export default function RegistrationsPage() {
                           }}>
                             {lang === "zh" ? "批准已提交" : "Approve Submitted"}
                           </ActionButton>
+                          )}
+                          {canApprove && (
                           <ActionButton $variant="reject" onClick={() => {
                             const submittedIds = paginatedRegistrations
                               .filter(r => selectedRows.has(r.id) && r.status === 'submitted')
@@ -2340,6 +2354,7 @@ export default function RegistrationsPage() {
                           }}>
                             {lang === "zh" ? "拒绝已提交" : "Reject Submitted"}
                           </ActionButton>
+                          )}
                           <ActionButton $variant="reject" onClick={() => {
                             const pendingIds = paginatedRegistrations
                               .filter(r => selectedRows.has(r.id) && r.status === 'pending')
@@ -2381,6 +2396,7 @@ export default function RegistrationsPage() {
                             {sortField === 'contactEmail' && sortDirection === 'asc' ? '↑' : '↓'}
                           </SortIcon>
                         </SortableHeader>
+                        {showTeamColumn && <Th>{lang === "zh" ? "团队" : "Team"}</Th>}
                         <SortableHeader 
                           $active={sortField === 'submittedAt'}
                           onClick={() => handleSort('submittedAt')}
@@ -2413,6 +2429,14 @@ export default function RegistrationsPage() {
                         </CheckboxTd>
                         <Td>{getBusinessName(reg) || '-'}</Td>
                         <Td>{getContactEmail(reg) || '-'}</Td>
+                        {showTeamColumn && (
+                          <Td>
+                            <div>{reg.team_name || <span style={{ color: '#9ca3af' }}>Vend88</span>}</div>
+                            {reg.attributed_to_name && (
+                              <div style={{ fontSize: '0.8125rem', color: '#5c6b7a' }}>{reg.attributed_to_name}</div>
+                            )}
+                          </Td>
+                        )}
                         <Td>
                           <div>{getGeneratedAt(reg) ? new Date(getGeneratedAt(reg)).toLocaleDateString() : '-'}</div>
                           <div style={{ fontSize: '0.8125rem', color: '#5c6b7a', marginTop: '0.25rem' }}>
@@ -2430,12 +2454,16 @@ export default function RegistrationsPage() {
                               <ActionButton $variant="view" onClick={() => handleViewDetails(reg)}>
                                 {lang === "zh" ? "查看" : "View"}
                               </ActionButton>
-                              <ActionButton $variant="approve" onClick={() => handleApprove(reg.id)}>
-                                {lang === "zh" ? "批准" : "Approve"}
-                              </ActionButton>
-                              <ActionButton $variant="reject" onClick={() => handleReject(reg.id)}>
-                                {lang === "zh" ? "拒绝" : "Reject"}
-                              </ActionButton>
+                              {canApprove && (
+                                <>
+                                  <ActionButton $variant="approve" onClick={() => handleApprove(reg.id)}>
+                                    {lang === "zh" ? "批准" : "Approve"}
+                                  </ActionButton>
+                                  <ActionButton $variant="reject" onClick={() => handleReject(reg.id)}>
+                                    {lang === "zh" ? "拒绝" : "Reject"}
+                                  </ActionButton>
+                                </>
+                              )}
                             </>
                           )}
                           {reg.status === 'pending' && (

@@ -11,8 +11,11 @@ export function formatRole(role: string | undefined | null): string {
       return "Super Admin";
     case "admin":
       return "Admin";
+    case "team_owner":
+      return "Team Owner";
+    case "team_member":
     case "agent":
-      return "Agent";
+      return "Team Member";
     default:
       // Fallback: capitalize first letter of each word
       return role

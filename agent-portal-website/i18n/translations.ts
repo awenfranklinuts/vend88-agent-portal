@@ -36,9 +36,13 @@ export const dict = {
   forgotPassword: { zh: "忘记密码？", en: "Forgot Password?" },
   loggingInAs: { zh: "您正在以", en: "You are logging in as" },
   agent: { zh: "代理", en: "Agent" },
+  team: { zh: "团队", en: "Team" },
   admin: { zh: "管理员", en: "Admin" },
   switchToAdminLogin: { zh: "切换到管理员登录", en: "Switch to Admin Login" },
   switchToAgentLogin: { zh: "切换到代理登录", en: "Switch to Agent Login" },
+  switchToTeamLogin: { zh: "切换到团队登录", en: "Switch to Team Login" },
+  teamManagement: { zh: "团队管理", en: "Team Management" },
+  myTeam: { zh: "我的团队", en: "My Team" },
   
   // Customer Management
   customerManagement: { zh: "客户管理", en: "Customer Management" },

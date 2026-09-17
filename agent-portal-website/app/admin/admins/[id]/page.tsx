@@ -9,7 +9,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../../components/layout/AdminSidebar";
-import { ADMIN_MODULES, ALL_PERMISSION_IDS, getModulePermissions } from "@/config/adminModules";
+import { EDITOR_MODULES, ALL_PERMISSION_IDS, getModulePermissions } from "@/config/adminModules";
 
 /* ─── Types ─── */
 interface Admin {
@@ -65,7 +65,7 @@ const ROLE_LABELS: Record<string, { en: string; zh: string }> = {
 const buildPermissionCategories = (role: string, enabledIds: string[]): PermissionCategory[] =>
   role !== 'admin'
     ? []
-    : ADMIN_MODULES.filter(module => !module.superAdminOnly).map(module => ({
+    : EDITOR_MODULES.map(module => ({
         category_en: module.label.en,
         category_zh: module.label.zh,
         permissions: getModulePermissions(module).map(p => ({

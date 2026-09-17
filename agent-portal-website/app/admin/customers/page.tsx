@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styled from "styled-components";
-import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
+import { useAuth, isPortalUser, hasPermission, canSeeAllTeams } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import { dict } from "@/i18n/translations";
@@ -933,6 +933,9 @@ interface Customer {
   messagingAppId?: string;
   created_at?: string;
   businesses: Business[];
+  // Teams this customer is attributed through (one per business they own)
+  team_ids?: string[];
+  team_names?: string[];
 }
 
 interface Business {
@@ -980,13 +983,13 @@ export default function CustomerManagementPage() {
   useEffect(() => {
     if (!isLoading && !token) {
       router.push("/login");
-    } else if (!isLoading && token && !isAdminRole(role)) {
-      router.push("/agent");
+    } else if (!isLoading && token && !isPortalUser(role)) {
+      router.push("/login");
     }
   }, [token, role, isLoading, router]);
 
   useEffect(() => {
-    if (token && isAdminRole(role)) {
+    if (token && isPortalUser(role)) {
       fetchCustomers();
     }
   }, [token, role]);
@@ -1143,7 +1146,7 @@ export default function CustomerManagementPage() {
       }
 
       const response = await fetch(
-        getApiUrl(API_CONFIG.ENDPOINTS.CUSTOMERS_CREATE),
+        '/api/customer/create',
         {
           method: 'POST',
           headers: {
@@ -1284,14 +1287,16 @@ export default function CustomerManagementPage() {
     );
   }
 
-  if (!token || !isAdminRole(role)) {
+  if (!token || !isPortalUser(role)) {
     return null;
   }
 
-  if (!hasPermission(adminProfile, 'manage_customers')) {
+  // Read access is enough to open the page; write actions check manage_customers
+  if (!hasPermission(adminProfile, 'view_customers')) {
     router.push('/admin');
     return null;
   }
+  const showTeamColumn = canSeeAllTeams(adminProfile);
 
   return (
     <MainLayout currentPage={t("customerManagement")} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
@@ -1307,6 +1312,7 @@ export default function CustomerManagementPage() {
                   : "Manage all POS customers. View, add, edit, and monitor customer information."}
               </PageDescription>
             </div>
+            {hasPermission(adminProfile, 'manage_customers') && (
             <ExportButton onClick={() => setShowCreateModal(true)}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="12" y1="5" x2="12" y2="19"/>
@@ -1314,6 +1320,7 @@ export default function CustomerManagementPage() {
               </svg>
               {lang === 'zh' ? '创建客户' : 'Create Customer'}
             </ExportButton>
+            )}
           </ContentHeader>
 
           <StatsGrid>
@@ -1428,6 +1435,7 @@ export default function CustomerManagementPage() {
                     <Th onClick={() => handleSort('businessCount')}>
                       {lang === 'zh' ? '业务' : 'Businesses'} <SortIcon />
                     </Th>
+                    {showTeamColumn && <Th>{lang === 'zh' ? '团队' : 'Team'}</Th>}
                     <Th onClick={() => handleSort('created_at')}>
                       {lang === 'zh' ? '创建日期' : 'Created'} <SortIcon />
                     </Th>
@@ -1441,6 +1449,13 @@ export default function CustomerManagementPage() {
                       <Td>{customer.email}</Td>
                       <Td>{customer.phone || 'N/A'}</Td>
                       <Td>{customer.businesses.length}</Td>
+                      {showTeamColumn && (
+                        <Td>
+                          {customer.team_names && customer.team_names.length
+                            ? customer.team_names.join(', ')
+                            : <span style={{ color: '#9ca3af' }}>Vend88</span>}
+                        </Td>
+                      )}
                       <Td>
                         {customer.created_at 
                           ? new Date(customer.created_at).toLocaleDateString()
@@ -1602,31 +1617,6 @@ export default function CustomerManagementPage() {
               placeholder={lang === "zh" ? "输入电话号码" : "Enter phone number"}
             />
           </Section>
-
-          <Section>
-            <DetailLabel>{lang === "zh" ? "消息应用类型" : "Messaging App Type"}</DetailLabel>
-            <Select
-              value={newCustomer.messagingAppType || ''}
-              onChange={(e) => setNewCustomer({ ...newCustomer, messagingAppType: e.target.value })}
-            >
-              <option value="">{lang === "zh" ? "选择消息应用类型" : "Select messaging app type"}</option>
-              <option value="WeChat">WeChat</option>
-              <option value="WhatsApp">WhatsApp</option>
-              <option value="Other">{lang === "zh" ? "其他" : "Other"}</option>
-            </Select>
-          </Section>
-
-          {newCustomer.messagingAppType && (
-            <Section>
-              <DetailLabel>{lang === "zh" ? "消息应用 ID" : "Messaging App ID"}</DetailLabel>
-              <Input
-                type="text"
-                value={newCustomer.messagingAppId}
-                onChange={(e) => setNewCustomer({ ...newCustomer, messagingAppId: e.target.value })}
-                placeholder={lang === "zh" ? "输入应用 ID" : "Enter app ID"}
-              />
-            </Section>
-          )}
 
           <ModalActions>
             <ActionButton onClick={() => setShowCreateModal(false)}>

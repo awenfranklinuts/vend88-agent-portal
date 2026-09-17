@@ -44,18 +44,48 @@ export interface Agent {
   businesses: string[];
 }
 
-interface AdminProfile {
+export interface TeamSummary {
+  id: string;
+  name: string;
+  kind: "internal" | "organisation" | "individual";
+  status: "active" | "suspended";
+}
+
+// How wide the user's view is. 'all' = administrators; 'team' = a whole team;
+// 'self' = only records they brought in. Mirrors the backend's scope.
+export type ScopeLevel = "all" | "team" | "self";
+
+export interface AdminProfile {
+  user_id?: string;
   email: string;
   role: string;
   first_name: string;
   last_name: string;
   permissions: string[];
+  team_id?: string | null;
+  team?: TeamSummary | null;
+  visibility?: "self" | "team" | "all";
+  scope_level?: ScopeLevel;
 }
 
-export type UserRole = "agent" | "admin" | "super_admin";
+// 'agent' is the pre-team name for team_member; the backend still reports it
+// for accounts created before the migration ran.
+export type UserRole = "agent" | "team_member" | "team_owner" | "admin" | "super_admin";
 
-// Returns true for roles that access the /admin dashboard
+// Administrators: no team, see everything
 export const isAdminRole = (role: string | null): boolean => role === "admin" || role === "super_admin";
+
+// Team users: internal BDMs, individual agents, organisation owners and members
+export const isTeamRole = (role: string | null): boolean =>
+  role === "team_owner" || role === "team_member" || role === "agent";
+
+// Anyone who may use the portal. Every screen lives under /admin and is gated
+// by permission + scope, so this is the only role check a page needs.
+export const isPortalUser = (role: string | null): boolean => isAdminRole(role) || isTeamRole(role);
+
+// Whether the profile sees across every team (drives Team columns and filters)
+export const canSeeAllTeams = (profile: Pick<AdminProfile, "role" | "scope_level"> | null | undefined): boolean =>
+  !!profile && (profile.scope_level === "all" || isAdminRole(profile.role));
 
 // Super admins have every permission; other admins need it granted explicitly
 export const hasPermission = (
@@ -270,11 +300,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (response.data.status_code === 200) {
         setAdminProfile({
+          user_id: response.data.user_id,
           email: response.data.email,
           role: response.data.role,
           first_name: response.data.first_name,
           last_name: response.data.last_name,
           permissions: response.data.permissions || [],
+          team_id: response.data.team_id ?? null,
+          team: response.data.team ?? null,
+          visibility: response.data.visibility,
+          scope_level: response.data.scope_level,
         });
         setIsFetchingProfile(false);
         return true;

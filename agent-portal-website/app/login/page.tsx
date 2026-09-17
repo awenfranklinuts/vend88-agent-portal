@@ -746,8 +746,7 @@ export default function LoginPage() {
         if (!sessionTimeout || now < timeout) {
           // Session is valid, redirect to appropriate dashboard
           console.log("Valid session found, redirecting to dashboard");
-          const redirectPath = (userRole === "admin" || userRole === "super_admin") ? "/admin" : "/agent";
-          router.push(redirectPath);
+          router.push("/admin");
           return;
         } else {
           // Session expired, clear auth data
@@ -877,7 +876,8 @@ export default function LoginPage() {
       const response = await axios.post(apiUrl, {
         email: sanitizedEmail,
         password: sanitizedPassword,
-        role: role,
+        // The team tab admits any team role; the admin tab needs admin or above
+        role: role === "agent" ? "team" : role,
       }, {
         timeout: 15000, // 15 second timeout
         headers: {
@@ -925,7 +925,9 @@ export default function LoginPage() {
         const sessionTimeout = Date.now() + (timeoutSeconds * 1000);
         sessionStorage.setItem('sessionTimeout', sessionTimeout.toString());
         
-        const redirectPath = (serverRole === "admin" || serverRole === "super_admin") ? "/admin" : "/agent";
+        // One portal for everyone: team users land on the same dashboard with
+        // their own permissions and scope applied
+        const redirectPath = "/admin";
         console.log("Login successful, redirecting to:", redirectPath);
         
         // Show loading screen during navigation
@@ -1053,7 +1055,7 @@ export default function LoginPage() {
           </BrandLogo>
           
           <LoginModeIndicator>
-            <span>{t("loggingInAs")} <strong>{role === "agent" ? t("agent") : t("admin")}</strong></span>
+            <span>{t("loggingInAs")} <strong>{role === "agent" ? t("team") : t("admin")}</strong></span>
           </LoginModeIndicator>
           
           <FormContainer>
@@ -1151,7 +1153,7 @@ export default function LoginPage() {
               sessionStorage.setItem('loginRole', newRole);
               window.location.reload();
             }}>
-              {role === "agent" ? t("switchToAdminLogin") : t("switchToAgentLogin")}
+              {role === "agent" ? t("switchToAdminLogin") : t("switchToTeamLogin")}
             </SwitchRole>
           </FormContainer>
         </LoginFormSection>

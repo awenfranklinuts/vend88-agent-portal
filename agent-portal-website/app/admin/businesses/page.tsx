@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 
 import styled from "styled-components";
 
-import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
+import { useAuth, isPortalUser, hasPermission, canSeeAllTeams } from "@/context/AuthContext";
 
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -2135,6 +2135,13 @@ interface Business {
 
   owner_email?: string;
 
+  // Attribution: which portal user brought the business in, and their team
+  owner_user_id?: string | null;
+  attributed_to_name?: string;
+  attributed_to_email?: string;
+  team_id?: string | null;
+  team_name?: string;
+
   status: 'active' | 'inactive' | 'setup' | 'suspended';
 
   created_at?: string;
@@ -2180,6 +2187,9 @@ export default function BusinessManagementPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
   const [filterState, setFilterState] = useState<string>('all');
+
+  // 'all' | 'house' (no team) | a team id. Only shown to users who see every team.
+  const [filterTeam, setFilterTeam] = useState<string>('all');
 
   const [includeTestAndNoStatus, setIncludeTestAndNoStatus] = useState(false);
 
@@ -2271,9 +2281,9 @@ export default function BusinessManagementPage() {
 
       router.push("/login");
 
-    } else if (!isLoading && token && !isAdminRole(role)) {
+    } else if (!isLoading && token && !isPortalUser(role)) {
 
-      router.push("/agent");
+      router.push("/login");
 
     }
 
@@ -2283,7 +2293,7 @@ export default function BusinessManagementPage() {
 
   useEffect(() => {
 
-    if (token && isAdminRole(role)) {
+    if (token && isPortalUser(role)) {
 
       fetchBusinesses();
 
@@ -2526,6 +2536,13 @@ export default function BusinessManagementPage() {
 
     }
 
+    // Team filter
+    if (filterTeam === 'house') {
+      filtered = filtered.filter(b => !b.team_id);
+    } else if (filterTeam !== 'all') {
+      filtered = filtered.filter(b => b.team_id === filterTeam);
+    }
+
     
 
     // Date filters
@@ -2600,7 +2617,17 @@ export default function BusinessManagementPage() {
 
     setCurrentPage(1);
 
-  }, [searchQuery, searchByABN, searchByAddress, searchByOwner, filterStatus, filterState, includeTestAndNoStatus, dateFilterFrom, dateFilterTo, sortField, sortDirection, allBusinesses, customers, shops]);
+  }, [searchQuery, searchByABN, searchByAddress, searchByOwner, filterStatus, filterState, filterTeam, includeTestAndNoStatus, dateFilterFrom, dateFilterTo, sortField, sortDirection, allBusinesses, customers, shops]);
+
+  // Teams present in the loaded data, for the Team filter
+  const teamOptions = Array.from(
+    allBusinesses.reduce((map, b) => {
+      if (b.team_id) map.set(b.team_id, b.team_name || b.team_id);
+      return map;
+    }, new Map<string, string>())
+  ).sort((a, b) => a[1].localeCompare(b[1]));
+  const showTeamColumn = canSeeAllTeams(adminProfile);
+  const canManageBusinesses = hasPermission(adminProfile, 'manage_businesses');
 
 
 
@@ -2617,6 +2644,8 @@ export default function BusinessManagementPage() {
     setFilterStatus('all');
 
     setFilterState('all');
+
+    setFilterTeam('all');
 
     setIncludeTestAndNoStatus(false);
 
@@ -2743,22 +2772,26 @@ export default function BusinessManagementPage() {
       Object.entries(newBusinessAccount).map(([key, value]) => [key, value.trim()])
     ) as typeof newBusinessAccount;
 
-    const { notes: _optionalNotes, contact_name: _optionalContactName, ...requiredFields } = trimmed;
-    if (Object.values(requiredFields).some((value) => !value)) {
-      setCreateAccountError(
-        lang === 'zh' ? '请填写所有必填字段' : 'Please fill in all required fields'
-      );
+    // Only the business name is required. Anything else is checked for shape
+    // only when it was actually filled in.
+    if (!trimmed.business_name) {
+      setCreateAccountError(lang === 'zh' ? '请输入业务名称' : 'Business name is required');
+      return;
+    }
+    // The owner login is always created with the business from this form
+    if (!trimmed.emailPrefix || !newBusinessAccount.password.trim()) {
+      setCreateAccountError(lang === 'zh' ? '请填写 VendPOS 邮箱和密码' : 'VendPOS email and password are required');
       return;
     }
 
     const validationError =
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed.contact_email)
+      trimmed.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed.contact_email)
         ? (lang === 'zh' ? '请输入有效的邮箱地址' : 'Please enter a valid email address')
-      : !PHONE_REGEX.test(trimmed.phone)
+      : trimmed.phone && !PHONE_REGEX.test(trimmed.phone)
         ? (lang === 'zh' ? '请输入有效的电话号码（例如 +61400000000）' : 'Please enter a valid phone number (e.g. +61400000000)')
-      : !/^\d{11}$/.test(trimmed.abn.replace(/\s+/g, ''))
+      : trimmed.abn && !/^\d{11}$/.test(trimmed.abn.replace(/\s+/g, ''))
         ? (lang === 'zh' ? 'ABN 必须为 11 位数字' : 'ABN must be 11 digits')
-      : !/^\d{4}$/.test(trimmed.postcode)
+      : trimmed.postcode && !/^\d{4}$/.test(trimmed.postcode)
         ? (lang === 'zh' ? '邮编必须为 4 位数字' : 'Postcode must be 4 digits')
       : '';
 
@@ -2773,6 +2806,7 @@ export default function BusinessManagementPage() {
     // A single-word name has no surname - repeating it gave owners like "John John".
     const last_name = rest.join(' ') || 'Owner';
     const email = `${trimmed.emailPrefix.toLowerCase()}${BUSINESS_EMAIL_DOMAIN}`;
+    const password = newBusinessAccount.password.trim();
 
     setCreateAccountError('');
     setIsCreatingAccount(true);
@@ -2786,7 +2820,7 @@ export default function BusinessManagementPage() {
           last_name,
           email,
           phone: trimmed.phone,
-          password: newBusinessAccount.password,
+          password,
           business_name: trimmed.business_name,
           contact_name: trimmed.contact_name,
           contact_email: trimmed.contact_email,
@@ -3051,7 +3085,7 @@ export default function BusinessManagementPage() {
 
     if (business.owner_id) return getOwnerName(business.owner_id);
 
-    return '';
+    return 'N/A';
 
   };
 
@@ -3203,7 +3237,7 @@ export default function BusinessManagementPage() {
 
 
 
-  if (!token || !isAdminRole(role)) {
+  if (!token || !isPortalUser(role)) {
 
     return null;
 
@@ -3211,7 +3245,8 @@ export default function BusinessManagementPage() {
 
 
 
-  if (!hasPermission(adminProfile, 'manage_businesses')) {
+  // Read access is enough to open the page; write actions check manage_businesses individually
+  if (!hasPermission(adminProfile, 'view_businesses')) {
 
     router.push('/admin');
 
@@ -3249,6 +3284,7 @@ export default function BusinessManagementPage() {
 
             </HeaderLeft>
 
+            {canManageBusinesses && (
             <CreateBusinessButton onClick={() => { resetCreateAccountForm(); setShowCreateAccountModal(true); }}>
 
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -3262,6 +3298,7 @@ export default function BusinessManagementPage() {
               {lang === 'zh' ? '创建新业务' : 'Create New Business'}
 
             </CreateBusinessButton>
+            )}
 
           </ContentHeader>
 
@@ -3439,6 +3476,16 @@ export default function BusinessManagementPage() {
 
               </FilterSelect>
 
+              {showTeamColumn && (
+                <FilterSelect value={filterTeam} onChange={(e) => setFilterTeam(e.target.value)}>
+                  <option value="all">{lang === "zh" ? "所有团队" : "All Teams"}</option>
+                  <option value="house">{lang === "zh" ? "Vend88（内部账户）" : "Vend88 (house accounts)"}</option>
+                  {teamOptions.map(([id, name]) => (
+                    <option key={id} value={id}>{name}</option>
+                  ))}
+                </FilterSelect>
+              )}
+
               <FilterCheckboxLabel>
 
                 <Checkbox
@@ -3453,7 +3500,7 @@ export default function BusinessManagementPage() {
 
               </FilterCheckboxLabel>
 
-              {(searchQuery || searchByABN || searchByAddress || searchByOwner || filterStatus !== 'all' || filterState !== 'all' || includeTestAndNoStatus || dateFilterFrom || dateFilterTo) && (
+              {(searchQuery || searchByABN || searchByAddress || searchByOwner || filterStatus !== 'all' || filterState !== 'all' || filterTeam !== 'all' || includeTestAndNoStatus || dateFilterFrom || dateFilterTo) && (
 
                 <ClearButton onClick={handleClearFilters}>
 
@@ -3623,6 +3670,8 @@ export default function BusinessManagementPage() {
 
                     <Th>{lang === 'zh' ? '所有者' : 'Owner'}</Th>
 
+                    {showTeamColumn && <Th>{lang === 'zh' ? '团队' : 'Team'}</Th>}
+
                     <Th onClick={() => handleSort('status')}>
 
                       {lang === 'zh' ? '状态' : 'Status'} <SortIcon />
@@ -3664,6 +3713,15 @@ export default function BusinessManagementPage() {
                       <Td style={{ fontWeight: 600 }}>{business.name || 'N/A'}</Td>
 
                       <Td>{getBusinessOwnerName(business)}</Td>
+
+                      {showTeamColumn && (
+                        <Td>
+                          <div>{business.team_name || <span style={{ color: '#9ca3af' }}>{lang === 'zh' ? 'Vend88' : 'Vend88'}</span>}</div>
+                          {business.attributed_to_name && (
+                            <div style={{ fontSize: '0.8125rem', color: '#5c6b7a' }}>{business.attributed_to_name}</div>
+                          )}
+                        </Td>
+                      )}
 
                       <Td>
 
@@ -4164,7 +4222,7 @@ export default function BusinessManagementPage() {
             <FormSectionTitle>{lang === 'zh' ? '客户联系信息' : 'Customer Contact Details'}</FormSectionTitle>
 
             <Section>
-              <DetailLabel>{lang === 'zh' ? '邮箱地址' : 'Email Address'} *</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? '邮箱地址' : 'Email Address'}</DetailLabel>
               <Input
                 type="email"
                 value={newBusinessAccount.contact_email}
@@ -4185,7 +4243,7 @@ export default function BusinessManagementPage() {
             </Section>
 
             <Section>
-              <DetailLabel>{lang === 'zh' ? '电话号码' : 'Phone Number'} *</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? '电话号码' : 'Phone Number'}</DetailLabel>
               <Input
                 type="tel"
                 value={newBusinessAccount.phone}
@@ -4209,7 +4267,7 @@ export default function BusinessManagementPage() {
             </Section>
 
             <Section>
-              <DetailLabel>ABN *</DetailLabel>
+              <DetailLabel>ABN</DetailLabel>
               <Input
                 type="text"
                 inputMode="numeric"
@@ -4224,7 +4282,7 @@ export default function BusinessManagementPage() {
 
             <FieldRow>
             <Section>
-              <DetailLabel>{lang === 'zh' ? '街道地址' : 'Street Address'} *</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? '街道地址' : 'Street Address'}</DetailLabel>
               <Input
                 type="text"
                 value={newBusinessAccount.address}
@@ -4234,7 +4292,7 @@ export default function BusinessManagementPage() {
             </Section>
 
             <Section>
-              <DetailLabel>{lang === 'zh' ? '城市 / 区' : 'City / Suburb'} *</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? '城市 / 区' : 'City / Suburb'}</DetailLabel>
               <Input
                 type="text"
                 value={newBusinessAccount.suburb}
@@ -4246,7 +4304,7 @@ export default function BusinessManagementPage() {
 
             <FieldRow>
               <Section>
-                <DetailLabel>{lang === 'zh' ? '邮编' : 'Postcode'} *</DetailLabel>
+                <DetailLabel>{lang === 'zh' ? '邮编' : 'Postcode'}</DetailLabel>
                 <Input
                   type="text"
                   inputMode="numeric"
@@ -4258,7 +4316,7 @@ export default function BusinessManagementPage() {
               </Section>
 
               <Section>
-                <DetailLabel>{lang === 'zh' ? '州' : 'State'} *</DetailLabel>
+                <DetailLabel>{lang === 'zh' ? '州' : 'State'}</DetailLabel>
                 <FormSelect
                   value={newBusinessAccount.state}
                   onChange={(e) => updateNewBusinessAccount('state', e.target.value)}
@@ -4270,7 +4328,7 @@ export default function BusinessManagementPage() {
             </FieldRow>
 
             <Section>
-              <DetailLabel>{lang === 'zh' ? '国家' : 'Country'} *</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? '国家' : 'Country'}</DetailLabel>
               <FormSelect
                 value={newBusinessAccount.country}
                 onChange={(e) => updateNewBusinessAccount('country', e.target.value)}
@@ -4301,6 +4359,7 @@ export default function BusinessManagementPage() {
                   value={newBusinessAccount.emailPrefix}
                   onChange={(e) => updateNewBusinessAccount('emailPrefix', e.target.value.toLowerCase())}
                   placeholder={lang === 'zh' ? '输入邮箱前缀' : 'Enter email prefix'}
+                  autoComplete="off"
                 />
                 <EmailSuffix>{BUSINESS_EMAIL_DOMAIN}</EmailSuffix>
               </EmailInputGroup>
@@ -4316,6 +4375,7 @@ export default function BusinessManagementPage() {
                     value={newBusinessAccount.password}
                     onChange={(e) => updateNewBusinessAccount('password', e.target.value)}
                     placeholder={lang === 'zh' ? '输入密码' : 'Enter password'}
+                    autoComplete="new-password"
                   />
                   <ToggleVisibilityButton
                     type="button"

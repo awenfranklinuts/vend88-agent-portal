@@ -128,7 +128,13 @@ export default async function handler(
       console.log('[API Proxy] Registration list response status:', response.status);
       return res.status(response.status).json(response.data);
     } catch (apiError: any) {
-      console.log('[API Proxy] Real API failed, using mock data');
+      // A backend answer - 401, 403, 500 - must reach the client as-is. Falling
+      // back to sample rows here would show a user who was refused (or whose
+      // scope is empty) a list of registrations that do not exist.
+      if (apiError?.response) {
+        return res.status(apiError.response.status).json(apiError.response.data);
+      }
+      console.log('[API Proxy] Backend unreachable, using mock data');
       
       // Filter mock data if form_id provided
       let filteredRegistrations = mockRegistrations;

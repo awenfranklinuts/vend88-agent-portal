@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
+import { useAuth, isPortalUser, hasPermission } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "@/components/layout/AdminSidebar";
@@ -22,11 +22,11 @@ export default function QuotationShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
     if (!token) router.push("/login");
-    else if (!isAdminRole(role)) router.push("/agent");
+    else if (!isPortalUser(role)) router.push("/login");
     else if (adminProfile && !allowed) router.push("/admin");
   }, [token, role, isLoading, adminProfile, allowed, router]);
 
-  if (isLoading || (token && isAdminRole(role) && !adminProfile)) {
+  if (isLoading || (token && isPortalUser(role) && !adminProfile)) {
     return (
       <Container>
         <LoadingText>Loading...</LoadingText>
@@ -34,7 +34,7 @@ export default function QuotationShell({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!token || !isAdminRole(role) || !allowed) return null;
+  if (!token || !isPortalUser(role) || !allowed) return null;
 
   return (
     <MainLayout currentPage={lang === "zh" ? "报价管理" : "Quotation Management"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>

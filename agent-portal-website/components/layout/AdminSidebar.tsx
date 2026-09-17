@@ -63,6 +63,13 @@ const UserEmail = styled.p`
   color: #5c6b7a;
 `;
 
+const TeamName = styled.p`
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: #1a237e;
+  font-weight: 600;
+`;
+
 const RoleBadge = styled.span`
   display: inline-block;
   margin-top: 0.5rem;
@@ -355,6 +362,7 @@ export default function AdminSidebar({ mobileOpen, onClose }: AdminSidebarProps)
             {t("welcome")}, {displayName}
           </WelcomeText>
           <UserEmail>{userEmail}</UserEmail>
+          {adminProfile?.team?.name && <TeamName>{adminProfile.team.name}</TeamName>}
           <RoleBadge>{formatRole(adminProfile?.role)}</RoleBadge>
         </SidebarHeader>
 

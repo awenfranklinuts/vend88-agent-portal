@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import styled from "styled-components";
 
-export type Granularity = "day" | "hour";
+export type Granularity = "day" | "hour" | "month";
 
 export interface ChartBucket {
   date: string;
@@ -228,19 +228,33 @@ function formatHourLabel(dateStr: string): string {
   return `${hour12}${suffix}`;
 }
 
+// Month buckets arrive as "YYYY-MM"
+function formatMonthLabel(dateStr: string, lang: string): string {
+  const d = new Date(`${dateStr}-01T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(lang === "zh" ? "zh-CN" : "en-US", {
+    month: "short",
+    year: "2-digit",
+    timeZone: "UTC",
+  });
+}
+
 export function formatChartLabel(
   dateStr: string,
   granularity: Granularity,
   lang: string
 ): string {
-  return granularity === "hour" ? formatHourLabel(dateStr) : formatDayLabel(dateStr, lang);
+  if (granularity === "hour") return formatHourLabel(dateStr);
+  if (granularity === "month") return formatMonthLabel(dateStr, lang);
+  return formatDayLabel(dateStr, lang);
 }
 
-// Hourly charts can carry up to 24 points - showing every tick crowds the
-// axis, so only a spaced-out subset (plus the last one) gets a label.
+// Hourly and long monthly charts can carry many points - showing every tick
+// crowds the axis, so only a spaced-out subset (plus the last one) gets a label.
 function shouldShowAxisLabel(index: number, count: number, granularity: Granularity): boolean {
-  if (granularity === "day" || count <= 8) return true;
-  const step = Math.ceil(count / 6);
+  if (count <= 8) return true;
+  if (granularity === "day" && count <= 31) return true;
+  const step = Math.ceil(count / (granularity === "month" ? 12 : 6));
   return index % step === 0 || index === count - 1;
 }
 

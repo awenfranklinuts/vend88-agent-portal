@@ -68,6 +68,11 @@ export interface Quotation {
   notes: string;
   terms: string;
   createdBy: string;
+  /** Attribution: the portal user credited with the deal, and their team */
+  ownerUserId?: string | null;
+  attributedToName?: string;
+  teamId?: string | null;
+  teamName?: string;
   createdAt: string;
   updatedAt: string;
   sentAt?: string;

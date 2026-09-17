@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styled from "styled-components";
-import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
+import { useAuth, isPortalUser, hasPermission, canSeeAllTeams } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../components/layout/AdminSidebar";
-import RevenueSummaryCard from "@/components/ui/RevenueSummaryCard";
+import RevenueSummaryCard, { type ReportFilter } from "@/components/ui/RevenueSummaryCard";
 import TransactionsSummaryCard from "@/components/ui/TransactionsSummaryCard";
+import DashboardStatsRow from "@/components/ui/DashboardStatsRow";
+import ReportFilterBar from "@/components/ui/ReportFilterBar";
 
 const Container = styled.div`
   min-height: 100vh;
@@ -49,6 +51,24 @@ const PageDescription = styled.p`
   color: #5c6b7a;
 `;
 
+/* Revenue and transactions side by side; each card keeps its own period toggle */
+const TwoUp = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  align-items: stretch;
+  margin-bottom: 2rem;
+
+  > * {
+    margin-bottom: 0;
+    min-width: 0;
+  }
+
+  @media (max-width: 1280px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
 const LoadingText = styled.div`
   text-align: center;
   font-size: 1.25rem;
@@ -61,12 +81,14 @@ export default function ReportsPage() {
   const { token, role, isLoading, adminProfile } = useAuth();
   const { lang } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Administrators can narrow every card below to one team or person
+  const [filter, setFilter] = useState<ReportFilter>({});
 
   useEffect(() => {
     if (!isLoading && !token) {
       router.push("/login");
-    } else if (!isLoading && token && !isAdminRole(role)) {
-      router.push("/agent");
+    } else if (!isLoading && token && !isPortalUser(role)) {
+      router.push("/login");
     }
   }, [token, role, isLoading, router]);
 
@@ -78,7 +100,7 @@ export default function ReportsPage() {
     );
   }
 
-  if (!token || !isAdminRole(role)) {
+  if (!token || !isPortalUser(role)) {
     return null;
   }
 
@@ -95,14 +117,26 @@ export default function ReportsPage() {
           <ContentHeader>
             <PageTitle>{lang === "zh" ? "报告与分析" : "Reports & Analytics"}</PageTitle>
             <PageDescription>
-              {lang === "zh"
-                ? "查看详细报告、分析和所有客户和业务的洞察。"
-                : "View detailed reports, analytics, and insights across all customers and businesses."}
+              {canSeeAllTeams(adminProfile)
+                ? (lang === "zh"
+                    ? "查看所有客户和业务的报告与分析，或按团队和成员筛选。"
+                    : "Reports and insights across all customers and businesses, or filtered to one team or person.")
+                : (lang === "zh"
+                    ? "归属于您的客户和业务的报告与分析。"
+                    : "Reports and insights for the customers and businesses attributed to you.")}
             </PageDescription>
           </ContentHeader>
 
-          <RevenueSummaryCard />
-          <TransactionsSummaryCard />
+          <ReportFilterBar value={filter} onChange={setFilter} />
+          <DashboardStatsRow
+            filter={filter}
+            showHeadline={false}
+            title={lang === "zh" ? "销售管道" : "Sales pipeline"}
+          />
+          <TwoUp>
+            <RevenueSummaryCard filter={filter} />
+            <TransactionsSummaryCard filter={filter} />
+          </TwoUp>
         </MainContent>
       </Container>
     </MainLayout>

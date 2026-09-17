@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styled from "styled-components";
-import { useAuth, isAdminRole, hasPermission } from "@/context/AuthContext";
+import { useAuth, isPortalUser, hasPermission, canSeeAllTeams } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { ADMIN_MODULES, canAccessModule } from "@/config/adminModules";
 import MainLayout from "@/components/layout/MainLayout";
@@ -275,13 +275,13 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!isLoading && !token) {
       router.push("/login");
-    } else if (!isLoading && token && !isAdminRole(role)) {
+    } else if (!isLoading && token && !isPortalUser(role)) {
       // If not admin, redirect to agent dashboard
-      router.push("/agent");
+      router.push("/login");
     }
   }, [token, role, isLoading, router]);
 
-  if (isLoading || (!adminProfile && token && isAdminRole(role))) {
+  if (isLoading || (!adminProfile && token && isPortalUser(role))) {
     return (
       <MainLayout currentPage={lang === "zh" ? "首页" : "Home"} onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}>
         <Container>
@@ -308,7 +308,7 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!token || !isAdminRole(role)) {
+  if (!token || !isPortalUser(role)) {
     return null;
   }
 
@@ -319,12 +319,18 @@ export default function AdminDashboard() {
         <MainContent>
           <ContentHeader>
             <PageTitle>
-              {lang === "zh" ? "管理员仪表板" : "Admin Dashboard"}
+              {canSeeAllTeams(adminProfile)
+                ? (lang === "zh" ? "管理员仪表板" : "Admin Dashboard")
+                : (lang === "zh" ? "团队仪表板" : "Team Dashboard")}
             </PageTitle>
             <PageDescription>
-              {lang === "zh"
-                ? "选择一个选项来管理您的业务、客户、代理等。"
-                : "Select an option to manage your businesses, customers, agents, and more."}
+              {canSeeAllTeams(adminProfile)
+                ? (lang === "zh"
+                    ? "选择一个选项来管理您的业务、客户、团队等。"
+                    : "Select an option to manage your businesses, customers, teams, and more.")
+                : (lang === "zh"
+                    ? `${adminProfile?.team?.name ? `${adminProfile.team.name} · ` : ""}您只会看到归属于您的客户和交易。`
+                    : `${adminProfile?.team?.name ? `${adminProfile.team.name} · ` : ""}You see the customers and deals attributed to you.`)}
             </PageDescription>
           </ContentHeader>
 
