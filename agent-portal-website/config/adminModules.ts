@@ -111,7 +111,7 @@ export const ADMIN_MODULES: AdminModule[] = [
   {
     id: "agents",
     section: "accounts",
-    label: { en: "Agent Management", zh: "代理管理" },
+    label: { en: "Team Management", zh: "团队管理" },
     description: {
       en: "Manage agent accounts and permissions. Assign business access rights.",
       zh: "管理代理账户和权限。分配业务访问权限。",
