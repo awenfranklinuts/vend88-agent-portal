@@ -7,6 +7,7 @@ import axios from "axios";
 import { useAuth, isPortalUser, hasPermission, canSeeAllTeams } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { dict } from "@/i18n/translations";
+import { inviteLabel } from "@/lib/inviteStatus";
 import { useToast } from "@/context/ToastContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "@/components/layout/AdminSidebar";
@@ -75,6 +76,8 @@ interface Member {
   created_at?: string;
   invite_pending?: boolean;
   email_verified?: boolean;
+  invite_expires_at?: string | null;
+  invite_expired?: boolean;
 }
 
 interface Can {
@@ -474,15 +477,16 @@ const PaginationInfo = styled.div`
   margin-bottom: 0.75rem;
 `;
 
-const InviteBadge = styled.span`
+const InviteBadge = styled.span<{ $expired?: boolean }>`
   display: inline-block;
   padding: 0.25rem 0.75rem;
   border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
-  background: #fef3c7;
-  color: #92400e;
+  ${p => p.$expired
+    ? "background: rgba(239, 68, 68, 0.12); color: #991b1b;"
+    : "background: #fef3c7; color: #92400e;"}
 `;
 
 const ChoiceCard = styled.div<{ $selected: boolean }>`
@@ -542,6 +546,12 @@ export default function TeamDetailPage() {
   const [auditDateStart, setAuditDateStart] = useState("");
   const [auditDateEnd, setAuditDateEnd] = useState("");
   const [auditPage, setAuditPage] = useState(1);
+  // Reported by the server for the current filter, not derived from a local slice.
+  const [auditTotal, setAuditTotal] = useState(0);
+  const [auditTotalPages, setAuditTotalPages] = useState(1);
+  const [auditLoading, setAuditLoading] = useState(false);
+  // Distinguishes "this team has no history" from "nothing in this date range".
+  const [auditHasAny, setAuditHasAny] = useState(false);
 
   // Team edit
   const [editingTeam, setEditingTeam] = useState(false);
@@ -579,11 +589,9 @@ export default function TeamDetailPage() {
     if (!token || !teamId) return;
     setLoading(true);
     try {
-      const [detail, attr, log] = await Promise.all([
+      const [detail, attr] = await Promise.all([
         axios.post("/api/teams/detail", { token, team_id: teamId }),
         axios.post("/api/teams/attributed", { token, team_id: teamId }),
-        // Filtering and paging happen client-side, so pull the backend's full cap
-        axios.post("/api/teams/audit-log", { token, team_id: teamId, limit: 1000 }),
       ]);
       setTeam(detail.data.team);
       setMembers(detail.data.members || []);
@@ -594,7 +602,6 @@ export default function TeamDetailPage() {
         quotations: attr.data.quotations || [],
         inquiries: attr.data.inquiries || [],
       });
-      setAudit(log.data.audit_log || []);
       setNotFound(false);
     } catch (err: any) {
       if (err?.response?.status === 404) setNotFound(true);
@@ -784,7 +791,7 @@ export default function TeamDetailPage() {
   /* ─── Helpers ─── */
 
 
-  /* ─── Activity history: date filter + pagination ─── */
+  /* ─── Activity history: server-side date filter + pagination ─── */
 
   const AUDIT_PER_PAGE = 10;
 
@@ -807,26 +814,38 @@ export default function TeamDetailPage() {
     setAuditPage(1);
   };
 
-  const filteredAudit = useMemo(() => {
-    if (!auditDateStart && !auditDateEnd) return audit;
-    const start = auditDateStart ? new Date(`${auditDateStart}T00:00:00`) : null;
-    const end = auditDateEnd ? new Date(`${auditDateEnd}T23:59:59.999`) : null;
-    return audit.filter(row => {
-      const when = new Date(row.timestamp);
-      if (start && when < start) return false;
-      if (end && when > end) return false;
-      return true;
-    });
-  }, [audit, auditDateStart, auditDateEnd]);
+  // The date range and page go to the server, which filters and pages the whole
+  // history. Doing it here would only ever see the rows already fetched, so a
+  // range outside them would wrongly report nothing.
+  const fetchAudit = useCallback(async () => {
+    if (!token || !teamId) return;
+    setAuditLoading(true);
+    try {
+      const res = await axios.post("/api/teams/audit-log", {
+        token,
+        team_id: teamId,
+        date_start: auditDateStart || undefined,
+        date_end: auditDateEnd || undefined,
+        page: auditPage,
+        page_size: AUDIT_PER_PAGE,
+      });
+      setAudit(res.data?.audit_log || []);
+      setAuditTotal(res.data?.total ?? 0);
+      setAuditTotalPages(res.data?.total_pages ?? 1);
+      // A page beyond the end is clamped server-side; follow it so the controls agree.
+      if (res.data?.page && res.data.page !== auditPage) setAuditPage(res.data.page);
+      if (!auditDateStart && !auditDateEnd) setAuditHasAny((res.data?.total ?? 0) > 0);
+      else if ((res.data?.total ?? 0) > 0) setAuditHasAny(true);
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || (zh ? "获取活动记录失败" : "Failed to load activity"), "error");
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [token, teamId, auditDateStart, auditDateEnd, auditPage, zh, showToast]);
 
-  const auditTotalPages = Math.max(1, Math.ceil(filteredAudit.length / AUDIT_PER_PAGE));
-  const auditPageSafe = Math.min(auditPage, auditTotalPages);
-  const pagedAudit = filteredAudit.slice((auditPageSafe - 1) * AUDIT_PER_PAGE, auditPageSafe * AUDIT_PER_PAGE);
-
-  // A refetch or a narrowed range can leave the view past the last page
   useEffect(() => {
-    if (auditPage > auditTotalPages) setAuditPage(auditTotalPages);
-  }, [auditPage, auditTotalPages]);
+    if (token && teamId && allowed) fetchAudit();
+  }, [token, teamId, allowed, fetchAudit]);
 
   const formatDate = (v?: string) => (v ? new Date(v).toLocaleString(zh ? "zh-CN" : "en-AU") : "-");
   const isSelf = (m: Member) => m.user_id === adminProfile?.user_id;
@@ -1045,7 +1064,16 @@ export default function TeamDetailPage() {
                     <Td>{VISIBILITY_LABELS[m.visibility]?.[lang] || m.visibility}</Td>
                     <Td>
                       {m.invite_pending ? (
-                        <InviteBadge>{t("invitePending")}</InviteBadge>
+                        <>
+                          <InviteBadge $expired={!!m.invite_expired}>
+                            {m.invite_expired ? t("inviteExpired") : t("invitePending")}
+                          </InviteBadge>
+                          {!m.invite_expired && (
+                            <div style={{ fontSize: "0.75rem", color: "#5c6b7a", marginTop: "0.25rem" }}>
+                              {inviteLabel(m, t)}
+                            </div>
+                          )}
+                        </>
                       ) : (
                         <StatusBadge $status={m.status === "active" ? "active" : "inactive"}>
                           {m.status === "active" ? (zh ? "活跃" : "Active") : (zh ? "已暂停" : "Suspended")}
@@ -1142,7 +1170,7 @@ export default function TeamDetailPage() {
       {/* ── Activity history ── */}
       <Card>
         <CardTitle style={{ marginBottom: "1rem" }}>{zh ? "活动历史" : "Activity History"}</CardTitle>
-        {audit.length === 0 ? (
+        {!auditHasAny && !auditLoading && !auditDateStart && !auditDateEnd ? (
           <EmptyState><EmptyText>{zh ? "暂无活动" : "No activity yet"}</EmptyText></EmptyState>
         ) : (
           <>
@@ -1182,14 +1210,14 @@ export default function TeamDetailPage() {
               </PresetButtonGroup>
             </DateRangeFilter>
 
-            {filteredAudit.length === 0 ? (
+            {auditTotal === 0 ? (
               <EmptyState><EmptyText>{zh ? "该日期范围内无活动记录" : "No activity in this date range"}</EmptyText></EmptyState>
             ) : (
               <>
-                <PaginationInfo>
+                <PaginationInfo style={{ opacity: auditLoading ? 0.5 : 1 }}>
                   {zh
-                    ? `第 ${(auditPageSafe - 1) * AUDIT_PER_PAGE + 1} - ${Math.min(auditPageSafe * AUDIT_PER_PAGE, filteredAudit.length)} 条，共 ${filteredAudit.length} 条`
-                    : `${(auditPageSafe - 1) * AUDIT_PER_PAGE + 1} - ${Math.min(auditPageSafe * AUDIT_PER_PAGE, filteredAudit.length)} of ${filteredAudit.length}`}
+                    ? `第 ${(auditPage - 1) * AUDIT_PER_PAGE + 1} - ${Math.min(auditPage * AUDIT_PER_PAGE, auditTotal)} 条，共 ${auditTotal} 条`
+                    : `${(auditPage - 1) * AUDIT_PER_PAGE + 1} - ${Math.min(auditPage * AUDIT_PER_PAGE, auditTotal)} of ${auditTotal}`}
                 </PaginationInfo>
                 <TableScroll>
                   <Table>
@@ -1203,7 +1231,7 @@ export default function TeamDetailPage() {
                       </Tr>
                     </Thead>
                     <Tbody>
-                      {pagedAudit.map((row, i) => (
+                      {audit.map((row, i) => (
                         <Tr key={i}>
                           <Td style={{ whiteSpace: "nowrap" }}>{formatDate(row.timestamp)}</Td>
                           <Td><ActionBadge $action={row.action}>{row.action.replace(/_/g, " ")}</ActionBadge></Td>
@@ -1218,27 +1246,27 @@ export default function TeamDetailPage() {
 
                 {auditTotalPages > 1 && (
                   <PaginationContainer>
-                    <PaginationButton disabled={auditPageSafe === 1} onClick={() => setAuditPage(1)}>
+                    <PaginationButton disabled={auditPage === 1} onClick={() => setAuditPage(1)}>
                       {zh ? "首页" : "First"}
                     </PaginationButton>
-                    <PaginationButton disabled={auditPageSafe === 1} onClick={() => setAuditPage(p => Math.max(1, p - 1))}>
+                    <PaginationButton disabled={auditPage === 1} onClick={() => setAuditPage(p => Math.max(1, p - 1))}>
                       {zh ? "上一页" : "Prev"}
                     </PaginationButton>
                     {Array.from({ length: Math.min(5, auditTotalPages) }, (_, i) => {
                       // Keep the current page centred once there are more pages than buttons
                       if (auditTotalPages <= 5) return i + 1;
-                      if (auditPageSafe <= 3) return i + 1;
-                      if (auditPageSafe >= auditTotalPages - 2) return auditTotalPages - 4 + i;
-                      return auditPageSafe - 2 + i;
+                      if (auditPage <= 3) return i + 1;
+                      if (auditPage >= auditTotalPages - 2) return auditTotalPages - 4 + i;
+                      return auditPage - 2 + i;
                     }).map(pageNum => (
-                      <PaginationButton key={pageNum} $active={auditPageSafe === pageNum} onClick={() => setAuditPage(pageNum)}>
+                      <PaginationButton key={pageNum} $active={auditPage === pageNum} onClick={() => setAuditPage(pageNum)}>
                         {pageNum}
                       </PaginationButton>
                     ))}
-                    <PaginationButton disabled={auditPageSafe === auditTotalPages} onClick={() => setAuditPage(p => Math.min(auditTotalPages, p + 1))}>
+                    <PaginationButton disabled={auditPage === auditTotalPages} onClick={() => setAuditPage(p => Math.min(auditTotalPages, p + 1))}>
                       {zh ? "下一页" : "Next"}
                     </PaginationButton>
-                    <PaginationButton disabled={auditPageSafe === auditTotalPages} onClick={() => setAuditPage(auditTotalPages)}>
+                    <PaginationButton disabled={auditPage === auditTotalPages} onClick={() => setAuditPage(auditTotalPages)}>
                       {zh ? "末页" : "Last"}
                     </PaginationButton>
                   </PaginationContainer>

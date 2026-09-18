@@ -134,6 +134,10 @@ export const dict = {
   resendInvite: { zh: "重新发送邀请", en: "Resend invite" },
   inviteSent: { zh: "邀请已发送", en: "Invite sent" },
   inviteNotSent: { zh: "成员已创建，但邀请邮件发送失败。请使用“重新发送邀请”。", en: "Member created, but the invite email could not be sent. Use Resend invite." },
+  inviteExpired: { zh: "邀请已过期", en: "Invite expired" },
+  inviteExpiresIn: { zh: "邀请剩余", en: "Invite expires in" },
+  inviteExpiresToday: { zh: "邀请今天到期", en: "Invite expires today" },
+  days: { zh: "天", en: "days" },
   loginSuccessful: { zh: "登录成功", en: "Login successful" },
   redirecting: { zh: "跳转中...", en: "Redirecting..." },
   

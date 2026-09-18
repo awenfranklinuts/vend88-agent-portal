@@ -7,6 +7,7 @@ import axios from "axios";
 import { useAuth, isPortalUser, hasPermission } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { dict } from "@/i18n/translations";
+import { inviteLabel } from "@/lib/inviteStatus";
 import { useToast } from "@/context/ToastContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "@/components/layout/AdminSidebar";
@@ -69,6 +70,8 @@ interface Team {
   status: TeamStatus;
   slug: string | null;
   invited_email: string;
+  invite_expires_at?: string | null;
+  invite_expired?: boolean;
   contact_name: string;
   contact_email: string;
   contact_phone: string;
@@ -193,15 +196,16 @@ const SwitchModeLink = styled.button`
   &:hover { text-decoration: underline; }
 `;
 
-const PendingBadge = styled.span`
+const PendingBadge = styled.span<{ $expired?: boolean }>`
   display: inline-block;
   padding: 0.25rem 0.75rem;
   border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
-  background: #fef3c7;
-  color: #92400e;
+  ${p => p.$expired
+    ? "background: rgba(239, 68, 68, 0.12); color: #991b1b;"
+    : "background: #fef3c7; color: #92400e;"}
 `;
 
 const SectionLabel = styled.h4`
@@ -597,13 +601,17 @@ export default function TeamManagementPage() {
                     <div>
                       <TeamCardName>{team.status === "pending" ? (team.invited_email || team.name) : team.name}</TeamCardName>
                       {team.status === "pending"
-                        ? <TeamCardEmail>{zh ? "等待负责人完成设置" : "Awaiting owner setup"}</TeamCardEmail>
+                        ? <TeamCardEmail style={{ color: team.invite_expired ? "#991b1b" : undefined }}>
+                            {inviteLabel({ invite_pending: true, ...team }, t) || (zh ? "等待负责人完成设置" : "Awaiting owner setup")}
+                          </TeamCardEmail>
                         : team.contact_email && <TeamCardEmail title={team.contact_email}>{team.contact_email}</TeamCardEmail>}
                     </div>
                     <TeamCardBadges>
                       <KindBadge $kind={team.kind}>{KIND_LABELS[team.kind][lang]}</KindBadge>
                       {team.status === "pending" ? (
-                        <PendingBadge>{zh ? "待设置" : "Pending"}</PendingBadge>
+                        <PendingBadge $expired={!!team.invite_expired}>
+                          {team.invite_expired ? t("inviteExpired") : (zh ? "待设置" : "Pending")}
+                        </PendingBadge>
                       ) : (
                         <StatusBadge $status={team.status === "active" ? "active" : "inactive"}>
                           {team.status === "active" ? (zh ? "活跃" : "Active") : (zh ? "已暂停" : "Suspended")}
@@ -668,13 +676,17 @@ export default function TeamManagementPage() {
                             {team.status === "pending" ? (team.invited_email || team.name) : team.name}
                           </div>
                           {team.status === "pending"
-                            ? <div style={{ fontSize: "0.8125rem", color: "#5c6b7a" }}>{zh ? "等待负责人完成设置" : "Awaiting owner setup"}</div>
+                            ? <div style={{ fontSize: "0.8125rem", color: team.invite_expired ? "#991b1b" : "#5c6b7a" }}>
+                                {inviteLabel({ invite_pending: true, ...team }, t) || (zh ? "等待负责人完成设置" : "Awaiting owner setup")}
+                              </div>
                             : team.contact_email && <div style={{ fontSize: "0.8125rem", color: "#5c6b7a" }}>{team.contact_email}</div>}
                         </Td>
                         <Td><KindBadge $kind={team.kind}>{KIND_LABELS[team.kind][lang]}</KindBadge></Td>
                         <Td>
                           {team.status === "pending" ? (
-                            <PendingBadge>{zh ? "待设置" : "Pending"}</PendingBadge>
+                            <PendingBadge $expired={!!team.invite_expired}>
+                              {team.invite_expired ? t("inviteExpired") : (zh ? "待设置" : "Pending")}
+                            </PendingBadge>
                           ) : (
                             <StatusBadge $status={team.status === "active" ? "active" : "inactive"}>
                               {team.status === "active" ? (zh ? "活跃" : "Active") : (zh ? "已暂停" : "Suspended")}
