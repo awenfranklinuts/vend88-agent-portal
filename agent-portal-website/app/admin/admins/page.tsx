@@ -479,7 +479,55 @@ interface Admin {
   created_at: string;
   updated_at?: string;
   last_login?: string;
+  invite_pending?: boolean;
+  email_verified?: boolean;
 }
+
+const InviteBadge = styled.span`
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: #fef3c7;
+  color: #92400e;
+  vertical-align: middle;
+`;
+
+const ChoiceCard = styled.div<{ $selected: boolean }>`
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border: 2px solid ${p => (p.$selected ? '#1a237e' : '#e0e7ef')};
+  background: ${p => (p.$selected ? '#f7faff' : 'white')};
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  & + & { margin-top: 0.625rem; }
+  &:hover { border-color: ${p => (p.$selected ? '#1a237e' : '#b9c6d6')}; }
+`;
+
+const ChoiceRadio = styled.input`
+  margin-top: 0.2rem;
+  accent-color: #1a237e;
+  cursor: pointer;
+`;
+
+const ChoiceTitle = styled.div`
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #0a3655;
+  margin-bottom: 0.2rem;
+`;
+
+const ChoiceHint = styled.p`
+  font-size: 0.8125rem;
+  color: #5c6b7a;
+  margin: 0;
+  line-height: 1.5;
+`;
 
 interface AdminFormData {
   email: string;
@@ -488,6 +536,9 @@ interface AdminFormData {
   role: 'admin' | 'super_admin';
   password: string;
   confirm_password: string;
+  // true: email them a link and let them set their own password.
+  // false: fill a password in here, as before.
+  inviteMode: boolean;
 }
 
 type ModalMode = null | 'create';
@@ -496,6 +547,7 @@ const emptyForm: AdminFormData = {
   email: '',
   first_name: '',
   last_name: '',
+  inviteMode: true,
   role: 'admin',
   password: '',
   confirm_password: '',
@@ -526,6 +578,7 @@ export default function AdminManagementPage() {
   const [formData, setFormData] = useState<AdminFormData>(emptyForm);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof AdminFormData, string>>>({});
   const [saving, setSaving] = useState(false);
+  const [resendingInvite, setResendingInvite] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -647,8 +700,8 @@ export default function AdminManagementPage() {
       errors.last_name = lang === 'zh' ? '请输入姓' : 'Last name is required';
     }
 
-    // Password required for create
-    if (modalMode === 'create') {
+    // Only needed when the invite is declined - an invited admin sets their own.
+    if (modalMode === 'create' && !formData.inviteMode) {
       if (!formData.password) {
         errors.password = lang === 'zh' ? '请输入密码' : 'Password is required';
       } else if (formData.password.length < 8) {
@@ -680,10 +733,28 @@ export default function AdminManagementPage() {
     setSaving(false);
   };
 
-  const handleInputChange = (field: keyof AdminFormData, value: string) => {
+  const handleInputChange = (field: keyof AdminFormData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (formErrors[field]) {
       setFormErrors(prev => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  // A fresh invite kills the previous link, so this also recovers an invite sent
+  // to an address that has since been corrected.
+  const resendAdminInvite = async (admin: Admin) => {
+    setResendingInvite(admin.id);
+    try {
+      await axios.post('/api/admin/resend-invite', { token, user_id: admin.id });
+      showToast(lang === 'zh' ? '邀请已发送' : 'Invite sent', 'success');
+      fetchAdmins();
+    } catch (error: any) {
+      showToast(
+        error?.response?.data?.message || (lang === 'zh' ? '发送邀请失败' : 'Failed to send invite'),
+        'error',
+      );
+    } finally {
+      setResendingInvite(null);
     }
   };
 
@@ -692,15 +763,29 @@ export default function AdminManagementPage() {
     if (!validateForm()) return;
     setSaving(true);
     try {
-      await axios.post('/api/admin/create', {
+      const payload: Record<string, unknown> = {
         token,
         email: formData.email.trim(),
         first_name: formData.first_name.trim(),
         last_name: formData.last_name.trim(),
         role: formData.role,
-        password: formData.password,
-      });
-      showToast(lang === 'zh' ? '管理员创建成功' : 'Admin created successfully', 'success');
+      };
+      // Omitted, not empty: the backend reads "no password" as "send an invite".
+      if (!formData.inviteMode) payload.password = formData.password;
+      const res = await axios.post('/api/admin/create', payload);
+
+      if (formData.inviteMode) {
+        // The account exists either way, so a failed send is a warning about the
+        // email rather than an error about the admin.
+        showToast(
+          res.data?.invite_sent === false
+            ? (lang === 'zh' ? '管理员已创建，但邀请邮件发送失败。请重新发送邀请。' : 'Admin created, but the invite email could not be sent. Use Resend invite.')
+            : (lang === 'zh' ? `邀请已发送至 ${formData.email.trim()}` : `Invite sent to ${formData.email.trim()}`),
+          res.data?.invite_sent === false ? 'error' : 'success',
+        );
+      } else {
+        showToast(lang === 'zh' ? '管理员创建成功' : 'Admin created successfully', 'success');
+      }
       closeModal();
       fetchAdmins();
     } catch (error: any) {
@@ -818,43 +903,67 @@ export default function AdminManagementPage() {
         </FormSelect>
       </FormGroup>
 
-      <FormGroup>
-        <FormLabel>
-          {lang === 'zh' ? '密码' : 'Password'} *
-        </FormLabel>
-        <PasswordField>
-          <FormInput
-            type={showPassword ? 'text' : 'password'}
-            placeholder={lang === 'zh' ? '输入密码' : 'Enter password'}
-            value={formData.password}
-            onChange={e => handleInputChange('password', e.target.value)}
-            autoComplete="new-password"
-          />
-          <PasswordToggle type="button" onClick={() => setShowPassword(!showPassword)}>
-            {showPassword ? (lang === 'zh' ? '隐藏' : 'Hide') : (lang === 'zh' ? '显示' : 'Show')}
-          </PasswordToggle>
-        </PasswordField>
-        {formErrors.password && <ErrorText>{formErrors.password}</ErrorText>}
-      </FormGroup>
+      <ChoiceCard $selected={formData.inviteMode} onClick={() => handleInputChange('inviteMode', true)}>
+        <ChoiceRadio type="radio" checked={formData.inviteMode} onChange={() => handleInputChange('inviteMode', true)} />
+        <div>
+          <ChoiceTitle>{lang === 'zh' ? '邮件邀请（推荐）' : 'Send an email invite (recommended)'}</ChoiceTitle>
+          <ChoiceHint>
+            {lang === 'zh'
+              ? '对方将收到邮件，自行设置密码，其他人都不会知道该密码。'
+              : 'They set their own password from an emailed link. Nobody else will know it.'}
+          </ChoiceHint>
+        </div>
+      </ChoiceCard>
 
-      {formData.password && (
-        <FormGroup>
-          <FormLabel>{lang === 'zh' ? '确认密码' : 'Confirm Password'} *</FormLabel>
-          <PasswordField>
-            <FormInput
-              type={showConfirmPassword ? 'text' : 'password'}
-              placeholder={lang === 'zh' ? '再次输入密码' : 'Re-enter password'}
-              value={formData.confirm_password}
-              onChange={e => handleInputChange('confirm_password', e.target.value)}
-              autoComplete="new-password"
-            />
-            <PasswordToggle type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-              {showConfirmPassword ? (lang === 'zh' ? '隐藏' : 'Hide') : (lang === 'zh' ? '显示' : 'Show')}
-            </PasswordToggle>
-          </PasswordField>
-          {formErrors.confirm_password && <ErrorText>{formErrors.confirm_password}</ErrorText>}
-        </FormGroup>
-      )}
+      <ChoiceCard $selected={!formData.inviteMode} onClick={() => handleInputChange('inviteMode', false)}>
+        <ChoiceRadio type="radio" checked={!formData.inviteMode} onChange={() => handleInputChange('inviteMode', false)} />
+        <div style={{ flex: 1 }}>
+          <ChoiceTitle>{lang === 'zh' ? '手动设置密码' : 'Set a password manually'}</ChoiceTitle>
+          <ChoiceHint>
+            {lang === 'zh'
+              ? '仅在无法使用邮件时选择。您将知道该管理员的密码。'
+              : 'Only when email is not an option - you will know their password.'}
+          </ChoiceHint>
+
+          {!formData.inviteMode && (
+            <div onClick={e => e.stopPropagation()} style={{ marginTop: '0.75rem' }}>
+              <FormGroup>
+                <PasswordField>
+                  <FormInput
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder={lang === 'zh' ? '输入密码' : 'Enter password'}
+                    value={formData.password}
+                    onChange={e => handleInputChange('password', e.target.value)}
+                    autoComplete="new-password"
+                  />
+                  <PasswordToggle type="button" onClick={() => setShowPassword(!showPassword)}>
+                    {showPassword ? (lang === 'zh' ? '隐藏' : 'Hide') : (lang === 'zh' ? '显示' : 'Show')}
+                  </PasswordToggle>
+                </PasswordField>
+                {formErrors.password && <ErrorText>{formErrors.password}</ErrorText>}
+              </FormGroup>
+
+              {formData.password && (
+                <FormGroup>
+                  <PasswordField>
+                    <FormInput
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      placeholder={lang === 'zh' ? '再次输入密码' : 'Re-enter password'}
+                      value={formData.confirm_password}
+                      onChange={e => handleInputChange('confirm_password', e.target.value)}
+                      autoComplete="new-password"
+                    />
+                    <PasswordToggle type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                      {showConfirmPassword ? (lang === 'zh' ? '隐藏' : 'Hide') : (lang === 'zh' ? '显示' : 'Show')}
+                    </PasswordToggle>
+                  </PasswordField>
+                  {formErrors.confirm_password && <ErrorText>{formErrors.confirm_password}</ErrorText>}
+                </FormGroup>
+              )}
+            </div>
+          )}
+        </div>
+      </ChoiceCard>
     </>
   );
 
@@ -1015,7 +1124,14 @@ export default function AdminManagementPage() {
                     {filteredAdmins.map(admin => (
                       <Tr key={admin.id}>
                         <Td>{admin.first_name} {admin.last_name}</Td>
-                        <Td>{admin.email}</Td>
+                        <Td>
+                          {admin.email}
+                          {admin.invite_pending && (
+                            <InviteBadge style={{ marginLeft: '0.5rem' }}>
+                              {lang === 'zh' ? '待激活' : 'Invited'}
+                            </InviteBadge>
+                          )}
+                        </Td>
                         <Td>
                           <RoleBadge $role={admin.role}>
                             {ROLE_LABELS[admin.role]?.[lang] || admin.role}
@@ -1030,6 +1146,17 @@ export default function AdminManagementPage() {
                           <ActionButton $variant="view" onClick={() => router.push(`/admin/admins/${admin.id}`)}>
                             {lang === "zh" ? "查看" : "View"}
                           </ActionButton>
+                          {admin.invite_pending && (
+                            <ActionButton
+                              $variant="view"
+                              onClick={() => resendAdminInvite(admin)}
+                              disabled={resendingInvite === admin.id}
+                            >
+                              {resendingInvite === admin.id
+                                ? (lang === 'zh' ? '发送中...' : 'Sending...')
+                                : (lang === 'zh' ? '重新发送邀请' : 'Resend invite')}
+                            </ActionButton>
+                          )}
                         </Td>
                       </Tr>
                     ))}
