@@ -3,6 +3,7 @@
 import { useState, useEffect, memo, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import styled from "styled-components";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
@@ -396,7 +397,7 @@ const RememberMe = styled.label`
   }
 `;
 
-const ForgotPassword = styled.a`
+const ForgotPassword = styled(Link)`
   font-size: 0.875rem;
   color: #1a237e;
   text-decoration: none;
@@ -719,7 +720,6 @@ export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [showForgotPasswordMessage, setShowForgotPasswordMessage] = useState(false);
   const [honeypot, setHoneypot] = useState("");
   const [requestId, setRequestId] = useState("");
   const [isNavigating, setIsNavigating] = useState(false);
@@ -836,7 +836,6 @@ export default function LoginPage() {
     console.log("Form submitted, role:", role);
     setErrorKey("");
     setErrorMessage("");
-    setShowForgotPasswordMessage(false);
     
     // Security Check 1: Honeypot detection (bot prevention)
     if (honeypot) {
@@ -946,13 +945,7 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       logError(err, 'Login Attempt');
-      console.error("Login error:", err);
-      console.error("Error details:", {
-        message: err.message,
-        code: err.code,
-        response: err.response?.data,
-        status: err.response?.status
-      });
+      console.error("Login error:", err.message, err.code, err.response?.status);
       
       // Use generic error messages to prevent information leakage
       // Network errors (cannot reach server)
@@ -962,12 +955,17 @@ export default function LoginPage() {
         // Check if account is suspended
         if (err.response?.data?.detail?.status_msg === 'suspended' || err.response?.data?.status_msg === 'suspended') {
           setErrorKey("accountSuspended");
+        } else if (err.response?.data?.status_msg === 'invite_pending') {
+          // Safe to be specific: reaching this needs the account's password,
+          // which for an un-accepted invite is a random hash nobody holds - so
+          // it cannot be used to discover which addresses exist.
+          setErrorMessage(err.response.data.message);
         } else {
           // Generic message - don't reveal if email exists or password is wrong
           setErrorKey("invalidCredentials");
         }
       } else if (err.response?.status === 429) {
-        setErrorMessage("Too many requests. Please try again later.");
+        setErrorMessage(err.response?.data?.message || "Too many requests. Please try again later.");
       } else if (err.response?.status >= 500) {
         setErrorKey("serverErrorTryAgain");
       } else if (err.code === "ECONNABORTED" || err.message.includes("timeout")) {
@@ -1111,23 +1109,11 @@ export default function LoginPage() {
                   />
                   {t("rememberMe")}
                 </RememberMe>
-                <ForgotPassword onClick={(e) => {
-                  e.preventDefault();
-                  setShowForgotPasswordMessage(true);
-                  setErrorKey("");
-                  setErrorMessage("");
-                  setTimeout(() => setShowForgotPasswordMessage(false), 5000);
-                }}>
+                <ForgotPassword href="/forgot-password">
                   {t("forgotPassword")}
                 </ForgotPassword>
               </RememberForgotRow>
 
-              {showForgotPasswordMessage && (
-                <ErrorMessage>
-                  {t("contactAdminResetPassword")}
-                </ErrorMessage>
-              )}
-              
               {(errorKey || errorMessage) && (
                 <ErrorMessage id="error-message" role="alert" aria-live="assertive">
                   {errorKey ? t(errorKey) : errorMessage}

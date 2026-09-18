@@ -12,8 +12,10 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
+    // Never log the body or the backend's response: the former carries the
+    // plaintext password, the latter the freshly minted JWT, and server logs are
+    // the wrong place for either.
     console.log('[API Proxy] Forwarding login request to backend...');
-    console.log('[API Proxy] Request body:', body);
     
     // Try the new portal auth endpoint first, then fall back to legacy
     const loginEndpoints = [
@@ -42,9 +44,7 @@ export async function POST(request: NextRequest) {
           }
         );
 
-        console.log('[API Proxy] ✅ Success with endpoint:', endpoint);
-        console.log('[API Proxy] Backend response status:', response.status);
-        console.log('[API Proxy] Backend response data:', response.data);
+        console.log('[API Proxy] ✅ Success with endpoint:', endpoint, response.status);
         
         // Forward the response back to the client
         return NextResponse.json(response.data, { status: response.status });
@@ -60,13 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     // All endpoints failed
-    console.error('[API Proxy] All login endpoints failed');
-    console.error('[API Proxy] Last error:', lastError?.message);
-    console.error('[API Proxy] Last error details:', {
-      status: lastError?.response?.status,
-      data: lastError?.response?.data,
-      code: lastError?.code,
-    });
+    console.error('[API Proxy] All login endpoints failed:', lastError?.response?.status, lastError?.code, lastError?.message);
 
     // Forward error response from backend
     if (lastError?.response) {

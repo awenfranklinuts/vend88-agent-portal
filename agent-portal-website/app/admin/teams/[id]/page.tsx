@@ -6,6 +6,7 @@ import styled from "styled-components";
 import axios from "axios";
 import { useAuth, isPortalUser, hasPermission, canSeeAllTeams } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { dict } from "@/i18n/translations";
 import { useToast } from "@/context/ToastContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "@/components/layout/AdminSidebar";
@@ -72,6 +73,8 @@ interface Member {
   visibility: Visibility | "all";
   last_login?: string;
   created_at?: string;
+  invite_pending?: boolean;
+  email_verified?: boolean;
 }
 
 interface Can {
@@ -107,7 +110,9 @@ interface AuditRow {
 
 interface MemberForm {
   email: string;
+  // Blank on create means "invite them" - see inviteMode below.
   password: string;
+  inviteMode: boolean;
   first_name: string;
   last_name: string;
   role: TeamRole;
@@ -115,7 +120,7 @@ interface MemberForm {
   status: "active" | "suspended";
 }
 
-const emptyMember: MemberForm = { email: "", password: "", first_name: "", last_name: "", role: "team_member", visibility: "self", status: "active" };
+const emptyMember: MemberForm = { email: "", password: "", inviteMode: true, first_name: "", last_name: "", role: "team_member", visibility: "self", status: "active" };
 
 const KIND_LABELS: Record<TeamKind, { en: string; zh: string }> = {
   internal: { en: "Internal", zh: "内部" },
@@ -338,6 +343,175 @@ const ActionBadge = styled.span<{ $action: string }>`
         : "background: rgba(59, 130, 246, 0.12); color: #1e40af;"}
 `;
 
+const DateRangeFilter = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f7faff;
+  border-radius: 8px;
+  border: 1px solid #e0e7ef;
+`;
+
+const FilterRow = styled.div`
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  @media (max-width: 600px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+`;
+
+const DateInputGroup = styled.div`
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+`;
+
+const DateLabel = styled.label`
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #5c6b7a;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+`;
+
+const DateInput = styled.input`
+  padding: 0.75rem 1rem;
+  border: 2px solid #e0e7ef;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  color: #0a3655;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  &:focus {
+    outline: none;
+    border-color: #1a237e;
+    box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.1);
+  }
+`;
+
+const PresetButtonGroup = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+`;
+
+const PresetButton = styled.button<{ $active?: boolean }>`
+  padding: 0.5rem 1rem;
+  border: 2px solid #e0e7ef;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #0a3655;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  ${p => p.$active ? `
+    background: #1a237e;
+    color: white;
+    border-color: #1a237e;
+  ` : `
+    &:hover { border-color: #1a237e; color: #1a237e; }
+  `}
+`;
+
+const ClearFilterButton = styled.button`
+  padding: 0.5rem 1rem;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  &:hover { background: #dc2626; }
+`;
+
+const PaginationContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+`;
+
+const PaginationButton = styled.button<{ $active?: boolean }>`
+  padding: 0.5rem 0.75rem;
+  border: 2px solid #e0e7ef;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #0a3655;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  ${p => p.$active ? `
+    background: #1a237e;
+    color: white;
+    border-color: #1a237e;
+  ` : `
+    &:hover:not(:disabled) { border-color: #1a237e; color: #1a237e; }
+  `}
+`;
+
+const PaginationInfo = styled.div`
+  font-size: 0.8125rem;
+  color: #5c6b7a;
+  margin-bottom: 0.75rem;
+`;
+
+const InviteBadge = styled.span`
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: #fef3c7;
+  color: #92400e;
+`;
+
+const ChoiceCard = styled.div<{ $selected: boolean }>`
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border: 2px solid ${p => (p.$selected ? "#1a237e" : "#e0e7ef")};
+  background: ${p => (p.$selected ? "#f7faff" : "white")};
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  & + & { margin-top: 0.625rem; }
+  &:hover { border-color: ${p => (p.$selected ? "#1a237e" : "#b9c6d6")}; }
+`;
+
+const ChoiceRadio = styled.input`
+  margin-top: 0.2rem;
+  accent-color: #1a237e;
+  cursor: pointer;
+`;
+
+const ChoiceTitle = styled.div`
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #0a3655;
+  margin-bottom: 0.2rem;
+`;
+
 /* ─── Page ─── */
 
 export default function TeamDetailPage() {
@@ -347,6 +521,7 @@ export default function TeamDetailPage() {
   const { lang } = useLanguage();
   const { showToast } = useToast();
   const zh = lang === "zh";
+  const t = (key: keyof typeof dict) => dict[key][lang];
 
   const routeId = (params?.id as string) || "";
   // "mine" is the sidebar's link for team owners; resolve it to their own team
@@ -364,6 +539,9 @@ export default function TeamDetailPage() {
   const [attributed, setAttributed] = useState<Attributed | null>(null);
   const [attributedTab, setAttributedTab] = useState<ReassignableEntity>("business");
   const [audit, setAudit] = useState<AuditRow[]>([]);
+  const [auditDateStart, setAuditDateStart] = useState("");
+  const [auditDateEnd, setAuditDateEnd] = useState("");
+  const [auditPage, setAuditPage] = useState(1);
 
   // Team edit
   const [editingTeam, setEditingTeam] = useState(false);
@@ -376,6 +554,7 @@ export default function TeamDetailPage() {
   const [memberErrors, setMemberErrors] = useState<Partial<Record<keyof MemberForm, string>>>({});
   const [savingMember, setSavingMember] = useState(false);
   const [deleteMember, setDeleteMember] = useState<Member | null>(null);
+  const [resendingInvite, setResendingInvite] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   // Reassign
@@ -403,7 +582,8 @@ export default function TeamDetailPage() {
       const [detail, attr, log] = await Promise.all([
         axios.post("/api/teams/detail", { token, team_id: teamId }),
         axios.post("/api/teams/attributed", { token, team_id: teamId }),
-        axios.post("/api/teams/audit-log", { token, team_id: teamId }),
+        // Filtering and paging happen client-side, so pull the backend's full cap
+        axios.post("/api/teams/audit-log", { token, team_id: teamId, limit: 1000 }),
       ]);
       setTeam(detail.data.team);
       setMembers(detail.data.members || []);
@@ -500,7 +680,7 @@ export default function TeamDetailPage() {
 
   const openEditMember = (m: Member) => {
     setMemberForm({
-      email: m.email, password: "", first_name: m.first_name, last_name: m.last_name,
+      email: m.email, password: "", inviteMode: false, first_name: m.first_name, last_name: m.last_name,
       role: m.role === "agent" ? "team_member" : m.role, visibility: m.visibility === "all" ? "team" : m.visibility, status: m.status,
     });
     setMemberErrors({});
@@ -512,11 +692,18 @@ export default function TeamDetailPage() {
     if (memberErrors[field]) setMemberErrors(prev => ({ ...prev, [field]: undefined }));
   };
 
+  // Switching back to an invite drops anything already typed into the password
+  // box, so a half-typed password can never be sent along with an invite.
+  const setInviteMode = (inviteMode: boolean) => {
+    setMemberForm(prev => ({ ...prev, inviteMode, password: inviteMode ? "" : prev.password }));
+    setMemberErrors(prev => ({ ...prev, password: undefined }));
+  };
+
   const validateMember = (): boolean => {
     const next: Partial<Record<keyof MemberForm, string>> = {};
     if (memberModal?.mode === "create") {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(memberForm.email.trim())) next.email = zh ? "请输入有效邮箱" : "A valid email is required";
-      if (memberForm.password.length < 8) next.password = zh ? "密码至少8个字符" : "Password must be at least 8 characters";
+      if (!memberForm.inviteMode && memberForm.password.length < 8) next.password = zh ? "密码至少8个字符" : "Password must be at least 8 characters";
     } else if (memberForm.password && memberForm.password.length < 8) {
       next.password = zh ? "密码至少8个字符" : "Password must be at least 8 characters";
     }
@@ -529,13 +716,22 @@ export default function TeamDetailPage() {
     setSavingMember(true);
     try {
       if (memberModal.mode === "create") {
-        await axios.post("/api/teams/members/create", {
+        const payload: Record<string, unknown> = {
           token, team_id: team.id,
-          email: memberForm.email.trim(), password: memberForm.password,
+          email: memberForm.email.trim(),
           first_name: memberForm.first_name.trim(), last_name: memberForm.last_name.trim(),
           role: memberForm.role, visibility: memberForm.visibility,
-        });
-        showToast(zh ? "成员已创建" : "Member created", "success");
+        };
+        // Omitted, not empty: the backend reads "no password" as "send an invite".
+        if (!memberForm.inviteMode) payload.password = memberForm.password;
+        const res = await axios.post("/api/teams/members/create", payload);
+        // The member exists either way, so a failed invite email is a warning
+        // about the email, not an error about the member.
+        if (memberForm.inviteMode && res.data?.invite_sent === false) {
+          showToast(t("inviteNotSent"), "error");
+        } else {
+          showToast(memberForm.inviteMode ? t("inviteSent") : (zh ? "成员已创建" : "Member created"), "success");
+        }
       } else {
         const payload: Record<string, unknown> = {
           token, user_id: memberModal.member.user_id,
@@ -555,6 +751,21 @@ export default function TeamDetailPage() {
     }
   };
 
+  // Sending a new invite kills the previous link, so this is also the recovery
+  // path for an invite that went to a typo'd address the owner has since fixed.
+  const resendInvite = async (m: Member) => {
+    setResendingInvite(m.user_id);
+    try {
+      await axios.post("/api/teams/members/resend-invite", { token, user_id: m.user_id });
+      showToast(t("inviteSent"), "success");
+      fetchAll();
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || t("inviteNotSent"), "error");
+    } finally {
+      setResendingInvite(null);
+    }
+  };
+
   const handleDeleteMember = async () => {
     if (!deleteMember) return;
     setDeleting(true);
@@ -571,6 +782,51 @@ export default function TeamDetailPage() {
   };
 
   /* ─── Helpers ─── */
+
+
+  /* ─── Activity history: date filter + pagination ─── */
+
+  const AUDIT_PER_PAGE = 10;
+
+  // Presets write into the same two date inputs, so the filter stays one source of truth
+  const applyPreset = (preset: "today" | "last7days" | "last30days" | "alltime") => {
+    if (preset === "alltime") {
+      setAuditDateStart("");
+      setAuditDateEnd("");
+      setAuditPage(1);
+      return;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const start = new Date(today);
+    if (preset === "last7days") start.setDate(start.getDate() - 6);
+    if (preset === "last30days") start.setDate(start.getDate() - 29);
+    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    setAuditDateStart(iso(start));
+    setAuditDateEnd(iso(today));
+    setAuditPage(1);
+  };
+
+  const filteredAudit = useMemo(() => {
+    if (!auditDateStart && !auditDateEnd) return audit;
+    const start = auditDateStart ? new Date(`${auditDateStart}T00:00:00`) : null;
+    const end = auditDateEnd ? new Date(`${auditDateEnd}T23:59:59.999`) : null;
+    return audit.filter(row => {
+      const when = new Date(row.timestamp);
+      if (start && when < start) return false;
+      if (end && when > end) return false;
+      return true;
+    });
+  }, [audit, auditDateStart, auditDateEnd]);
+
+  const auditTotalPages = Math.max(1, Math.ceil(filteredAudit.length / AUDIT_PER_PAGE));
+  const auditPageSafe = Math.min(auditPage, auditTotalPages);
+  const pagedAudit = filteredAudit.slice((auditPageSafe - 1) * AUDIT_PER_PAGE, auditPageSafe * AUDIT_PER_PAGE);
+
+  // A refetch or a narrowed range can leave the view past the last page
+  useEffect(() => {
+    if (auditPage > auditTotalPages) setAuditPage(auditTotalPages);
+  }, [auditPage, auditTotalPages]);
 
   const formatDate = (v?: string) => (v ? new Date(v).toLocaleString(zh ? "zh-CN" : "en-AU") : "-");
   const isSelf = (m: Member) => m.user_id === adminProfile?.user_id;
@@ -788,14 +1044,27 @@ export default function TeamDetailPage() {
                     <Td>{ROLE_LABELS[m.role]?.[lang] || m.role}</Td>
                     <Td>{VISIBILITY_LABELS[m.visibility]?.[lang] || m.visibility}</Td>
                     <Td>
-                      <StatusBadge $status={m.status === "active" ? "active" : "inactive"}>
-                        {m.status === "active" ? (zh ? "活跃" : "Active") : (zh ? "已暂停" : "Suspended")}
-                      </StatusBadge>
+                      {m.invite_pending ? (
+                        <InviteBadge>{t("invitePending")}</InviteBadge>
+                      ) : (
+                        <StatusBadge $status={m.status === "active" ? "active" : "inactive"}>
+                          {m.status === "active" ? (zh ? "活跃" : "Active") : (zh ? "已暂停" : "Suspended")}
+                        </StatusBadge>
+                      )}
                     </Td>
                     <Td>{formatDate(m.last_login)}</Td>
                     {can?.manage_members && (
                       <Td>
                         <ActionButton $variant="edit" onClick={() => openEditMember(m)}>{zh ? "编辑" : "Edit"}</ActionButton>
+                        {m.invite_pending && (
+                          <ActionButton
+                            $variant="edit"
+                            onClick={() => resendInvite(m)}
+                            disabled={resendingInvite === m.user_id}
+                          >
+                            {resendingInvite === m.user_id ? t("sending") : t("resendInvite")}
+                          </ActionButton>
+                        )}
                         {!isSelf(m) && (
                           <ActionButton $variant="delete" onClick={() => setDeleteMember(m)}>{zh ? "删除" : "Delete"}</ActionButton>
                         )}
@@ -876,30 +1145,107 @@ export default function TeamDetailPage() {
         {audit.length === 0 ? (
           <EmptyState><EmptyText>{zh ? "暂无活动" : "No activity yet"}</EmptyText></EmptyState>
         ) : (
-          <TableScroll>
-            <Table>
-              <Thead>
-                <Tr>
-                  <Th>{zh ? "时间" : "When"}</Th>
-                  <Th>{zh ? "操作" : "Action"}</Th>
-                  <Th>{zh ? "对象" : "Target"}</Th>
-                  <Th>{zh ? "操作人" : "By"}</Th>
-                  <Th>{zh ? "详情" : "Details"}</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {audit.map((row, i) => (
-                  <Tr key={i}>
-                    <Td style={{ whiteSpace: "nowrap" }}>{formatDate(row.timestamp)}</Td>
-                    <Td><ActionBadge $action={row.action}>{row.action.replace(/_/g, " ")}</ActionBadge></Td>
-                    <Td>{row.target_email || "-"}</Td>
-                    <Td>{row.actor_email || "-"}</Td>
-                    <Td>{row.details}</Td>
-                  </Tr>
-                ))}
-              </Tbody>
-            </Table>
-          </TableScroll>
+          <>
+            <DateRangeFilter>
+              <FilterRow>
+                <DateInputGroup>
+                  <DateLabel>{zh ? "开始日期" : "Start date"}</DateLabel>
+                  <DateInput
+                    type="date"
+                    value={auditDateStart}
+                    max={auditDateEnd || undefined}
+                    onChange={e => { setAuditDateStart(e.target.value); setAuditPage(1); }}
+                  />
+                </DateInputGroup>
+                <DateInputGroup>
+                  <DateLabel>{zh ? "结束日期" : "End date"}</DateLabel>
+                  <DateInput
+                    type="date"
+                    value={auditDateEnd}
+                    min={auditDateStart || undefined}
+                    onChange={e => { setAuditDateEnd(e.target.value); setAuditPage(1); }}
+                  />
+                </DateInputGroup>
+                {(auditDateStart || auditDateEnd) && (
+                  <ClearFilterButton onClick={() => { setAuditDateStart(""); setAuditDateEnd(""); setAuditPage(1); }}>
+                    {zh ? "清除" : "Clear"}
+                  </ClearFilterButton>
+                )}
+              </FilterRow>
+              <PresetButtonGroup>
+                <PresetButton onClick={() => applyPreset("today")}>{zh ? "今天" : "Today"}</PresetButton>
+                <PresetButton onClick={() => applyPreset("last7days")}>{zh ? "最近7天" : "Last 7 days"}</PresetButton>
+                <PresetButton onClick={() => applyPreset("last30days")}>{zh ? "最近30天" : "Last 30 days"}</PresetButton>
+                <PresetButton $active={!auditDateStart && !auditDateEnd} onClick={() => applyPreset("alltime")}>
+                  {zh ? "全部" : "All time"}
+                </PresetButton>
+              </PresetButtonGroup>
+            </DateRangeFilter>
+
+            {filteredAudit.length === 0 ? (
+              <EmptyState><EmptyText>{zh ? "该日期范围内无活动记录" : "No activity in this date range"}</EmptyText></EmptyState>
+            ) : (
+              <>
+                <PaginationInfo>
+                  {zh
+                    ? `第 ${(auditPageSafe - 1) * AUDIT_PER_PAGE + 1} - ${Math.min(auditPageSafe * AUDIT_PER_PAGE, filteredAudit.length)} 条，共 ${filteredAudit.length} 条`
+                    : `${(auditPageSafe - 1) * AUDIT_PER_PAGE + 1} - ${Math.min(auditPageSafe * AUDIT_PER_PAGE, filteredAudit.length)} of ${filteredAudit.length}`}
+                </PaginationInfo>
+                <TableScroll>
+                  <Table>
+                    <Thead>
+                      <Tr>
+                        <Th>{zh ? "时间" : "When"}</Th>
+                        <Th>{zh ? "操作" : "Action"}</Th>
+                        <Th>{zh ? "对象" : "Target"}</Th>
+                        <Th>{zh ? "操作人" : "By"}</Th>
+                        <Th>{zh ? "详情" : "Details"}</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {pagedAudit.map((row, i) => (
+                        <Tr key={i}>
+                          <Td style={{ whiteSpace: "nowrap" }}>{formatDate(row.timestamp)}</Td>
+                          <Td><ActionBadge $action={row.action}>{row.action.replace(/_/g, " ")}</ActionBadge></Td>
+                          <Td>{row.target_email || "-"}</Td>
+                          <Td>{row.actor_email || "-"}</Td>
+                          <Td>{row.details}</Td>
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </Table>
+                </TableScroll>
+
+                {auditTotalPages > 1 && (
+                  <PaginationContainer>
+                    <PaginationButton disabled={auditPageSafe === 1} onClick={() => setAuditPage(1)}>
+                      {zh ? "首页" : "First"}
+                    </PaginationButton>
+                    <PaginationButton disabled={auditPageSafe === 1} onClick={() => setAuditPage(p => Math.max(1, p - 1))}>
+                      {zh ? "上一页" : "Prev"}
+                    </PaginationButton>
+                    {Array.from({ length: Math.min(5, auditTotalPages) }, (_, i) => {
+                      // Keep the current page centred once there are more pages than buttons
+                      if (auditTotalPages <= 5) return i + 1;
+                      if (auditPageSafe <= 3) return i + 1;
+                      if (auditPageSafe >= auditTotalPages - 2) return auditTotalPages - 4 + i;
+                      return auditPageSafe - 2 + i;
+                    }).map(pageNum => (
+                      <PaginationButton key={pageNum} $active={auditPageSafe === pageNum} onClick={() => setAuditPage(pageNum)}>
+                        {pageNum}
+                      </PaginationButton>
+                    ))}
+                    <PaginationButton disabled={auditPageSafe === auditTotalPages} onClick={() => setAuditPage(p => Math.min(auditTotalPages, p + 1))}>
+                      {zh ? "下一页" : "Next"}
+                    </PaginationButton>
+                    <PaginationButton disabled={auditPageSafe === auditTotalPages} onClick={() => setAuditPage(auditTotalPages)}>
+                      {zh ? "末页" : "Last"}
+                    </PaginationButton>
+                  </PaginationContainer>
+                )}
+              </>
+            )}
+          </>
         )}
       </Card>
 
@@ -929,13 +1275,51 @@ export default function TeamDetailPage() {
             <FormInput value={memberForm.email} onChange={e => setMemberField("email", e.target.value)} disabled={memberModal?.mode === "edit"} autoComplete="off" />
             {memberErrors.email && <ErrorText>{memberErrors.email}</ErrorText>}
           </FormGroup>
-          <FormGroup>
-            <FormLabel>
-              {zh ? "密码" : "Password"} {memberModal?.mode === "create" ? "*" : <Muted>({zh ? "留空则不修改" : "leave blank to keep unchanged"})</Muted>}
-            </FormLabel>
-            <FormInput type="password" value={memberForm.password} onChange={e => setMemberField("password", e.target.value)} autoComplete="new-password" />
-            {memberErrors.password && <ErrorText>{memberErrors.password}</ErrorText>}
-          </FormGroup>
+          {memberModal?.mode === "create" ? (
+            <FormGroup>
+              <ChoiceCard $selected={memberForm.inviteMode} onClick={() => setInviteMode(true)}>
+                <ChoiceRadio type="radio" checked={memberForm.inviteMode} onChange={() => setInviteMode(true)} />
+                <div>
+                  <ChoiceTitle>{t("inviteByEmail")}</ChoiceTitle>
+                  <Hint style={{ margin: 0 }}>{t("inviteByEmailHint")}</Hint>
+                </div>
+              </ChoiceCard>
+              <ChoiceCard $selected={!memberForm.inviteMode} onClick={() => setInviteMode(false)}>
+                <ChoiceRadio type="radio" checked={!memberForm.inviteMode} onChange={() => setInviteMode(false)} />
+                <div style={{ flex: 1 }}>
+                  <ChoiceTitle>{t("setPasswordManually")}</ChoiceTitle>
+                  <Hint style={{ margin: 0 }}>{t("setPasswordManuallyHint")}</Hint>
+                  {!memberForm.inviteMode && (
+                    <>
+                      <FormInput
+                        type="password"
+                        value={memberForm.password}
+                        onChange={e => setMemberField("password", e.target.value)}
+                        autoComplete="new-password"
+                        placeholder={zh ? "至少8个字符" : "At least 8 characters"}
+                        style={{ marginTop: "0.75rem" }}
+                        onClick={e => e.stopPropagation()}
+                      />
+                      {memberErrors.password && <ErrorText>{memberErrors.password}</ErrorText>}
+                    </>
+                  )}
+                </div>
+              </ChoiceCard>
+            </FormGroup>
+          ) : (
+            <FormGroup>
+              <FormLabel>
+                {zh ? "密码" : "Password"} <Muted>({zh ? "留空则不修改" : "leave blank to keep unchanged"})</Muted>
+              </FormLabel>
+              <FormInput type="password" value={memberForm.password} onChange={e => setMemberField("password", e.target.value)} autoComplete="new-password" />
+              {memberErrors.password && <ErrorText>{memberErrors.password}</ErrorText>}
+              <Hint style={{ margin: "0.375rem 0 0" }}>
+                {zh
+                  ? "设置新密码会立即结束该成员的所有登录会话。"
+                  : "Setting a password here signs the member out of every active session."}
+              </Hint>
+            </FormGroup>
+          )}
           <FormRow>
             <FormGroup>
               <FormLabel>{zh ? "角色" : "Role"}</FormLabel>
