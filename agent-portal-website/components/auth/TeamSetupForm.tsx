@@ -55,6 +55,7 @@ export default function TeamSetupForm({
   const mismatch = confirm.length > 0 && password !== confirm;
   const canSubmit =
     teamName.trim().length > 0 &&
+    firstName.trim().length > 0 &&
     password.length >= MIN_PASSWORD_LENGTH &&
     password === confirm &&
     !saving;
@@ -110,10 +111,11 @@ export default function TeamSetupForm({
       <Hint>{t("optionalFields")}</Hint>
 
       <SectionLabel>{t("yourDetails")}</SectionLabel>
+      <Hint>{t("yourDetailsHint")}</Hint>
       <Row>
         <FormGroup>
-          <Label htmlFor="firstName">{lang === "zh" ? "名字" : "First name"}</Label>
-          <Input id="firstName" value={firstName} onChange={e => setFirstName(e.target.value)} autoComplete="given-name" />
+          <Label htmlFor="firstName">{lang === "zh" ? "名字" : "First name"} *</Label>
+          <Input id="firstName" value={firstName} onChange={e => setFirstName(e.target.value)} autoComplete="given-name" required />
         </FormGroup>
         <FormGroup>
           <Label htmlFor="lastName">{lang === "zh" ? "姓氏" : "Last name"}</Label>

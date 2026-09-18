@@ -122,6 +122,8 @@ export const dict = {
   yourDetails: { zh: "您的信息", en: "Your details" },
   teamDetails: { zh: "团队信息", en: "Team details" },
   optionalFields: { zh: "以下为选填", en: "These are optional" },
+  yourDetailsHint: { zh: "您的姓名和邮箱将作为该团队的联系方式。", en: "Your name and email become this team's contact details." },
+  firstNameRequired: { zh: "请输入名字", en: "Your first name is required" },
 
   // Team member invites
   inviteByEmail: { zh: "邮件邀请（推荐）", en: "Send an email invite (recommended)" },
