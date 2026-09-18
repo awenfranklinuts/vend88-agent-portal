@@ -420,6 +420,24 @@ const ActionButton = styled.button<{ $variant?: 'edit' | 'delete' }>`
   `}
 `;
 
+const EditCredentialButton = styled.button`
+  padding: 0.375rem 0.875rem;
+  background: white;
+  color: #1a237e;
+  border: 2px solid #e0e7ef;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    border-color: #1a237e;
+    background: #f7faff;
+  }
+`;
+
 const AddPermissionButton = styled.button`
   padding: 1rem 1.5rem;
   background: #3b82f6;
@@ -785,6 +803,9 @@ export default function ShopDetailPage() {
   const [credentialsLoadError, setCredentialsLoadError] = useState('');
   const [visiblePasswordIds, setVisiblePasswordIds] = useState<Set<string>>(new Set());
   const [showAddCredentialModal, setShowAddCredentialModal] = useState(false);
+  // null when adding; the login being changed when editing. One modal serves
+  // both - the fields and rules are identical, only the verb differs.
+  const [editingCredential, setEditingCredential] = useState<ShopCredential | null>(null);
   const [credentialForm, setCredentialForm] = useState({ username: '', password: '' });
   const [credentialFormError, setCredentialFormError] = useState('');
   const [isSavingCredential, setIsSavingCredential] = useState(false);
@@ -936,7 +957,18 @@ export default function ShopDetailPage() {
   };
 
   const openAddCredentialModal = () => {
+    setEditingCredential(null);
     setCredentialForm({ username: '', password: '' });
+    setCredentialFormError('');
+    setShowAddCredentialModal(true);
+  };
+
+  // The password box starts empty when editing: leaving it that way keeps the
+  // current password, so an admin changing only a username never has to retype
+  // - or accidentally overwrite - a working one.
+  const openEditCredentialModal = (cred: ShopCredential) => {
+    setEditingCredential(cred);
+    setCredentialForm({ username: cred.username || '', password: '' });
     setCredentialFormError('');
     setShowAddCredentialModal(true);
   };
@@ -949,39 +981,63 @@ export default function ShopDetailPage() {
   const handleAddCredential = async () => {
     const username = credentialForm.username.trim();
     const { password } = credentialForm;
+    const isEdit = !!editingCredential;
 
     // Same rules the backend enforces, checked here for a faster error.
     if (!/^\S{3,50}$/.test(username)) {
       setCredentialFormError(lang === "zh" ? "用户名需为 3-50 个字符，且不能包含空格" : "Username must be 3-50 characters with no spaces");
       return;
     }
-    if (password.length < 6) {
+    // On an edit an empty password means "leave it as it is"; on a create it is
+    // simply missing.
+    if ((!isEdit || password.length > 0) && password.length < 6) {
       setCredentialFormError(lang === "zh" ? "密码至少需要 6 个字符" : "Password must be at least 6 characters");
+      return;
+    }
+    if (isEdit && username === editingCredential.username && password.length === 0) {
+      setCredentialFormError(lang === "zh" ? "没有需要保存的更改" : "Nothing to save");
       return;
     }
 
     setCredentialFormError('');
     setIsSavingCredential(true);
     try {
-      const response = await axios.put(
-        `/api/shops/${shopId}/credentials`,
-        { token, username, password },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = isEdit
+        ? await axios.patch(
+            `/api/shops/${shopId}/credentials`,
+            {
+              token,
+              credential_id: editingCredential._id,
+              username,
+              // Omitted entirely when blank, so the backend leaves it alone.
+              ...(password.length > 0 ? { password } : {}),
+            },
+            { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
+          )
+        : await axios.put(
+            `/api/shops/${shopId}/credentials`,
+            { token, username, password },
+            { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
+          );
+
       if (response.data.status_code === 200 && response.data.data) {
-        setCredentials((prev) => [...(prev || []), response.data.data]);
+        const saved = response.data.data;
+        setCredentials((prev) => isEdit
+          ? (prev || []).map((c) => (c._id === saved._id ? saved : c))
+          : [...(prev || []), saved]);
         setShowAddCredentialModal(false);
-        showToast(lang === "zh" ? "登录账户已添加" : "Login added successfully", 'success');
+        setEditingCredential(null);
+        showToast(
+          isEdit
+            ? (lang === "zh" ? "登录账户已更新" : "Login updated successfully")
+            : (lang === "zh" ? "登录账户已添加" : "Login added successfully"),
+          'success',
+        );
       } else {
-        setCredentialFormError(response.data.message || (lang === "zh" ? "添加失败" : "Failed to add login"));
+        setCredentialFormError(response.data.message || (lang === "zh" ? "保存失败" : "Failed to save login"));
       }
     } catch (err: any) {
-      setCredentialFormError(err?.response?.data?.message || (lang === "zh" ? "添加失败" : "Failed to add login"));
+      setCredentialFormError(err?.response?.data?.message || (lang === "zh" ? "保存失败" : "Failed to save login"));
     } finally {
       setIsSavingCredential(false);
     }
@@ -1566,6 +1622,14 @@ export default function ShopDetailPage() {
                                     <PermissionLabel>{lang === "zh" ? "创建时间" : "Created"}</PermissionLabel>
                                     <PermissionValue>{formatCredentialDate(cred.created_at)}</PermissionValue>
                                   </PermissionDetailItem>
+                                  <PermissionDetailItem>
+                                    <EditCredentialButton
+                                      onClick={() => openEditCredentialModal(cred)}
+                                      title={lang === "zh" ? "编辑登录账户" : "Edit login"}
+                                    >
+                                      {lang === "zh" ? "编辑" : "Edit"}
+                                    </EditCredentialButton>
+                                  </PermissionDetailItem>
                                 </PermissionDetails>
                               </PermissionCard>
                             );
@@ -1745,9 +1809,13 @@ export default function ShopDetailPage() {
       </Modal>
 
       {/* Add Store Login Modal */}
-      <Modal $show={showAddCredentialModal} onClick={() => !isSavingCredential && setShowAddCredentialModal(false)}>
+      <Modal $show={showAddCredentialModal} onClick={() => { if (!isSavingCredential) { setShowAddCredentialModal(false); setEditingCredential(null); } }}>
         <ModalContent onClick={(e) => e.stopPropagation()}>
-          <ModalTitle>{lang === "zh" ? "添加登录账户" : "Add Login"}</ModalTitle>
+          <ModalTitle>
+            {editingCredential
+              ? (lang === "zh" ? "编辑登录账户" : "Edit Login")
+              : (lang === "zh" ? "添加登录账户" : "Add Login")}
+          </ModalTitle>
           <FormGroup>
             <Label>{lang === "zh" ? "用户名" : "Username"} *</Label>
             <Input
@@ -1759,7 +1827,9 @@ export default function ShopDetailPage() {
             />
           </FormGroup>
           <FormGroup>
-            <Label>{lang === "zh" ? "密码" : "Password"} *</Label>
+            <Label>
+              {lang === "zh" ? "密码" : "Password"}{editingCredential ? '' : ' *'}
+            </Label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <Input
                 type="text"
@@ -1767,24 +1837,35 @@ export default function ShopDetailPage() {
                 autoComplete="new-password"
                 disabled={isSavingCredential}
                 onChange={(e) => setCredentialForm({ ...credentialForm, password: e.target.value })}
-                placeholder={lang === "zh" ? "至少 6 个字符" : "At least 6 characters"}
+                placeholder={editingCredential
+                  ? (lang === "zh" ? "留空则保持不变" : "Leave blank to keep the current password")
+                  : (lang === "zh" ? "至少 6 个字符" : "At least 6 characters")}
               />
               <ModalButton type="button" onClick={handleGenerateCredentialPassword} disabled={isSavingCredential}>
                 {lang === "zh" ? "生成" : "Generate"}
               </ModalButton>
             </div>
           </FormGroup>
+          {editingCredential && (
+            <p style={{ color: '#92400e', background: '#fef3c7', padding: '0.625rem 0.75rem', borderRadius: 8, fontSize: '0.8125rem', marginBottom: '1rem', lineHeight: 1.5 }}>
+              {lang === "zh"
+                ? "该账户正用于门店 POS 登录。修改后，店员需使用新的凭据重新登录。"
+                : "This login is in use on the shop's POS. After saving, staff will need to sign in again with the new details."}
+            </p>
+          )}
           {credentialFormError && (
             <p style={{ color: '#dc2626', fontSize: '0.8125rem', marginBottom: '1rem' }}>{credentialFormError}</p>
           )}
           <ModalActions>
-            <ModalButton onClick={() => setShowAddCredentialModal(false)} disabled={isSavingCredential}>
+            <ModalButton onClick={() => { setShowAddCredentialModal(false); setEditingCredential(null); }} disabled={isSavingCredential}>
               {lang === "zh" ? "取消" : "Cancel"}
             </ModalButton>
             <ModalButton $primary onClick={handleAddCredential} disabled={isSavingCredential}>
               {isSavingCredential
-                ? (lang === "zh" ? "添加中..." : "Adding...")
-                : (lang === "zh" ? "添加" : "Add")}
+                ? (lang === "zh" ? "保存中..." : "Saving...")
+                : editingCredential
+                  ? (lang === "zh" ? "保存更改" : "Save changes")
+                  : (lang === "zh" ? "添加" : "Add")}
             </ModalButton>
           </ModalActions>
         </ModalContent>

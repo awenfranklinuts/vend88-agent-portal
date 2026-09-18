@@ -6,14 +6,14 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  // POST lists the shop's store logins, PUT adds one.
-  if (req.method !== 'POST' && req.method !== 'PUT') {
+  // POST lists the shop's store logins, PUT adds one, PATCH edits one.
+  if (req.method !== 'POST' && req.method !== 'PUT' && req.method !== 'PATCH') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
   try {
     const { id } = req.query;
-    const suffix = req.method === 'PUT' ? '/create' : '';
+    const suffix = req.method === 'PUT' ? '/create' : req.method === 'PATCH' ? '/update' : '';
     const fullUrl = `${getBackendBaseUrl()}/portal/shops/${id}/credentials${suffix}`;
     console.log('[Shop Credentials API] Forwarding to:', fullUrl);
 
