@@ -1,11 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
-import https from 'https';
 import { API_CONFIG } from '../../../config/api';
-
-const httpsAgent = new https.Agent({
-  rejectUnauthorized: false,
-});
 
 export default async function handler(
   req: NextApiRequest,
@@ -38,7 +33,6 @@ export default async function handler(
             'Authorization': authHeader,
           },
           timeout: 5000,
-          httpsAgent,
         }
       );
 

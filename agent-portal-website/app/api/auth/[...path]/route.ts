@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
-import https from 'https';
 import { getBackendBaseUrl } from '@/config/server';
-
-const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 // Forwards /api/auth/<anything> to the backend's /portal/auth/<anything>.
 // Covers the unauthenticated email flows: forgot-password, reset-password,
@@ -19,7 +16,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ pa
     const response = await axios.post(fullUrl, body, {
       headers: { 'Content-Type': 'application/json' },
       timeout: 15000,
-      httpsAgent,
       // The backend uses 4xx to say "link expired" and 429 to rate limit; both
       // are real answers the page needs to render, not transport failures.
       validateStatus: () => true,

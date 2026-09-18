@@ -1,11 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
-import https from 'https';
 import { getBackendBaseUrl } from '@/config/server';
-
-const httpsAgent = new https.Agent({
-  rejectUnauthorized: false,
-});
 
 // Mock customer details with businesses
 const mockCustomerDetails: any = {
@@ -216,7 +211,6 @@ export default async function handler(
             'Authorization': authHeader,
           },
           timeout: 5000,
-          httpsAgent,
         }
       );
 

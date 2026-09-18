@@ -1,11 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
-import https from 'https';
 import { getBackendBaseUrl } from '@/config/server';
-
-const httpsAgent = new https.Agent({
-  rejectUnauthorized: false,
-});
 
 // Mock registration data for fallback
 const mockRegistrations = [
@@ -121,7 +116,6 @@ export default async function handler(
           },
           params,
           timeout: 5000,
-          httpsAgent,
         }
       );
 

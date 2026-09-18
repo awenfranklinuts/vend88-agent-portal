@@ -1,11 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
-import https from 'https';
 import { getBackendBaseUrl } from '../../../config/server';
-
-const httpsAgent = new https.Agent({
-  rejectUnauthorized: false,
-});
 
 export default async function handler(
   req: NextApiRequest,
@@ -22,7 +17,6 @@ export default async function handler(
     const response = await axios.post(fullUrl, req.body, {
       headers: { 'Content-Type': 'application/json' },
       timeout: 15000,
-      httpsAgent,
     });
 
     return res.status(response.status).json(response.data);

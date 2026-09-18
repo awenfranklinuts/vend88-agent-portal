@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
-import https from 'https';
 import { getBackendBaseUrl } from '@/config/server';
-
-const httpsAgent = new https.Agent({
-  rejectUnauthorized: false,
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +24,6 @@ export async function POST(request: NextRequest) {
             Authorization: `Bearer ${token}`,
           },
           timeout: 15000,
-          httpsAgent,
         }
       );
 

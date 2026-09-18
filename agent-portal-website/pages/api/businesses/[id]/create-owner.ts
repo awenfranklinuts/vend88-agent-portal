@@ -1,9 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
-import https from 'https';
 import { getBackendBaseUrl } from '../../../../config/server';
-
-const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 // Creates an owner login for a business that has none: /portal/businesses/:id/owner/create
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -15,7 +12,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const response = await axios.post(`${getBackendBaseUrl()}/portal/businesses/${encodeURIComponent(String(id))}/owner/create`, req.body, {
       headers: { 'Content-Type': 'application/json' },
       timeout: 15000,
-      httpsAgent,
     });
     return res.status(response.status).json(response.data);
   } catch (error: any) {

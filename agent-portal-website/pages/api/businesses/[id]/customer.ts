@@ -1,9 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
-import https from 'https';
 import { getBackendBaseUrl } from '../../../../config/server';
-
-const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 // Attach a customer to a business (link existing, or create + link): /portal/businesses/:id/customer
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -15,7 +12,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const response = await axios.post(`${getBackendBaseUrl()}/portal/businesses/${encodeURIComponent(String(id))}/customer`, req.body, {
       headers: { 'Content-Type': 'application/json' },
       timeout: 15000,
-      httpsAgent,
     });
     return res.status(response.status).json(response.data);
   } catch (error: any) {

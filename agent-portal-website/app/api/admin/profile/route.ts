@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
-import https from 'https';
 import { getBackendBaseUrl } from '@/config/server';
-
-// Create an axios instance that ignores SSL certificate errors (for development only)
-const httpsAgent = new https.Agent({
-  rejectUnauthorized: false,
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,7 +26,6 @@ export async function POST(request: NextRequest) {
             Authorization: `Bearer ${token}`,
           },
           timeout: 5000,
-          httpsAgent,
         }
       );
 
