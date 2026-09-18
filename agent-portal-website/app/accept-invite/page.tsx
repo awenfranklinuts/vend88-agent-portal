@@ -7,8 +7,9 @@ import { useLanguage } from "@/context/LanguageContext";
 import { dict } from "@/i18n/translations";
 import AuthShell, { ErrorMessage, InfoMessage, SuccessMessage } from "@/components/auth/AuthShell";
 import SetPasswordForm from "@/components/auth/SetPasswordForm";
+import TeamSetupForm from "@/components/auth/TeamSetupForm";
 
-type Invite = { email: string; first_name: string; team_name: string };
+type Invite = { email: string; first_name: string; team_name: string; setup_team?: boolean; team_kind?: string };
 
 function AcceptInvite() {
   const { lang } = useLanguage();
@@ -70,6 +71,17 @@ function AcceptInvite() {
   const greeting = invite.first_name
     ? (lang === "zh" ? `${invite.first_name}，您好` : `Welcome, ${invite.first_name}`)
     : t("acceptInviteTitle");
+
+  // An owner invited to stand up a brand new team names it here; an ordinary
+  // member joins a team that already exists and only needs a password.
+  if (invite.setup_team) {
+    return (
+      <AuthShell title={t("setUpYourTeam")} subtitle={t("setUpYourTeamSubtitle")} backLabel={t("backToLogin")}>
+        <InfoMessage style={{ marginBottom: "1.25rem" }}>{invite.email}</InfoMessage>
+        <TeamSetupForm token={token} onDone={() => setDone(true)} />
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell title={greeting} subtitle={t("acceptInviteSubtitle")} backLabel={t("backToLogin")}>

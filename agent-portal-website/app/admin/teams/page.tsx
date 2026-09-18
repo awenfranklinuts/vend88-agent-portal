@@ -6,6 +6,7 @@ import styled from "styled-components";
 import axios from "axios";
 import { useAuth, isPortalUser, hasPermission } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { dict } from "@/i18n/translations";
 import { useToast } from "@/context/ToastContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "@/components/layout/AdminSidebar";
@@ -63,8 +64,9 @@ interface Team {
   id: string;
   name: string;
   kind: TeamKind;
-  status: "active" | "suspended";
+  status: "active" | "suspended" | "pending";
   slug: string | null;
+  invited_email: string;
   contact_name: string;
   contact_email: string;
   contact_phone: string;
@@ -87,11 +89,15 @@ interface CreateForm {
   owner_password: string;
   owner_first_name: string;
   owner_last_name: string;
+  // true: send the owner a link and let them name the team and fill in the rest.
+  // false: the administrator fills everything in here, as before.
+  inviteMode: boolean;
 }
 
 const emptyForm: CreateForm = {
   name: "", kind: "organisation", contact_name: "", contact_email: "", contact_phone: "", abn: "",
   notes: "", owner_email: "", owner_password: "", owner_first_name: "", owner_last_name: "",
+  inviteMode: true,
 };
 
 const KIND_LABELS: Record<TeamKind, { en: string; zh: string }> = {
@@ -125,6 +131,32 @@ const FormRow = styled.div`
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
   @media (max-width: 600px) { grid-template-columns: 1fr; }
+`;
+
+const SwitchModeLink = styled.button`
+  display: block;
+  margin: 1rem 0 0;
+  padding: 0;
+  background: none;
+  border: none;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #1a237e;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover { text-decoration: underline; }
+`;
+
+const PendingBadge = styled.span`
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: #fef3c7;
+  color: #92400e;
 `;
 
 const SectionLabel = styled.h4`
@@ -303,6 +335,7 @@ export default function TeamManagementPage() {
   const { lang } = useLanguage();
   const { showToast } = useToast();
   const zh = lang === "zh";
+  const t = (key: keyof typeof dict) => dict[key][lang];
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -359,21 +392,29 @@ export default function TeamManagementPage() {
 
   /* ─── Create ─── */
 
-  const setField = (field: keyof CreateForm, value: string) => {
+  const setField = (field: keyof CreateForm, value: string | boolean) => {
     setForm(prev => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: undefined }));
   };
 
   const validate = (): boolean => {
     const next: Partial<Record<keyof CreateForm, string>> = {};
-    if (!form.name.trim()) next.name = zh ? "请输入团队名称" : "Team name is required";
-    if (form.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contact_email.trim())) {
-      next.contact_email = zh ? "邮箱格式无效" : "Invalid email format";
-    }
-    const wantsOwner = form.owner_email || form.owner_password || form.owner_first_name || form.owner_last_name;
-    if (wantsOwner) {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.owner_email.trim())) next.owner_email = zh ? "请输入有效的负责人邮箱" : "A valid owner email is required";
-      if (form.owner_password.length < 8) next.owner_password = zh ? "密码至少8个字符" : "Password must be at least 8 characters";
+    const emailOk = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+
+    if (form.inviteMode) {
+      // The owner names the team and fills in its details from the emailed link,
+      // so their address is the only thing needed here.
+      if (!emailOk(form.owner_email)) next.owner_email = zh ? "请输入有效的负责人邮箱" : "A valid owner email is required";
+    } else {
+      if (!form.name.trim()) next.name = zh ? "请输入团队名称" : "Team name is required";
+      if (form.contact_email && !emailOk(form.contact_email)) {
+        next.contact_email = zh ? "邮箱格式无效" : "Invalid email format";
+      }
+      const wantsOwner = form.owner_email || form.owner_password || form.owner_first_name || form.owner_last_name;
+      if (wantsOwner) {
+        if (!emailOk(form.owner_email)) next.owner_email = zh ? "请输入有效的负责人邮箱" : "A valid owner email is required";
+        if (form.owner_password.length < 8) next.owner_password = zh ? "密码至少8个字符" : "Password must be at least 8 characters";
+      }
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -383,28 +424,45 @@ export default function TeamManagementPage() {
     if (!validate()) return;
     setSaving(true);
     try {
-      const wantsOwner = !!form.owner_email;
-      const res = await axios.post("/api/teams/create", {
-        token,
-        name: form.name.trim(),
-        kind: form.kind,
-        contact_name: form.contact_name.trim(),
-        contact_email: form.contact_email.trim(),
-        contact_phone: form.contact_phone.trim(),
-        abn: form.abn.trim(),
-        notes: form.notes.trim(),
-        owner: wantsOwner ? {
-          email: form.owner_email.trim(),
-          password: form.owner_password,
-          first_name: form.owner_first_name.trim(),
-          last_name: form.owner_last_name.trim(),
-        } : undefined,
-      });
-      showToast(zh ? "团队已创建" : "Team created", "success");
+      // Omitting `name` is what puts the backend into invite mode.
+      const payload: Record<string, unknown> = form.inviteMode
+        ? { token, kind: form.kind, owner: { email: form.owner_email.trim() } }
+        : {
+            token,
+            name: form.name.trim(),
+            kind: form.kind,
+            contact_name: form.contact_name.trim(),
+            contact_email: form.contact_email.trim(),
+            contact_phone: form.contact_phone.trim(),
+            abn: form.abn.trim(),
+            notes: form.notes.trim(),
+            owner: form.owner_email ? {
+              email: form.owner_email.trim(),
+              password: form.owner_password,
+              first_name: form.owner_first_name.trim(),
+              last_name: form.owner_last_name.trim(),
+            } : undefined,
+          };
+      const res = await axios.post("/api/teams/create", payload);
+
+      if (form.inviteMode) {
+        // The team row exists either way, so a failed send is a warning about
+        // the email rather than an error about the team.
+        showToast(
+          res.data?.invite_sent === false
+            ? t("inviteNotSent")
+            : (zh ? `邀请已发送至 ${form.owner_email.trim()}` : `Invite sent to ${form.owner_email.trim()}`),
+          res.data?.invite_sent === false ? "error" : "success",
+        );
+      } else {
+        showToast(zh ? "团队已创建" : "Team created", "success");
+      }
       setShowCreate(false);
       setForm(emptyForm);
+      // A pending team has nothing on its detail page yet, so stay on the list
+      // where the invite is visible and can be resent.
       const id = res.data?.team?.id;
-      if (id) router.push(`/admin/teams/${id}`);
+      if (!form.inviteMode && id) router.push(`/admin/teams/${id}`);
       else fetchTeams();
     } catch (err: any) {
       showToast(err?.response?.data?.message || (zh ? "创建团队失败" : "Failed to create team"), "error");
@@ -477,14 +535,20 @@ export default function TeamManagementPage() {
                 <TeamCard key={team.id} onClick={() => router.push(`/admin/teams/${team.id}`)}>
                   <TeamCardHeader>
                     <div>
-                      <TeamCardName>{team.name}</TeamCardName>
-                      {team.contact_email && <TeamCardEmail title={team.contact_email}>{team.contact_email}</TeamCardEmail>}
+                      <TeamCardName>{team.status === "pending" ? (team.invited_email || team.name) : team.name}</TeamCardName>
+                      {team.status === "pending"
+                        ? <TeamCardEmail>{zh ? "等待负责人完成设置" : "Awaiting owner setup"}</TeamCardEmail>
+                        : team.contact_email && <TeamCardEmail title={team.contact_email}>{team.contact_email}</TeamCardEmail>}
                     </div>
                     <TeamCardBadges>
                       <KindBadge $kind={team.kind}>{KIND_LABELS[team.kind][lang]}</KindBadge>
-                      <StatusBadge $status={team.status === "active" ? "active" : "inactive"}>
-                        {team.status === "active" ? (zh ? "活跃" : "Active") : (zh ? "已暂停" : "Suspended")}
-                      </StatusBadge>
+                      {team.status === "pending" ? (
+                        <PendingBadge>{zh ? "待设置" : "Pending"}</PendingBadge>
+                      ) : (
+                        <StatusBadge $status={team.status === "active" ? "active" : "inactive"}>
+                          {team.status === "active" ? (zh ? "活跃" : "Active") : (zh ? "已暂停" : "Suspended")}
+                        </StatusBadge>
+                      )}
                     </TeamCardBadges>
                   </TeamCardHeader>
                   <TeamCardStats>
@@ -540,14 +604,22 @@ export default function TeamManagementPage() {
                     {filtered.map(team => (
                       <ClickableRow key={team.id} onClick={() => router.push(`/admin/teams/${team.id}`)}>
                         <Td>
-                          <div style={{ fontWeight: 600 }}>{team.name}</div>
-                          {team.contact_email && <div style={{ fontSize: "0.8125rem", color: "#5c6b7a" }}>{team.contact_email}</div>}
+                          <div style={{ fontWeight: 600 }}>
+                            {team.status === "pending" ? (team.invited_email || team.name) : team.name}
+                          </div>
+                          {team.status === "pending"
+                            ? <div style={{ fontSize: "0.8125rem", color: "#5c6b7a" }}>{zh ? "等待负责人完成设置" : "Awaiting owner setup"}</div>
+                            : team.contact_email && <div style={{ fontSize: "0.8125rem", color: "#5c6b7a" }}>{team.contact_email}</div>}
                         </Td>
                         <Td><KindBadge $kind={team.kind}>{KIND_LABELS[team.kind][lang]}</KindBadge></Td>
                         <Td>
-                          <StatusBadge $status={team.status === "active" ? "active" : "inactive"}>
-                            {team.status === "active" ? (zh ? "活跃" : "Active") : (zh ? "已暂停" : "Suspended")}
-                          </StatusBadge>
+                          {team.status === "pending" ? (
+                            <PendingBadge>{zh ? "待设置" : "Pending"}</PendingBadge>
+                          ) : (
+                            <StatusBadge $status={team.status === "active" ? "active" : "inactive"}>
+                              {team.status === "active" ? (zh ? "活跃" : "Active") : (zh ? "已暂停" : "Suspended")}
+                            </StatusBadge>
+                          )}
                         </Td>
                         <Td><Count $muted={!team.counts.members}>{team.counts.members}</Count></Td>
                         <Td><Count $muted={!team.counts.businesses}>{team.counts.businesses}</Count></Td>
@@ -574,86 +646,115 @@ export default function TeamManagementPage() {
         <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: 680 }}>
           <ModalTitle>{zh ? "新建团队" : "New Team"}</ModalTitle>
 
-          <FormRow>
-            <FormGroup>
-              <FormLabel>{zh ? "团队名称" : "Team name"} *</FormLabel>
-              <FormInput value={form.name} onChange={e => setField("name", e.target.value)} placeholder={zh ? "例如：Acme 零售方案" : "e.g. Acme Retail Solutions"} />
-              {errors.name && <ErrorText>{errors.name}</ErrorText>}
-            </FormGroup>
-            <FormGroup>
-              <FormLabel>{zh ? "类型" : "Kind"} *</FormLabel>
-              <FormSelect value={form.kind} onChange={e => setField("kind", e.target.value)}>
-                {(Object.keys(KIND_LABELS) as TeamKind[]).map(k => (
-                  <option key={k} value={k}>{KIND_LABELS[k][lang]}</option>
-                ))}
-              </FormSelect>
-            </FormGroup>
-          </FormRow>
+          <FormGroup>
+            <FormLabel>{zh ? "类型" : "Kind"} *</FormLabel>
+            <FormSelect value={form.kind} onChange={e => setField("kind", e.target.value)}>
+              {(Object.keys(KIND_LABELS) as TeamKind[]).map(k => (
+                <option key={k} value={k}>{KIND_LABELS[k][lang]}</option>
+              ))}
+            </FormSelect>
+          </FormGroup>
           <Hint>
             {zh
               ? "组织：合作公司，可自行管理成员。个人代理：单人团队。内部：Vend88 自己的销售人员。"
               : "Organisation: a partner company that manages its own members. Individual: a team of one. Internal: Vend88's own sales staff."}
           </Hint>
 
-          <FormRow>
-            <FormGroup>
-              <FormLabel>{zh ? "联系人" : "Contact name"}</FormLabel>
-              <FormInput value={form.contact_name} onChange={e => setField("contact_name", e.target.value)} />
-            </FormGroup>
-            <FormGroup>
-              <FormLabel>{zh ? "联系邮箱" : "Contact email"}</FormLabel>
-              <FormInput value={form.contact_email} onChange={e => setField("contact_email", e.target.value)} />
-              {errors.contact_email && <ErrorText>{errors.contact_email}</ErrorText>}
-            </FormGroup>
-          </FormRow>
-          <FormRow>
-            <FormGroup>
-              <FormLabel>{zh ? "联系电话" : "Contact phone"}</FormLabel>
-              <FormInput value={form.contact_phone} onChange={e => setField("contact_phone", e.target.value)} />
-            </FormGroup>
-            <FormGroup>
-              <FormLabel>ABN</FormLabel>
-              <FormInput value={form.abn} onChange={e => setField("abn", e.target.value)} />
-            </FormGroup>
-          </FormRow>
-          <FormGroup>
-            <FormLabel>{zh ? "备注" : "Notes"}</FormLabel>
-            <FormTextarea rows={2} value={form.notes} onChange={e => setField("notes", e.target.value)} />
-          </FormGroup>
+          {form.inviteMode ? (
+            <>
+              <FormGroup style={{ marginTop: "1rem" }}>
+                <FormLabel>{zh ? "负责人邮箱" : "Owner email"} *</FormLabel>
+                <FormInput
+                  value={form.owner_email}
+                  onChange={e => setField("owner_email", e.target.value)}
+                  placeholder="owner@company.com"
+                  autoComplete="off"
+                />
+                {errors.owner_email && <ErrorText>{errors.owner_email}</ErrorText>}
+              </FormGroup>
+              <Hint>
+                {zh
+                  ? "我们会向该邮箱发送设置链接。对方将自行填写团队名称、联系方式，并设置自己的密码。在此之前，该团队在列表中显示为“待设置”。"
+                  : "We email them a setup link. They fill in the team name and contact details, and choose their own password. Until then the team shows as Pending in the list."}
+              </Hint>
+              <SwitchModeLink onClick={() => setField("inviteMode", false)}>
+                {zh ? "改为手动填写全部信息" : "Or fill everything in yourself"}
+              </SwitchModeLink>
+            </>
+          ) : (
+            <>
+              <FormGroup style={{ marginTop: "1rem" }}>
+                <FormLabel>{zh ? "团队名称" : "Team name"} *</FormLabel>
+                <FormInput value={form.name} onChange={e => setField("name", e.target.value)} placeholder={zh ? "例如：Acme 零售方案" : "e.g. Acme Retail Solutions"} />
+                {errors.name && <ErrorText>{errors.name}</ErrorText>}
+              </FormGroup>
 
-          <SectionLabel>{zh ? "首位负责人登录（可选）" : "First owner login (optional)"}</SectionLabel>
-          <Hint>
-            {zh
-              ? "负责人可以管理本团队的成员登录，并看到整个团队的客户。也可以稍后再添加。"
-              : "The owner manages this team's member logins and sees the whole team's book. You can add one later instead."}
-          </Hint>
-          <FormRow>
-            <FormGroup>
-              <FormLabel>{zh ? "名字" : "First name"}</FormLabel>
-              <FormInput value={form.owner_first_name} onChange={e => setField("owner_first_name", e.target.value)} />
-            </FormGroup>
-            <FormGroup>
-              <FormLabel>{zh ? "姓氏" : "Last name"}</FormLabel>
-              <FormInput value={form.owner_last_name} onChange={e => setField("owner_last_name", e.target.value)} />
-            </FormGroup>
-          </FormRow>
-          <FormRow>
-            <FormGroup>
-              <FormLabel>{zh ? "登录邮箱" : "Login email"}</FormLabel>
-              <FormInput value={form.owner_email} onChange={e => setField("owner_email", e.target.value)} autoComplete="off" />
-              {errors.owner_email && <ErrorText>{errors.owner_email}</ErrorText>}
-            </FormGroup>
-            <FormGroup>
-              <FormLabel>{zh ? "密码" : "Password"}</FormLabel>
-              <FormInput type="password" value={form.owner_password} onChange={e => setField("owner_password", e.target.value)} autoComplete="new-password" />
-              {errors.owner_password && <ErrorText>{errors.owner_password}</ErrorText>}
-            </FormGroup>
-          </FormRow>
+              <FormRow>
+                <FormGroup>
+                  <FormLabel>{zh ? "联系人" : "Contact name"}</FormLabel>
+                  <FormInput value={form.contact_name} onChange={e => setField("contact_name", e.target.value)} />
+                </FormGroup>
+                <FormGroup>
+                  <FormLabel>{zh ? "联系邮箱" : "Contact email"}</FormLabel>
+                  <FormInput value={form.contact_email} onChange={e => setField("contact_email", e.target.value)} />
+                  {errors.contact_email && <ErrorText>{errors.contact_email}</ErrorText>}
+                </FormGroup>
+              </FormRow>
+              <FormRow>
+                <FormGroup>
+                  <FormLabel>{zh ? "联系电话" : "Contact phone"}</FormLabel>
+                  <FormInput value={form.contact_phone} onChange={e => setField("contact_phone", e.target.value)} />
+                </FormGroup>
+                <FormGroup>
+                  <FormLabel>ABN</FormLabel>
+                  <FormInput value={form.abn} onChange={e => setField("abn", e.target.value)} />
+                </FormGroup>
+              </FormRow>
+              <FormGroup>
+                <FormLabel>{zh ? "备注" : "Notes"}</FormLabel>
+                <FormTextarea rows={2} value={form.notes} onChange={e => setField("notes", e.target.value)} />
+              </FormGroup>
+
+              <SectionLabel>{zh ? "首位负责人登录（可选）" : "First owner login (optional)"}</SectionLabel>
+              <Hint>
+                {zh
+                  ? "负责人可以管理本团队的成员登录，并看到整个团队的客户。也可以稍后再添加。"
+                  : "The owner manages this team's member logins and sees the whole team's book. You can add one later instead."}
+              </Hint>
+              <FormRow>
+                <FormGroup>
+                  <FormLabel>{zh ? "名字" : "First name"}</FormLabel>
+                  <FormInput value={form.owner_first_name} onChange={e => setField("owner_first_name", e.target.value)} />
+                </FormGroup>
+                <FormGroup>
+                  <FormLabel>{zh ? "姓氏" : "Last name"}</FormLabel>
+                  <FormInput value={form.owner_last_name} onChange={e => setField("owner_last_name", e.target.value)} />
+                </FormGroup>
+              </FormRow>
+              <FormRow>
+                <FormGroup>
+                  <FormLabel>{zh ? "登录邮箱" : "Login email"}</FormLabel>
+                  <FormInput value={form.owner_email} onChange={e => setField("owner_email", e.target.value)} autoComplete="off" />
+                  {errors.owner_email && <ErrorText>{errors.owner_email}</ErrorText>}
+                </FormGroup>
+                <FormGroup>
+                  <FormLabel>{zh ? "密码" : "Password"}</FormLabel>
+                  <FormInput type="password" value={form.owner_password} onChange={e => setField("owner_password", e.target.value)} autoComplete="new-password" />
+                  {errors.owner_password && <ErrorText>{errors.owner_password}</ErrorText>}
+                </FormGroup>
+              </FormRow>
+              <SwitchModeLink onClick={() => setField("inviteMode", true)}>
+                {zh ? "改为发送邀请链接" : "Or send them an invite link instead"}
+              </SwitchModeLink>
+            </>
+          )}
 
           <ModalActions>
             <ModalButton onClick={() => setShowCreate(false)} disabled={saving}>{zh ? "取消" : "Cancel"}</ModalButton>
             <ModalButton $primary onClick={handleCreate} disabled={saving}>
-              {saving ? (zh ? "创建中..." : "Creating...") : (zh ? "创建团队" : "Create Team")}
+              {saving
+                ? (form.inviteMode ? (zh ? "发送中..." : "Sending...") : (zh ? "创建中..." : "Creating..."))
+                : (form.inviteMode ? (zh ? "发送邀请" : "Send Invite") : (zh ? "创建团队" : "Create Team"))}
             </ModalButton>
           </ModalActions>
         </ModalContent>

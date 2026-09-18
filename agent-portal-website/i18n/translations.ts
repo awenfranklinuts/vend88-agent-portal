@@ -115,6 +115,13 @@ export const dict = {
   activateAccount: { zh: "激活账号", en: "Activate account" },
   accountReady: { zh: "账号已就绪，请登录。", en: "Your account is ready. You can now sign in." },
   invitedToTeam: { zh: "团队", en: "Team" },
+  setUpYourTeam: { zh: "设置您的团队", en: "Set up your team" },
+  setUpYourTeamSubtitle: { zh: "请填写团队信息并设置密码。", en: "Tell us about your team and choose a password." },
+  teamNameLabel: { zh: "团队名称", en: "Team name" },
+  teamNameRequired: { zh: "请输入团队名称", en: "A team name is required" },
+  yourDetails: { zh: "您的信息", en: "Your details" },
+  teamDetails: { zh: "团队信息", en: "Team details" },
+  optionalFields: { zh: "以下为选填", en: "These are optional" },
 
   // Team member invites
   inviteByEmail: { zh: "邮件邀请（推荐）", en: "Send an email invite (recommended)" },
