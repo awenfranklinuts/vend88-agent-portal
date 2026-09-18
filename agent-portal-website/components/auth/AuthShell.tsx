@@ -2,6 +2,7 @@
 
 import styled from "styled-components";
 import Link from "next/link";
+import Image from "next/image";
 
 // The shell the three email-auth pages share (forgot password, reset password,
 // accept invite). Deliberately a narrower, single-column version of the login
@@ -24,6 +25,7 @@ const Box = styled.div`
   box-shadow: 0 8px 32px rgba(30, 64, 175, 0.12);
   width: 100%;
   max-width: 440px;
+  min-width: 0;
   box-sizing: border-box;
 
   @media (max-width: 520px) {
@@ -35,17 +37,26 @@ const Brand = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
+  gap: 1rem;
   margin-bottom: 2rem;
+
+  @media (max-width: 360px) {
+    flex-direction: column;
+    gap: 0.625rem;
+  }
 `;
 
-const VendText = styled.span`
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: #0b2b4a;
+const BrandLabel = styled.span`
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #0a3655;
+  padding-left: 1rem;
+  border-left: 2px solid rgba(26, 35, 126, 0.3);
+  white-space: nowrap;
 
-  span {
-    color: #ff6b35;
+  @media (max-width: 360px) {
+    padding-left: 0;
+    border-left: none;
   }
 `;
 
@@ -200,7 +211,15 @@ export default function AuthShell({
     <Container>
       <Box>
         <Brand>
-          <VendText>Vend<span>88</span></VendText>
+          <Image
+            src="/images/brand.png"
+            alt="VEND88"
+            width={538}
+            height={218}
+            priority
+            style={{ width: "auto", height: "38px" }}
+          />
+          <BrandLabel>Agent Portal</BrandLabel>
         </Brand>
         <Title>{title}</Title>
         {subtitle && <Subtitle>{subtitle}</Subtitle>}
