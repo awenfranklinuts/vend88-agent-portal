@@ -361,6 +361,25 @@ const PermissionCard = styled.div`
   }
 `;
 
+// A store login is the only one of these cards with a trailing action, so it
+// gets its own row layout rather than reshaping the shared card - Devices and
+// Permissions stack a name above their details and must keep doing so.
+const CredentialCard = styled(PermissionCard)`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+
+  > *:first-child {
+    flex: 1;
+    min-width: 0;
+  }
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+`;
+
 const PermissionName = styled.div`
   font-size: 1.125rem;
   font-weight: 700;
@@ -421,11 +440,16 @@ const ActionButton = styled.button<{ $variant?: 'edit' | 'delete' }>`
 `;
 
 const EditCredentialButton = styled.button`
-  padding: 0.375rem 0.875rem;
+  flex-shrink: 0;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
   background: white;
   color: #1a237e;
-  border: 2px solid #e0e7ef;
-  border-radius: 6px;
+  border: 1px solid #e0e7ef;
+  border-radius: 8px;
   font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
@@ -433,8 +457,13 @@ const EditCredentialButton = styled.button`
   white-space: nowrap;
 
   &:hover:not(:disabled) {
-    border-color: #1a237e;
-    background: #f7faff;
+    border-color: #3b82f6;
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+
+  @media (max-width: 640px) {
+    align-self: flex-start;
   }
 `;
 
@@ -734,6 +763,13 @@ const SmallIconButton = styled.button`
     background: #f3f4f6;
   }
 `;
+
+const PencilIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </svg>
+);
 
 const CopyIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1575,7 +1611,7 @@ export default function ShopDetailPage() {
                           {credentials.map((cred) => {
                             const passwordVisible = visiblePasswordIds.has(cred._id);
                             return (
-                              <PermissionCard key={cred._id}>
+                              <CredentialCard key={cred._id}>
                                 <PermissionDetails>
                                   <PermissionDetailItem>
                                     <PermissionLabel>{lang === "zh" ? "用户名" : "Username"}</PermissionLabel>
@@ -1622,16 +1658,15 @@ export default function ShopDetailPage() {
                                     <PermissionLabel>{lang === "zh" ? "创建时间" : "Created"}</PermissionLabel>
                                     <PermissionValue>{formatCredentialDate(cred.created_at)}</PermissionValue>
                                   </PermissionDetailItem>
-                                  <PermissionDetailItem>
-                                    <EditCredentialButton
-                                      onClick={() => openEditCredentialModal(cred)}
-                                      title={lang === "zh" ? "编辑登录账户" : "Edit login"}
-                                    >
-                                      {lang === "zh" ? "编辑" : "Edit"}
-                                    </EditCredentialButton>
-                                  </PermissionDetailItem>
                                 </PermissionDetails>
-                              </PermissionCard>
+                                <EditCredentialButton
+                                  onClick={() => openEditCredentialModal(cred)}
+                                  title={lang === "zh" ? "编辑登录账户" : "Edit login"}
+                                >
+                                  <PencilIcon />
+                                  {lang === "zh" ? "编辑" : "Edit"}
+                                </EditCredentialButton>
+                              </CredentialCard>
                             );
                           })}
                         </PermissionList>
