@@ -9,7 +9,7 @@ import AuthShell, { ErrorMessage, InfoMessage, SuccessMessage } from "@/componen
 import SetPasswordForm from "@/components/auth/SetPasswordForm";
 import TeamSetupForm from "@/components/auth/TeamSetupForm";
 
-type Invite = { email: string; first_name: string; team_name: string; setup_team?: boolean; team_kind?: string };
+type Invite = { email: string; first_name: string; last_name?: string; team_name: string; setup_team?: boolean; team_kind?: string };
 
 function AcceptInvite() {
   const { lang } = useLanguage();
@@ -94,6 +94,9 @@ function AcceptInvite() {
         endpoint="/api/auth/accept-invite"
         submitLabel={t("activateAccount")}
         onDone={() => setDone(true)}
+        askName
+        initialFirstName={invite.first_name}
+        initialLastName={invite.last_name || ""}
       />
     </AuthShell>
   );

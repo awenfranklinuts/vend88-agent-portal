@@ -692,12 +692,15 @@ export default function AdminManagementPage() {
       errors.email = lang === 'zh' ? '该邮箱已被使用' : 'Email already in use';
     }
 
-    if (!formData.first_name.trim()) {
-      errors.first_name = lang === 'zh' ? '请输入名' : 'First name is required';
-    }
-
-    if (!formData.last_name.trim()) {
-      errors.last_name = lang === 'zh' ? '请输入姓' : 'Last name is required';
+    // An invited administrator names themselves on the setup form, so the name
+    // is only asked for here when a password is being set by hand.
+    if (!formData.inviteMode) {
+      if (!formData.first_name.trim()) {
+        errors.first_name = lang === 'zh' ? '请输入名' : 'First name is required';
+      }
+      if (!formData.last_name.trim()) {
+        errors.last_name = lang === 'zh' ? '请输入姓' : 'Last name is required';
+      }
     }
 
     // Only needed when the invite is declined - an invited admin sets their own.
@@ -766,10 +769,12 @@ export default function AdminManagementPage() {
       const payload: Record<string, unknown> = {
         token,
         email: formData.email.trim(),
-        first_name: formData.first_name.trim(),
-        last_name: formData.last_name.trim(),
         role: formData.role,
       };
+      if (!formData.inviteMode) {
+        payload.first_name = formData.first_name.trim();
+        payload.last_name = formData.last_name.trim();
+      }
       // Omitted, not empty: the backend reads "no password" as "send an invite".
       if (!formData.inviteMode) payload.password = formData.password;
       const res = await axios.post('/api/admin/create', payload);
@@ -870,27 +875,31 @@ export default function AdminManagementPage() {
         {formErrors.email && <ErrorText>{formErrors.email}</ErrorText>}
       </FormGroup>
 
-      <FormGroup>
-        <FormLabel>{lang === 'zh' ? '名' : 'First Name'} *</FormLabel>
-        <FormInput
-          type="text"
-          placeholder={lang === 'zh' ? '输入名' : 'Enter first name'}
-          value={formData.first_name}
-          onChange={e => handleInputChange('first_name', e.target.value)}
-        />
-        {formErrors.first_name && <ErrorText>{formErrors.first_name}</ErrorText>}
-      </FormGroup>
+      {!formData.inviteMode && (
+        <>
+          <FormGroup>
+            <FormLabel>{lang === 'zh' ? '名' : 'First Name'} *</FormLabel>
+            <FormInput
+              type="text"
+              placeholder={lang === 'zh' ? '输入名' : 'Enter first name'}
+              value={formData.first_name}
+              onChange={e => handleInputChange('first_name', e.target.value)}
+            />
+            {formErrors.first_name && <ErrorText>{formErrors.first_name}</ErrorText>}
+          </FormGroup>
 
-      <FormGroup>
-        <FormLabel>{lang === 'zh' ? '姓' : 'Last Name'} *</FormLabel>
-        <FormInput
-          type="text"
-          placeholder={lang === 'zh' ? '输入姓' : 'Enter last name'}
-          value={formData.last_name}
-          onChange={e => handleInputChange('last_name', e.target.value)}
-        />
-        {formErrors.last_name && <ErrorText>{formErrors.last_name}</ErrorText>}
-      </FormGroup>
+          <FormGroup>
+            <FormLabel>{lang === 'zh' ? '姓' : 'Last Name'} *</FormLabel>
+            <FormInput
+              type="text"
+              placeholder={lang === 'zh' ? '输入姓' : 'Enter last name'}
+              value={formData.last_name}
+              onChange={e => handleInputChange('last_name', e.target.value)}
+            />
+            {formErrors.last_name && <ErrorText>{formErrors.last_name}</ErrorText>}
+          </FormGroup>
+        </>
+      )}
 
       <FormGroup>
         <FormLabel>{lang === 'zh' ? '角色' : 'Role'} *</FormLabel>
@@ -1123,7 +1132,15 @@ export default function AdminManagementPage() {
                   <Tbody>
                     {filteredAdmins.map(admin => (
                       <Tr key={admin.id}>
-                        <Td>{admin.first_name} {admin.last_name}</Td>
+                        <Td>
+                          {[admin.first_name, admin.last_name].filter(Boolean).join(' ') || (
+                            <span style={{ color: '#8a97a5' }}>
+                              {admin.invite_pending
+                                ? (lang === 'zh' ? '待填写' : 'Not set yet')
+                                : '-'}
+                            </span>
+                          )}
+                        </Td>
                         <Td>
                           {admin.email}
                           {admin.invite_pending && (
