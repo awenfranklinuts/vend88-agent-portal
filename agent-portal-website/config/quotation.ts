@@ -11,7 +11,7 @@ export const QUOTE_ISSUER = {
   abn: "40 686 114 901",
   address: "10/191 Parramatta Rd, Auburn NSW 2144",
   email: "accounts@vend88.com",
-  phone: "1300 726 825",
+  phone: "1300 290 600",
   website: "www.vendpos.com.au",
 };
 

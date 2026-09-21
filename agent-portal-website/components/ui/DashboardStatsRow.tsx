@@ -26,11 +26,22 @@ interface PipelineResponse {
   registrations_approved: Counter;
 }
 
+// Cumulative Team Management totals: `total` is everything on record and
+// `previous` the same total when the window opened, so the delta reads as growth
+// across the period rather than a count of it. Administrators only - the backend
+// leaves the block out for a scoped caller or a team/person filter.
+interface TeamTotal {
+  total: number;
+  previous: number;
+  new: number;
+}
+
 interface GrowthResponse {
   status_code: number;
   new_businesses: Counter;
   new_shops: Counter;
   active_businesses: Counter & { business_count: number };
+  teams?: { organisations: TeamTotal; members: TeamTotal };
 }
 
 // Revenue and transactions report a period total plus its buckets, but no
@@ -379,6 +390,11 @@ export default function DashboardStatsRow({ filter, showHeadline = true, title }
   if (!loading && !headline && !funnel) return null;
 
   const winRate = funnel?.pipeline.quotes_accepted.win_rate;
+  const teams = funnel?.growth.teams;
+  // Over an all-time window everything on record is "new", so the count says
+  // nothing the headline figure doesn't already.
+  const newlyAdded = (n: number) =>
+    period !== "all" && n > 0 ? `${n} ${lang === "zh" ? "新增" : "new"}` : null;
 
   const tiles: TileSpec[] = [
     {
@@ -424,6 +440,24 @@ export default function DashboardStatsRow({ filter, showHeadline = true, title }
         ? `${lang === "zh" ? "共" : "of"} ${formatCount(funnel.growth.active_businesses.business_count)}`
         : null,
     },
+    ...(teams
+      ? [
+          {
+            key: "organisations",
+            label: lang === "zh" ? "组织总数" : "Total organisations",
+            value: teams.organisations.total,
+            previous: teams.organisations.previous,
+            sub: newlyAdded(teams.organisations.new),
+          },
+          {
+            key: "members",
+            label: lang === "zh" ? "成员总数" : "Total members",
+            value: teams.members.total,
+            previous: teams.members.previous,
+            sub: newlyAdded(teams.members.new),
+          },
+        ]
+      : []),
   ];
 
   return (
