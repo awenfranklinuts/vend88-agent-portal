@@ -1,5 +1,6 @@
 "use client";
 
+import { useRequirePortalUser } from "@/lib/useRequirePortalUser";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth, canSeeAllTeams } from "@/context/AuthContext";
@@ -45,6 +46,7 @@ import {
 const LIMIT = 20;
 
 export default function QuotationManagementPage() {
+  useRequirePortalUser();
   return (
     <QuotationShell>
       <QuotationList />

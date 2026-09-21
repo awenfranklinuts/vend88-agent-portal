@@ -1,5 +1,6 @@
 "use client";
 
+import { useRequirePortalUser } from "@/lib/useRequirePortalUser";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
@@ -55,6 +56,7 @@ const EMPTY_DRAFT: Draft = { name: "", description: "", sku: "", type: "hardware
 const billingOptionsFor = (type: LineItemType): BillingPeriod[] => (type === "subscription" ? ["monthly", "yearly"] : ["once"]);
 
 export default function PriceListPage() {
+  useRequirePortalUser();
   return (
     <QuotationShell>
       <PriceList />

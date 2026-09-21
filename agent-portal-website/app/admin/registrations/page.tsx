@@ -10,7 +10,6 @@ import { useToast } from "@/context/ToastContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../components/layout/AdminSidebar";
 import { getApiUrl, API_CONFIG } from "@/config/api";
-import * as MockAPI from "@/lib/mockRegistrationApi";
 import { FormFieldSelector, type FormField } from "@/components/FormFieldSelector";
 
 const Container = styled.div`
@@ -981,6 +980,9 @@ interface Registration {
   id: string;
   form_id?: string; // Backend API uses form_id (e.g., V88-REG-001)
   token?: string;
+  // The customer-facing form link, built by the backend from where the form is
+  // actually hosted. Never rebuild it here from the portal's own origin.
+  link?: string | null;
   generated_by?: string;
   generatedBy?: string; // Keep for backwards compatibility
   // Attribution: the portal user credited with this registration, and their team
@@ -1244,16 +1246,12 @@ const BulkActionButtons = styled.div`
 
 export default function RegistrationsPage() {
   const router = useRouter();
-  const { token, role, isLoading, customers: authCustomers, fetchCustomers: fetchCustomersFromAuth, userEmail, adminProfile } = useAuth();
+  const { token, role, isLoading, userEmail, adminProfile } = useAuth();
   const { lang } = useLanguage();
   const { showToast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'pending' | 'submitted' | 'all'>('submitted');
   const [showGenerateModal, setShowGenerateModal] = useState(false);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [selectedRegistration, setSelectedRegistration] = useState<Registration | null>(null);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editedRegistration, setEditedRegistration] = useState<Registration | null>(null);
   const [generatedLink, setGeneratedLink] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
@@ -1264,17 +1262,11 @@ export default function RegistrationsPage() {
   const [hasFetched, setHasFetched] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterState, setFilterState] = useState<string>('all'); // all, NSW, VIC, QLD, etc.
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
-  const [disableAutoLink, setDisableAutoLink] = useState<boolean>(false);
   const [customerSearchQuery, setCustomerSearchQuery] = useState<string>('');
   const [isLinkCopied, setIsLinkCopied] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
-  const [registrationToReject, setRegistrationToReject] = useState<string | null>(null);
-  const [approveError, setApproveError] = useState('');
-  const [showApproveModal, setShowApproveModal] = useState(false);
-  const [registrationToApprove, setRegistrationToApprove] = useState<string | null>(null);
+  const [registrationsToReject, setRegistrationsToReject] = useState<string[]>([]);
   const [showRevokeModal, setShowRevokeModal] = useState(false);
   const [registrationToRevoke, setRegistrationToRevoke] = useState<string | null>(null);
   
@@ -1312,16 +1304,8 @@ export default function RegistrationsPage() {
   useEffect(() => {
     if (token) {
       fetchRegistrationData();
-      fetchCustomers();
     }
   }, [token]);
-
-  // Sync customers from auth context
-  useEffect(() => {
-    if (authCustomers) {
-      setCustomers(authCustomers);
-    }
-  }, [authCustomers]);
 
   // Reset to first page when switching tabs
   useEffect(() => {
@@ -1329,70 +1313,9 @@ export default function RegistrationsPage() {
     setSelectedRows(new Set());
   }, [activeTab]);
 
-  // Clear error when a customer is selected
-  useEffect(() => {
-    if (selectedCustomerId) {
-      setApproveError('');
-    }
-  }, [selectedCustomerId]);
-
-  // Refetch customers when modal opens to ensure fresh data
-  useEffect(() => {
-    if (showDetailsModal && token) {
-      fetchCustomers();
-    }
-  }, [showDetailsModal, token]);
-
-  // Auto-link customer after customers are loaded (skip if auto-link disabled)
-  useEffect(() => {
-    if (showDetailsModal && selectedRegistration && customers.length > 0 && !selectedCustomerId && !disableAutoLink) {
-      const contactEmail = getContactEmail(selectedRegistration);
-      if (contactEmail) {
-        const matchingCustomer = customers.find((c: any) => 
-          c.email?.toLowerCase() === contactEmail.toLowerCase()
-        );
-        
-        if (matchingCustomer) {
-          console.log('Auto-linking to existing customer:', matchingCustomer.name);
-          setSelectedCustomerId(matchingCustomer._id);
-          if (editedRegistration) {
-            setEditedRegistration({
-              ...editedRegistration,
-              linkedCustomerId: matchingCustomer._id
-            });
-          }
-        }
-      }
-    }
-  }, [showDetailsModal, selectedRegistration, customers, selectedCustomerId, disableAutoLink]);
-
-  // Reset disableAutoLink when modal closes so future opens can auto-link again
-  useEffect(() => {
-    if (!showDetailsModal) {
-      setDisableAutoLink(false);
-    }
-  }, [showDetailsModal]);
-
-  // Check if returning from customer creation
-  useEffect(() => {
-    const returnToRegId = sessionStorage.getItem('returnToRegistration');
-    const newCustomerId = sessionStorage.getItem('newCustomerId');
-    
-    if (returnToRegId && newCustomerId && selectedRegistration?.id === returnToRegId) {
-      // Auto-select the newly created customer
-      setSelectedCustomerId(newCustomerId);
-      handleLinkCustomer();
-      // Clear session storage
-      sessionStorage.removeItem('returnToRegistration');
-      sessionStorage.removeItem('newCustomerId');
-      sessionStorage.removeItem('registrationData');
-    }
-  }, [selectedRegistration, customers]);
-
   const fetchRegistrationData = async () => {
     setIsDataLoading(true);
     try {
-      console.log('[Fetch] Fetching registration data...');
       
       // Fetch from new backend API
       const response = await axios.get('/api/registration/list', {
@@ -1401,26 +1324,17 @@ export default function RegistrationsPage() {
         },
       });
 
-      console.log('[Fetch] Response status:', response.status);
-      console.log('[Fetch] Response data:', response.data);
 
       const registrations = response.data.data || response.data.registrations || [];
       if (response.data.status_code === 200 || response.data.success || Array.isArray(registrations)) {
         
-        console.log('[Fetch] Raw registrations array:', registrations);
-        console.log('[Fetch] Array length:', registrations.length);
         
         if (registrations.length > 0) {
-          console.log('[Fetch] First item structure:', registrations[0]);
-          console.log('[Fetch] First item _id:', registrations[0]._id);
-          console.log('[Fetch] First item form_id:', registrations[0].form_id);
-          console.log('[Fetch] First item id:', registrations[0].id);
         }
         
         // Normalize the data - ensure id field is set
         const normalizedRegistrations = registrations.map((reg: any) => {
           const normalizedId = reg.id || reg._id || reg.form_id || `temp_${Math.random()}`;
-          console.log('[Normalize]', reg.form_id || reg._id, '-> id:', normalizedId);
           
           return {
             ...reg,
@@ -1441,8 +1355,6 @@ export default function RegistrationsPage() {
           };
         });
         
-        console.log('[Fetch] Normalized registrations:', normalizedRegistrations.length, 'items');
-        console.log('[Fetch] Sample normalized item:', normalizedRegistrations[0]);
         
         setAllRegistrations(normalizedRegistrations);
         setRegistrations(normalizedRegistrations);
@@ -1460,122 +1372,8 @@ export default function RegistrationsPage() {
     }
   };
 
-  const fetchCustomers = async () => {
-    try {
-      console.log('Fetching customers for registration page...');
-      const customersResponse = await fetch(
-        '/api/customer/list',
-        {
-          method: 'POST',
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            token: token,
-            page: 1,
-            limit: 1000
-          })
-        }
-      );
-
-      const customersData = await customersResponse.json();
-      console.log('Customers response:', customersData);
-      
-      if (customersData.status_code === 200) {
-        const customersList = customersData.customers || [];
-        console.log('Customers loaded:', customersList.length, 'customers');
-        setCustomers(customersList);
-      } else {
-        console.log('Failed to load customers, status:', customersData.status_code);
-        setCustomers([]);
-      }
-    } catch (error) {
-      console.error('Failed to fetch customers:', error);
-      setCustomers([]);
-    }
-  };
-
-  const handleLinkCustomer = (customerId?: string) => {
-    const customerIdToLink = customerId || selectedCustomerId;
-    
-    if (!customerIdToLink) {
-      alert(lang === 'zh' ? '请选择一个客户' : 'Please select a customer');
-      return;
-    }
-    
-    if (editedRegistration) {
-      handleEditChange('linkedCustomerId', customerIdToLink);
-    }
-    
-    // Clear error immediately when customer is linked
-    setApproveError('');
-  };
-
-  const handleCreateAndLinkCustomer = () => {
-    if (!selectedRegistration) return;
-    
-    // Create a temporary customer entry in the search field
-    const tempCustomerDisplay = `${getContactName(selectedRegistration) || 'New Customer'} - ${getContactEmail(selectedRegistration) || ''}`;
-    setCustomerSearchQuery(tempCustomerDisplay);
-    
-    // Generate a temporary customer ID (will be replaced with real ID after API call)
-    const tempCustomerId = `temp_${Date.now()}`;
-    
-    // Store pending customer data
-    sessionStorage.setItem('pendingCustomer', JSON.stringify({
-      tempId: tempCustomerId,
-      registrationId: selectedRegistration.id,
-      name: getContactName(selectedRegistration),
-      email: getContactEmail(selectedRegistration),
-      phone: getContactPhone(selectedRegistration)
-    }));
-    
-    // Set as selected (temporary) - customer card will show automatically
-    setSelectedCustomerId(tempCustomerId);
-    handleEditChange('linkedCustomerId', tempCustomerId);
-  };
-
   const handleViewDetails = (registration: Registration) => {
     router.push(`/admin/registrations/${registration.id}`);
-  };
-
-  const handleEditChange = (field: keyof Registration, value: any) => {
-    if (editedRegistration) {
-      setEditedRegistration({
-        ...editedRegistration,
-        [field]: value
-      });
-    }
-  };
-
-  const handleSaveEdit = async () => {
-    if (editedRegistration) {
-      try {
-        // TODO: Replace with real API call when ready
-        // const response = await axios.put(getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_UPDATE.replace(':id', editedRegistration.id)), editedRegistration);
-        const response = await MockAPI.updateRegistration(editedRegistration.id, editedRegistration);
-        
-        if (response.success && response.data) {
-          setSelectedRegistration(response.data);
-          setIsEditMode(false);
-          // Refresh the list
-          fetchRegistrationData();
-          showToast(lang === 'zh' ? '保存成功！' : 'Saved successfully!', 'success');
-        } else {
-          console.error('Failed to save:', response.error);
-          showToast('Failed to save changes', 'error');
-        }
-      } catch (error) {
-        console.error('Failed to save registration:', error);
-        showToast('Failed to save changes', 'error');
-      }
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setEditedRegistration(selectedRegistration);
-    setIsEditMode(false);
   };
 
   const handleGenerateForm = async () => {
@@ -1618,12 +1416,6 @@ export default function RegistrationsPage() {
       // Use API proxy to avoid CORS issues
       const apiUrl = '/api/registration/generate';
       
-      console.log('=== Generate Form Request with Fields ===');
-      console.log('API URL:', apiUrl);
-      console.log('Admin Email:', adminEmail);
-      console.log('Selected Fields:', selectedFields);
-      console.log('Token exists:', !!token);
-      console.log('Token preview:', token?.substring(0, 20) + '...');
 
       const response = await axios.post(
         apiUrl,
@@ -1645,9 +1437,6 @@ export default function RegistrationsPage() {
         }
       );
       
-      console.log('=== Generate Form Response ===');
-      console.log('Status:', response.status);
-      console.log('Response data:', response.data);
       
       if (response.data.success && response.data.data) {
         // Remove /register path to use root URL which doesn't have redirect issues
@@ -1656,11 +1445,9 @@ export default function RegistrationsPage() {
         setSelectedTemplateId(undefined);
         setShowFormFieldSelector(false);
         setShowGenerateModal(true);
-        console.log('âœ… Registration form generated successfully');
         
         // Refresh the list after a short delay to ensure backend has saved the data
         setTimeout(() => {
-          console.log('[Generate] Refreshing registration list...');
           fetchRegistrationData();
         }, 500);
       } else {
@@ -1696,199 +1483,69 @@ export default function RegistrationsPage() {
   };
 
   const handleCopyRegistrationLink = (registration: Registration) => {
-    if (registration.token) {
-      const link = `${window.location.origin}/registration?token=${registration.token}`;
-      navigator.clipboard.writeText(link);
+    // Only the backend knows where the onboarding form is hosted, so the link it
+    // sends is the one that gets copied. Building one from window.location here
+    // produced a portal URL with no page behind it - a 404 for the customer.
+    if (registration.link) {
+      navigator.clipboard.writeText(registration.link);
       showToast(lang === 'zh' ? '链接已复制到剪贴板' : 'Link copied to clipboard', 'success');
     } else {
       showToast(lang === 'zh' ? '无法获取链接' : 'Unable to retrieve link', 'error');
     }
   };
 
-  const handleApprove = (id: string) => {
-    // Check if customer is linked when approving from details modal (only when viewing in modal)
-    if (selectedRegistration?.id === id && showDetailsModal && !selectedCustomerId) {
-      setApproveError(lang === 'zh' ? '请先关联客户后再批准' : 'Please link a customer before approving');
-      return;
-    }
-    
-    // Clear any previous error
-    setApproveError('');
-    
-    // Show confirmation modal
-    setRegistrationToApprove(id);
-    setShowApproveModal(true);
-  };
-
-  const handleConfirmApprove = async () => {
-    if (!registrationToApprove) return;
-    
-    const id = registrationToApprove;
-      try {
-        // Save the linked customer ID before approving
-        const linkedCustomer = selectedCustomerId;
-
-        if (token) {
-          // Use real API: ensure customer is linked first
-          const adminEmail = adminProfile?.email || userEmail || 'admin@vend88.com';
-
-          if (linkedCustomer) {
-            try {
-              if (linkedCustomer.startsWith('temp_')) {
-                // Create new customer via link-customer endpoint
-                await axios.put(
-                  getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_LINK.replace(':id', id)),
-                  {
-                    create_new: true,
-                    customer_data: {
-                      name: selectedRegistration ? getContactName(selectedRegistration) : undefined,
-                      email: selectedRegistration ? getContactEmail(selectedRegistration) : undefined,
-                      phone: selectedRegistration?.contactPhone,
-                    }
-                  },
-                  { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } }
-                );
-              } else {
-                // Link existing customer
-                await axios.put(
-                  getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_LINK.replace(':id', id)),
-                  { customer_id: linkedCustomer },
-                  { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } }
-                );
-              }
-            } catch (err) {
-              console.error('Failed to link customer before approval:', err);
-              showToast('Failed to link customer. Please try again.', 'error');
-              return;
-            }
-          }
-
-          // Call approve endpoint
-          try {
-            const response = await axios.post(
-              getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_APPROVE.replace(':id', id)),
-              { approval_notes: '' },
-              { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } }
-            );
-
-            if (response.data && response.data.success) {
-              // Refresh the list
-              fetchRegistrationData();
-              showToast(lang === 'zh' ? '批准成功！' : 'Approved successfully!', 'success');
-              if (selectedRegistration?.id === id) setShowDetailsModal(false);
-            } else {
-              showToast(response.data?.error || 'Failed to approve', 'error');
-            }
-          } catch (err) {
-            console.error('Failed to approve via API:', err);
-            showToast('Failed to approve. Please try again.', 'error');
-          }
-        } else {
-          // Fallback to mock API for local dev
-          const response = await MockAPI.approveRegistration(id, adminProfile?.email || userEmail || 'admin@vend88.com');
-
-          if (response.success) {
-            // Update the registration with linked customer ID
-            if (linkedCustomer && response.data) {
-              const updateResponse = await MockAPI.updateRegistration(id, { 
-                linkedCustomerId: linkedCustomer 
-              } as Partial<Registration>);
-              if (updateResponse.success && updateResponse.data) {
-                setSelectedRegistration(updateResponse.data);
-                setEditedRegistration(updateResponse.data);
-              }
-            }
-
-            // Refresh the list
-            fetchRegistrationData();
-            showToast(lang === 'zh' ? '批准成功！' : 'Approved successfully!', 'success');
-            // Close modals
-            setShowApproveModal(false);
-            setRegistrationToApprove(null);
-            if (selectedRegistration?.id === id) {
-              setShowDetailsModal(false);
-            }
-          } else {
-            showToast(response.error || 'Failed to approve', 'error');
-          }
-        }
-      } catch (error) {
-        console.error('Failed to approve registration:', error);
-        showToast('Failed to approve. Please try again.', 'error');
-      }
-  };
-
-  const handleReject = async (id: string) => {
-    setRegistrationToReject(id);
+  const handleReject = (ids: string | string[]) => {
+    setRegistrationsToReject(Array.isArray(ids) ? ids : [ids]);
     setRejectionReason('');
     setShowRejectModal(true);
   };
 
   const handleConfirmReject = async () => {
-    if (!registrationToReject) return;
-    
-    const id = registrationToReject;
-    try {
-      const registrationToRejectData = allRegistrations.find(r => r.id === id);
-      
-      console.log('[Reject] Registration ID:', id);
-      console.log('[Reject] Registration Token (ignored):', registrationToRejectData?.token);
-      console.log('[Reject] Rejection Reason:', rejectionReason);
-      console.log('[Reject] Full Registration Data:', registrationToRejectData);
-      console.log('[Reject] Using admin token from auth context for reject request.');
+    if (registrationsToReject.length === 0) return;
 
-      const requestBody = {
-        token: token || '',
-        reason: rejectionReason || 'Rejected by admin'
-      };
+    const ids = registrationsToReject;
+    const reason = rejectionReason || 'Rejected by admin';
+    const failures: string[] = [];
 
-      console.log('[Reject] Request body (token masked):', {
-        ...requestBody,
-        token: requestBody.token ? '***' : ''
-      });
-      const rejectUrl = getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_REJECT.replace(':id', id));
-      console.log('[Reject] API URL:', rejectUrl);
-
-      const response = await fetch(rejectUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      console.log('[Reject] Response status:', response.status);
-      console.log('[Reject] Response ok:', response.ok);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[Reject] Error response:', errorText);
-        throw new Error(`Failed to reject registration: ${errorText}`);
+    // One request per registration: the endpoint takes a single id, and a bulk
+    // reject used to send only the first of the selected rows while clearing the
+    // whole selection - so the rest silently stayed submitted.
+    for (const id of ids) {
+      try {
+        const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_REJECT.replace(':id', id)), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ token: token || '', reason }),
+        });
+        if (!response.ok) failures.push(id);
+      } catch (error) {
+        console.error('Failed to reject registration', id, error);
+        failures.push(id);
       }
+    }
 
-      const responseData = await response.json();
-      console.log('[Reject] Success response:', responseData);
+    setShowRejectModal(false);
+    setRegistrationsToReject([]);
+    setRejectionReason('');
+    await fetchRegistrationData();
 
-      // Close modals first
-      setShowRejectModal(false);
-      setRegistrationToReject(null);
-      setRejectionReason('');
-      
-      // Refresh the list and wait for it to complete
-      console.log('[Reject] Fetching updated registration list...');
-      await fetchRegistrationData();
-      console.log('[Reject] Registration list refreshed');
-      
-      showToast(lang === 'zh' ? '已拒绝' : 'Rejected successfully', 'success');
-      
-      // Close details modal if open
-      if (selectedRegistration?.id === id) {
-        setShowDetailsModal(false);
-      }
-    } catch (error) {
-      console.error('Failed to reject registration:', error);
-      showToast('Failed to reject. Please try again.', 'error');
+    const succeeded = ids.length - failures.length;
+    if (succeeded > 0) {
+      showToast(
+        ids.length === 1
+          ? (lang === 'zh' ? '已拒绝' : 'Rejected successfully')
+          : `${succeeded} ${lang === 'zh' ? '条已拒绝' : 'rejected'}`,
+        'success'
+      );
+    }
+    if (failures.length > 0) {
+      showToast(
+        `${failures.length} ${lang === 'zh' ? '条拒绝失败' : 'failed to reject'}`,
+        'error'
+      );
     }
   };
 
@@ -1926,10 +1583,6 @@ export default function RegistrationsPage() {
         // Refresh the list
         fetchRegistrationData();
         showToast(lang === 'zh' ? '已撤销！' : 'Revoked successfully!', 'success');
-        // Close details modal if open
-        if (selectedRegistration?.id === id) {
-          setShowDetailsModal(false);
-        }
         // Close revoke modal
         setShowRevokeModal(false);
         setRegistrationToRevoke(null);
@@ -2092,12 +1745,6 @@ export default function RegistrationsPage() {
   const paginatedRegistrations = sortedRegistrations.slice(startIndex, startIndex + itemsPerPage);
   
   // Debug logging
-  console.log('[Table] All registrations count:', allRegistrations.length);
-  console.log('[Table] Filtered registrations count:', filteredRegistrations.length);
-  console.log('[Table] Sorted registrations count:', sortedRegistrations.length);
-  console.log('[Table] Paginated registrations count:', paginatedRegistrations.length);
-  console.log('[Table] Active tab:', activeTab);
-  console.log('[Table] Current page:', currentPage, '/', totalPages);
 
   // Handle sort
   const handleSort = (field: string) => {
@@ -2304,22 +1951,16 @@ export default function RegistrationsPage() {
                       {selectedRows.size} {lang === "zh" ? "已选择" : "selected"}
                     </BulkActionText>
                     <BulkActionButtons>
+                      {/* No bulk approve: each approval needs its own login
+                          credentials and customer decision, so approving is done
+                          one registration at a time on its detail page. */}
                       {activeTab === 'submitted' && canApprove && (
-                        <>
-                          <ActionButton $variant="approve" onClick={() => {
-                            selectedRows.forEach(id => handleApprove(id));
-                            setSelectedRows(new Set());
-                          }}>
-                            {lang === "zh" ? "批准所选" : "Approve Selected"}
-                          </ActionButton>
-                          <ActionButton $variant="reject" onClick={() => {
-                            const firstId = Array.from(selectedRows)[0];
-                            handleReject(firstId);
-                            setSelectedRows(new Set());
-                          }}>
-                            {lang === "zh" ? "拒绝所选" : "Reject Selected"}
-                          </ActionButton>
-                        </>
+                        <ActionButton $variant="reject" onClick={() => {
+                          handleReject(Array.from(selectedRows));
+                          setSelectedRows(new Set());
+                        }}>
+                          {lang === "zh" ? "拒绝所选" : "Reject Selected"}
+                        </ActionButton>
                       )}
                       {activeTab === 'pending' && (
                         <ActionButton $variant="reject" onClick={async () => {
@@ -2333,23 +1974,11 @@ export default function RegistrationsPage() {
                       {activeTab === 'all' && (
                         <>
                           {canApprove && (
-                          <ActionButton $variant="approve" onClick={() => {
-                            const submittedIds = paginatedRegistrations
-                              .filter(r => selectedRows.has(r.id) && r.status === 'submitted')
-                              .map(r => r.id);
-                            submittedIds.forEach(id => handleApprove(id));
-                            setSelectedRows(new Set());
-                          }}>
-                            {lang === "zh" ? "批准已提交" : "Approve Submitted"}
-                          </ActionButton>
-                          )}
-                          {canApprove && (
                           <ActionButton $variant="reject" onClick={() => {
                             const submittedIds = paginatedRegistrations
                               .filter(r => selectedRows.has(r.id) && r.status === 'submitted')
                               .map(r => r.id);
-                            const firstId = Array.from(submittedIds)[0];
-                            if (firstId) handleReject(firstId);
+                            if (submittedIds.length > 0) handleReject(submittedIds);
                             setSelectedRows(new Set());
                           }}>
                             {lang === "zh" ? "拒绝已提交" : "Reject Submitted"}
@@ -2456,8 +2085,12 @@ export default function RegistrationsPage() {
                               </ActionButton>
                               {canApprove && (
                                 <>
-                                  <ActionButton $variant="approve" onClick={() => handleApprove(reg.id)}>
-                                    {lang === "zh" ? "批准" : "Approve"}
+                                  {/* Approval needs the login credentials and the
+                                      customer decision that only the detail page
+                                      collects, so this opens that page's dialog
+                                      rather than trying to approve from here. */}
+                                  <ActionButton $variant="approve" onClick={() => router.push(`/admin/registrations/${reg.id}?approve=1`)}>
+                                    {lang === "zh" ? "审核批准" : "Review & approve"}
                                   </ActionButton>
                                   <ActionButton $variant="reject" onClick={() => handleReject(reg.id)}>
                                     {lang === "zh" ? "拒绝" : "Reject"}
@@ -2569,555 +2202,17 @@ export default function RegistrationsPage() {
         </ModalContent>
       </Modal>
 
-      <Modal $show={showDetailsModal} onClick={() => setShowDetailsModal(false)}>
-        <ModalContent onClick={e => e.stopPropagation()} style={{ maxHeight: '85vh', overflowY: 'auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <ModalTitle style={{ margin: 0 }}>{lang === "zh" ? "注册详情" : "Registration Details"}</ModalTitle>
-            {!isEditMode && (
-              <EditButton onClick={() => setIsEditMode(true)}>
-                <EditIcon />
-                {lang === "zh" ? "编辑" : "Edit"}
-              </EditButton>
-            )}
-          </div>
-          
-          {selectedRegistration && editedRegistration && (
-            <>
-              <SectionTitle>{lang === "zh" ? "📧 联系信息" : "📧 Contact Information"}</SectionTitle>
-              
-              <DetailSection>
-                <DetailLabel>{lang === "zh" ? "联系邮箱" : "Contact Email"}</DetailLabel>
-                {isEditMode ? (
-                  <EditInput 
-                    type="email"
-                    value={editedRegistration.contactEmail || editedRegistration.contact_email || ''}
-                    onChange={(e) => handleEditChange('contactEmail', e.target.value)}
-                  />
-                ) : (
-                  <DetailValue>{getContactEmail(selectedRegistration) || '-'}</DetailValue>
-                )}
-              </DetailSection>
-
-              <DetailSection>
-                <DetailLabel>{lang === "zh" ? "全名" : "Full Name"}</DetailLabel>
-                {isEditMode ? (
-                  <EditInput 
-                    value={editedRegistration.ownerName || editedRegistration.contact_name || ''}
-                    onChange={(e) => handleEditChange('ownerName', e.target.value)}
-                  />
-                ) : (
-                  <DetailValue>{getContactName(selectedRegistration) || '-'}</DetailValue>
-                )}
-              </DetailSection>
-
-              <DetailSection>
-                <DetailLabel>{lang === "zh" ? "联系电话" : "Contact Phone"}</DetailLabel>
-                {isEditMode ? (
-                  <EditInput 
-                    type="tel"
-                    value={editedRegistration.contactPhone || editedRegistration.contact_phone || ''}
-                    onChange={(e) => handleEditChange('contactPhone', e.target.value)}
-                  />
-                ) : (
-                  <DetailValue>{getContactPhone(selectedRegistration) || '-'}</DetailValue>
-                )}
-              </DetailSection>
-
-              {(selectedRegistration.messagingAppType || isEditMode) && (
-                <DetailSection>
-                  <DetailLabel>
-                    {lang === "zh" ? "即时通讯" : "Messaging App"}
-                  </DetailLabel>
-                  {isEditMode ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      <EditSelect 
-                        value={editedRegistration.messagingAppType || ''}
-                        onChange={(e) => handleEditChange('messagingAppType', e.target.value)}
-                      >
-                        <option value="">{lang === "zh" ? "-- 选择应用 --" : "-- Select app --"}</option>
-                        <option value="wechat">{lang === "zh" ? "微信号" : "WeChat ID"}</option>
-                        <option value="whatsapp">{lang === "zh" ? "WhatsApp 号码" : "WhatsApp Number"}</option>
-                      </EditSelect>
-                      {editedRegistration.messagingAppType && (
-                        <EditInput 
-                          value={editedRegistration.messagingAppId || ''}
-                          onChange={(e) => handleEditChange('messagingAppId', e.target.value)}
-                          placeholder={editedRegistration.messagingAppType === 'wechat' 
-                            ? (lang === "zh" ? "输入微信号" : "Enter WeChat ID")
-                            : (lang === "zh" ? "输入 WhatsApp 号码" : "Enter WhatsApp number")
-                          }
-                        />
-                      )}
-                    </div>
-                  ) : (
-                    <DetailValue>
-                      {selectedRegistration.messagingAppType === 'wechat' ? 'WeChat' : 'WhatsApp'}: {selectedRegistration.messagingAppId}
-                    </DetailValue>
-                  )}
-                </DetailSection>
-              )}
-
-
-
-              <Divider />
-
-              <SectionTitle>{lang === "zh" ? "🏢 商业信息" : "🏢 Business Information"}</SectionTitle>
-
-              <DetailSection>
-                <DetailLabel>{lang === "zh" ? "报价单/发票号码" : "Quote/Invoice Number"}</DetailLabel>
-                {isEditMode ? (
-                  <EditInput 
-                    value={editedRegistration.quoteNumber || ''}
-                    onChange={(e) => handleEditChange('quoteNumber', e.target.value)}
-                  />
-                ) : (
-                  <DetailValue>{selectedRegistration.quoteNumber || '-'}</DetailValue>
-                )}
-              </DetailSection>
-
-              <DetailSection>
-                <DetailLabel>{lang === "zh" ? "公司交易名称" : "Business Trading Name"}</DetailLabel>
-                {isEditMode ? (
-                  <EditInput 
-                    value={editedRegistration.businessName || editedRegistration.business_name || ''}
-                    onChange={(e) => handleEditChange('businessName', e.target.value)}
-                  />
-                ) : (
-                  <DetailValue>{getBusinessName(selectedRegistration) || '-'}</DetailValue>
-                )}
-              </DetailSection>
-
-              <DetailSection>
-                <DetailLabel>{lang === "zh" ? "ABN" : "ABN"}</DetailLabel>
-                {isEditMode ? (
-                  <EditInput 
-                    value={editedRegistration.abn || ''}
-                    onChange={(e) => handleEditChange('abn', e.target.value)}
-                    maxLength={11}
-                  />
-                ) : (
-                  <DetailValue>{selectedRegistration.abn || '-'}</DetailValue>
-                )}
-              </DetailSection>
-
-              <Divider />
-
-              <SectionTitle>{lang === "zh" ? "📍 注册地址" : "📍 Registered Address"}</SectionTitle>
-
-              <DetailSection>
-                <DetailLabel>{lang === "zh" ? "街道地址" : "Street Address"}</DetailLabel>
-                {isEditMode ? (
-                  <EditInput 
-                    value={editedRegistration.registeredAddress || ''}
-                    onChange={(e) => handleEditChange('registeredAddress', e.target.value)}
-                  />
-                ) : (
-                  <DetailValue>{selectedRegistration.registeredAddress || '-'}</DetailValue>
-                )}
-              </DetailSection>
-
-              <DetailSection>
-                <DetailLabel>{lang === "zh" ? "城市/郊区" : "City/Suburb"}</DetailLabel>
-                {isEditMode ? (
-                  <EditInput 
-                    value={editedRegistration.registeredSuburb || ''}
-                    onChange={(e) => handleEditChange('registeredSuburb', e.target.value)}
-                  />
-                ) : (
-                  <DetailValue>{selectedRegistration.registeredSuburb || '-'}</DetailValue>
-                )}
-              </DetailSection>
-
-              <DetailSection>
-                <DetailLabel>{lang === "zh" ? "邮政编码" : "Postcode"}</DetailLabel>
-                {isEditMode ? (
-                  <EditInput 
-                    value={editedRegistration.registeredPostcode || ''}
-                    onChange={(e) => handleEditChange('registeredPostcode', e.target.value)}
-                    maxLength={4}
-                  />
-                ) : (
-                  <DetailValue>{selectedRegistration.registeredPostcode || '-'}</DetailValue>
-                )}
-              </DetailSection>
-
-              <DetailSection>
-                <DetailLabel>{lang === "zh" ? "州/领地" : "State/Territory"}</DetailLabel>
-                {isEditMode ? (
-                  <EditSelect 
-                    value={editedRegistration.registeredState || ''}
-                    onChange={(e) => handleEditChange('registeredState', e.target.value)}
-                  >
-                    <option value="">{lang === "zh" ? "-- 选择 --" : "-- Select --"}</option>
-                    <option value="NSW">NSW</option>
-                    <option value="VIC">VIC</option>
-                    <option value="QLD">QLD</option>
-                    <option value="WA">WA</option>
-                    <option value="SA">SA</option>
-                    <option value="TAS">TAS</option>
-                    <option value="ACT">ACT</option>
-                    <option value="NT">NT</option>
-                  </EditSelect>
-                ) : (
-                  <DetailValue>{selectedRegistration.registeredState || '-'}</DetailValue>
-                )}
-              </DetailSection>
-
-              <DetailSection>
-                <DetailLabel>{lang === "zh" ? "国家" : "Country"}</DetailLabel>
-                {isEditMode ? (
-                  <EditSelect 
-                    value={editedRegistration.registeredCountry || 'Australia'}
-                    onChange={(e) => handleEditChange('registeredCountry', e.target.value)}
-                  >
-                    <option value="Australia">Australia</option>
-                  </EditSelect>
-                ) : (
-                  <DetailValue>{selectedRegistration.registeredCountry || '-'}</DetailValue>
-                )}
-              </DetailSection>
-
-              <Divider />
-
-              <SectionTitle>{lang === "zh" ? "💳 支付与集成" : "💳 Payment & Integration"}</SectionTitle>
-
-              <DetailSection>
-                <DetailLabel>{lang === "zh" ? "EFTPOS 集成" : "EFTPOS Integration"}</DetailLabel>
-                {isEditMode ? (
-                  <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
-                    <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                      <input 
-                        type="radio"
-                        checked={editedRegistration.eftposIntegration === 'yes'}
-                        onChange={() => handleEditChange('eftposIntegration', 'yes')}
-                      />
-                      {lang === "zh" ? "是" : "Yes"}
-                    </label>
-                    <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                      <input 
-                        type="radio"
-                        checked={editedRegistration.eftposIntegration === 'no'}
-                        onChange={() => handleEditChange('eftposIntegration', 'no')}
-                      />
-                      {lang === "zh" ? "否" : "No"}
-                    </label>
-                  </div>
-                ) : (
-                  <DetailValue>
-                    {selectedRegistration.eftposIntegration === 'yes' 
-                      ? (lang === "zh" ? "是" : "Yes") 
-                      : selectedRegistration.eftposIntegration === 'no'
-                      ? (lang === "zh" ? "否" : "No")
-                      : '-'}
-                  </DetailValue>
-                )}
-              </DetailSection>
-
-              <DetailSection>
-                <DetailLabel>{lang === "zh" ? "支付宝/微信支付" : "Alipay/WeChat Pay"}</DetailLabel>
-                {isEditMode ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <EditSelect 
-                      value={editedRegistration.alipayOption || ''}
-                      onChange={(e) => handleEditChange('alipayOption', e.target.value)}
-                    >
-                      <option value="">{lang === "zh" ? "-- 选择 --" : "-- Select --"}</option>
-                      <option value="open">{lang === "zh" ? "开通" : "Open Account"}</option>
-                      <option value="not-interested">{lang === "zh" ? "不感兴趣" : "Not Interested"}</option>
-                      <option value="superpay">Superpay</option>
-                      <option value="royalpay">Royalpay</option>
-                      <option value="other">{lang === "zh" ? "其他" : "Other"}</option>
-                    </EditSelect>
-                    {editedRegistration.alipayOption === 'other' && (
-                      <EditInput 
-                        value={editedRegistration.alipayOther || ''}
-                        onChange={(e) => handleEditChange('alipayOther', e.target.value)}
-                        placeholder={lang === "zh" ? "请描述" : "Please describe"}
-                      />
-                    )}
-                  </div>
-                ) : (
-                  <DetailValue>
-                    {selectedRegistration.alipayOption === 'open' && (lang === "zh" ? "开通" : "Open Account")}
-                    {selectedRegistration.alipayOption === 'not-interested' && (lang === "zh" ? "不感兴趣" : "Not Interested")}
-                    {selectedRegistration.alipayOption === 'superpay' && "Superpay"}
-                    {selectedRegistration.alipayOption === 'royalpay' && "Royalpay"}
-                    {selectedRegistration.alipayOption === 'other' && `${lang === "zh" ? "其他" : "Other"}: ${selectedRegistration.alipayOther || ''}`}
-                    {!selectedRegistration.alipayOption && '-'}
-                  </DetailValue>
-                )}
-              </DetailSection>
-
-              <Divider />
-
-              <SectionTitle>{lang === "zh" ? "📋 附加信息" : "📋 Additional Information"}</SectionTitle>
-
-              <DetailSection>
-                <DetailLabel>{lang === "zh" ? "预期部署时间" : "Expected Deployment"}</DetailLabel>
-                {isEditMode ? (
-                  <EditTextarea 
-                    value={editedRegistration.readyBy || ''}
-                    onChange={(e) => handleEditChange('readyBy', e.target.value)}
-                    rows={2}
-                  />
-                ) : (
-                  <DetailValue>{selectedRegistration.readyBy || '-'}</DetailValue>
-                )}
-              </DetailSection>
-
-              <DetailSection>
-                <DetailLabel>{lang === "zh" ? "如何了解我们" : "How Did You Hear About Us"}</DetailLabel>
-                {isEditMode ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <EditSelect 
-                      value={editedRegistration.heardAbout || ''}
-                      onChange={(e) => handleEditChange('heardAbout', e.target.value)}
-                    >
-                      <option value="">{lang === "zh" ? "-- 选择 --" : "-- Select --"}</option>
-                      <option value="friend">{lang === "zh" ? "朋友推荐" : "Friend Referral"}</option>
-                      <option value="google">Google</option>
-                      <option value="wechat">{lang === "zh" ? "微信" : "WeChat"}</option>
-                      <option value="saw">{lang === "zh" ? "看到使用" : "Saw in Use"}</option>
-                      <option value="other">{lang === "zh" ? "其他" : "Other"}</option>
-                    </EditSelect>
-                    {editedRegistration.heardAbout === 'other' && (
-                      <EditInput 
-                        value={editedRegistration.heardOther || ''}
-                        onChange={(e) => handleEditChange('heardOther', e.target.value)}
-                        placeholder={lang === "zh" ? "请描述" : "Please describe"}
-                      />
-                    )}
-                  </div>
-                ) : (
-                  <DetailValue>
-                    {selectedRegistration.heardAbout === 'friend' && (lang === "zh" ? "朋友推荐" : "Friend Referral")}
-                    {selectedRegistration.heardAbout === 'google' && "Google"}
-                    {selectedRegistration.heardAbout === 'wechat' && (lang === "zh" ? "微信" : "WeChat")}
-                    {selectedRegistration.heardAbout === 'saw' && (lang === "zh" ? "看到使用" : "Saw in Use")}
-                    {selectedRegistration.heardAbout === 'other' && `${lang === "zh" ? "其他" : "Other"}: ${selectedRegistration.heardOther || ''}`}
-                    {!selectedRegistration.heardAbout && '-'}
-                  </DetailValue>
-                )}
-              </DetailSection>
-
-              {selectedRegistration.menuFiles && selectedRegistration.menuFiles.length > 0 && (
-                <DetailSection>
-                  <DetailLabel>{lang === "zh" ? "菜单文件" : "Menu Files"}</DetailLabel>
-                  <DetailValue>
-                    {selectedRegistration.menuFiles.map((file, idx) => {
-                      // Handle both old string format and new object format
-                      if (typeof file === 'string') {
-                        return (
-                          <div key={idx} style={{ padding: '0.5rem', background: 'rgba(43,123,227,0.05)', borderRadius: '4px', marginTop: idx > 0 ? '0.5rem' : 0 }}>
-                            📄 {file}
-                          </div>
-                        );
-                      }
-                      
-                      // New downloadable file format
-                      return (
-                        <FileDownloadLink
-                          key={idx}
-                          href={file.url}
-                          download={file.filename}
-                          onClick={(e) => {
-                            // For mock files, prevent default and show alert
-                            if (file.url.startsWith('/mock-files/')) {
-                              e.preventDefault();
-                              alert(lang === 'zh' 
-                                ? `模拟下载: ${file.filename}\n实际应用中,这将从服务器下载真实文件。` 
-                                : `Mock download: ${file.filename}\nIn production, this would download the actual file from the server.`);
-                            }
-                          }}
-                        >
-                          <FileInfo>
-                            <span>📄</span>
-                            <div>
-                              <FileName>{file.filename}</FileName>
-                              {(file.size || file.uploadedAt) && (
-                                <FileMetadata>
-                                  {file.size && formatFileSize(file.size)}
-                                  {file.size && file.uploadedAt && ' • '}
-                                  {file.uploadedAt && new Date(file.uploadedAt).toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
-                                </FileMetadata>
-                              )}
-                            </div>
-                          </FileInfo>
-                          <DownloadButton>
-                            <DownloadIcon />
-                            {lang === "zh" ? "下载" : "Download"}
-                          </DownloadButton>
-                        </FileDownloadLink>
-                      );
-                    })}
-                  </DetailValue>
-                </DetailSection>
-              )}
-
-              {selectedRegistration.menuSendLater && (
-                <DetailSection>
-                  <DetailLabel>{lang === "zh" ? "菜单" : "Menu"}</DetailLabel>
-                  <DetailValue>{lang === "zh" ? "稍后发送" : "Will send later"}</DetailValue>
-                </DetailSection>
-              )}
-
-              {(selectedRegistration.notes || isEditMode) && (
-                <DetailSection>
-                  <DetailLabel>{lang === "zh" ? "备注" : "Notes"}</DetailLabel>
-                  {isEditMode ? (
-                    <EditTextarea 
-                      value={editedRegistration.notes || ''}
-                      onChange={(e) => handleEditChange('notes', e.target.value)}
-                      rows={3}
-                    />
-                  ) : (
-                    <DetailValue style={{ whiteSpace: 'pre-wrap' }}>{selectedRegistration.notes}</DetailValue>
-                  )}
-                </DetailSection>
-              )}
-
-              <Divider />
-
-              <DetailSection>
-                <DetailLabel>{lang === "zh" ? "提交时间" : "Submitted At"}</DetailLabel>
-                <DetailValue>
-                  {selectedRegistration.submittedAt 
-                    ? new Date(selectedRegistration.submittedAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')
-                    : '-'}
-                </DetailValue>
-              </DetailSection>
-
-              <DetailSection>
-                <DetailLabel>{lang === "zh" ? "状态" : "Status"}</DetailLabel>
-                <DetailValue>
-                  <StatusBadge $status={selectedRegistration.status}>
-                    {selectedRegistration.status}
-                  </StatusBadge>
-                  <div style={{ fontSize: '0.875rem', color: '#5c6b7a', marginTop: '0.75rem' }}>
-                    {selectedRegistration.status === 'pending' && selectedRegistration.generatedAt && (
-                      <>
-                        {lang === "zh" ? "生成时间：" : "Generated at: "}
-                        {new Date(selectedRegistration.generatedAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
-                      </>
-                    )}
-                    {selectedRegistration.status === 'submitted' && selectedRegistration.submittedAt && (
-                      <>
-                        {lang === "zh" ? "提交时间：" : "Submitted at: "}
-                        {new Date(selectedRegistration.submittedAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
-                      </>
-                    )}
-                    {selectedRegistration.status === 'approved' && selectedRegistration.approvedAt && (
-                      <>
-                        {lang === "zh" ? "批准时间：" : "Approved at: "}
-                        {new Date(selectedRegistration.approvedAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
-                        {selectedRegistration.approvedBy && (
-                          <>
-                            <br />
-                            {lang === "zh" ? "批准人：" : "Approved by: "}
-                            {selectedRegistration.approvedBy}
-                          </>
-                        )}
-                      </>
-                    )}
-                    {selectedRegistration.status === 'rejected' && selectedRegistration.rejectedAt && (
-                      <>
-                        {lang === "zh" ? "拒绝时间：" : "Rejected at: "}
-                        {new Date(selectedRegistration.rejectedAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-AU')}
-                        {selectedRegistration.rejectedBy && (
-                          <>
-                            <br />
-                            {lang === "zh" ? "拒绝人：" : "Rejected by: "}
-                            {selectedRegistration.rejectedBy}
-                          </>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </DetailValue>
-              </DetailSection>
-
-              {selectedRegistration.status === 'rejected' && selectedRegistration.rejectionReason && (
-                <DetailSection>
-                  <DetailLabel>{lang === "zh" ? "拒绝原因" : "Rejection Reason"}</DetailLabel>
-                  <DetailValue style={{ color: '#991b1b', background: '#fee2e2', padding: '0.75rem', borderRadius: '8px' }}>
-                    {selectedRegistration.rejectionReason}
-                  </DetailValue>
-                </DetailSection>
-              )}
-            </>
-          )}
-
-          {approveError && (
-            <div style={{ 
-              marginTop: '1.5rem',
-              marginBottom: '1.5rem',
-              padding: '1rem', 
-              background: '#fee2e2', 
-              border: '1px solid #fecaca',
-              borderRadius: '8px', 
-              color: '#991b1b',
-              fontSize: '0.9375rem',
-              fontWeight: '500'
-            }}>
-              ⚠️ {approveError}
-            </div>
-          )}
-          <ModalActions>
-            {isEditMode ? (
-              <>
-                <ModalButton onClick={handleCancelEdit}>
-                  {lang === "zh" ? "取消" : "Cancel"}
-                </ModalButton>
-                <ModalButton $primary onClick={handleSaveEdit}>
-                  <SaveIcon />
-                  {lang === "zh" ? "保存" : "Save"}
-                </ModalButton>
-              </>
-            ) : (
-              <>
-                {selectedRegistration?.status === 'submitted' && (
-                  <>
-                    <ModalButton onClick={() => {
-                      handleReject(selectedRegistration.id);
-                    }}>
-                      {lang === "zh" ? "拒绝" : "Reject"}
-                    </ModalButton>
-                    <ModalButton $primary onClick={() => {
-                      handleApprove(selectedRegistration.id);
-                    }}>
-                      {lang === "zh" ? "批准" : "Approve"}
-                    </ModalButton>
-                  </>
-                )}
-                {selectedRegistration?.status === 'rejected' && (
-                  <>
-                    <ModalButton onClick={() => setShowDetailsModal(false)}>
-                      {lang === "zh" ? "关闭" : "Close"}
-                    </ModalButton>
-                    <ModalButton $primary onClick={() => {
-                      handleApprove(selectedRegistration.id);
-                    }}>
-                      {lang === "zh" ? "改为批准" : "Change to Approve"}
-                    </ModalButton>
-                  </>
-                )}
-                {selectedRegistration?.status !== 'submitted' && selectedRegistration?.status !== 'rejected' && (
-                  <ModalButton onClick={() => setShowDetailsModal(false)}>
-                    {lang === "zh" ? "关闭" : "Close"}
-                  </ModalButton>
-                )}
-              </>
-            )}
-          </ModalActions>
-        </ModalContent>
-      </Modal>
-
       {/* Reject Modal - Independent */}
       {showRejectModal && (
         <Modal $show={showRejectModal} onClick={() => setShowRejectModal(false)}>
           <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
-            <ModalTitle>{lang === 'zh' ? '拒绝注册' : 'Reject Registration'}</ModalTitle>
+            <ModalTitle>
+              {registrationsToReject.length > 1
+                ? (lang === 'zh' ? `拒绝 ${registrationsToReject.length} 条注册` : `Reject ${registrationsToReject.length} registrations`)
+                : (lang === 'zh' ? '拒绝注册' : 'Reject Registration')}
+            </ModalTitle>
             <ModalText>
+              {/* One reason covers the whole selection - the rows are rejected together. */}
               {lang === 'zh' 
                 ? '请输入拒绝原因(可选):'
                 : 'Enter rejection reason (optional):'}
@@ -3132,38 +2227,13 @@ export default function RegistrationsPage() {
             <ModalActions>
               <ModalButton onClick={() => {
                 setShowRejectModal(false);
-                setRegistrationToReject(null);
+                setRegistrationsToReject([]);
                 setRejectionReason('');
               }}>
                 {lang === 'zh' ? '取消' : 'Cancel'}
               </ModalButton>
               <ModalButton $primary onClick={handleConfirmReject} style={{ background: '#ef4444' }}>
                 {lang === 'zh' ? '确认拒绝' : 'Confirm Reject'}
-              </ModalButton>
-            </ModalActions>
-          </ModalContent>
-        </Modal>
-      )}
-
-      {/* Approve Confirmation Modal - Independent */}
-      {showApproveModal && (
-        <Modal $show={showApproveModal} onClick={() => setShowApproveModal(false)}>
-          <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-            <ModalTitle>{lang === 'zh' ? '批准注册' : 'Approve Registration'}</ModalTitle>
-            <ModalText>
-              {lang === 'zh' 
-                ? '确定要批准此注册吗?'
-                : 'Are you sure you want to approve this registration?'}
-            </ModalText>
-            <ModalActions>
-              <ModalButton onClick={() => {
-                setShowApproveModal(false);
-                setRegistrationToApprove(null);
-              }}>
-                {lang === 'zh' ? '取消' : 'Cancel'}
-              </ModalButton>
-              <ModalButton $primary onClick={handleConfirmApprove} style={{ background: '#10b981' }}>
-                {lang === 'zh' ? '确认批准' : 'Confirm Approve'}
               </ModalButton>
             </ModalActions>
           </ModalContent>

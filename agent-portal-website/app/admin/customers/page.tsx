@@ -11,6 +11,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../components/layout/AdminSidebar";
 import axios from "axios";
 import { API_CONFIG, getApiUrl } from "@/config/api";
+import { downloadCsv } from "@/lib/csv";
 
 const Container = styled.div`
   min-height: 100vh;
@@ -813,6 +814,11 @@ const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' | 'dange
       `;
     }
   }}
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 `;
 
 const EditInput = styled.input`
@@ -969,6 +975,7 @@ export default function CustomerManagementPage() {
   const [searchByABN, setSearchByABN] = useState('');
   const [searchByAddress, setSearchByAddress] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
   const [newCustomer, setNewCustomer] = useState({
     name: '',
     email: '',
@@ -1137,6 +1144,10 @@ export default function CustomerManagementPage() {
   };
   
   const handleCreateCustomer = async () => {
+    // Nothing on the server refuses a second identical customer, so the guard
+    // has to be here: a double-click used to create two of them.
+    if (isCreatingCustomer) return;
+    setIsCreatingCustomer(true);
     try {
       // Validate required fields
       if (!newCustomer.name || !newCustomer.email) {
@@ -1202,6 +1213,8 @@ export default function CustomerManagementPage() {
         lang === 'zh' ? '创建失败' : 'Failed to create customer',
         'error'
       );
+    } finally {
+      setIsCreatingCustomer(false);
     }
   };
   
@@ -1217,21 +1230,7 @@ export default function CustomerManagementPage() {
       'Created Date': customer.created_at ? new Date(customer.created_at).toLocaleDateString() : 'N/A'
     }));
     
-    const headers = Object.keys(csvData[0] || {});
-    const csvContent = [
-      headers.join(','),
-      ...csvData.map(row => headers.map(header => `"${row[header as keyof typeof row]}"`).join(','))
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `customers_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadCsv(`customers_${new Date().toISOString().split('T')[0]}.csv`, csvData);
     
     showToast(
       lang === 'zh' ? '导出成功' : 'Export successful',
@@ -1331,8 +1330,10 @@ export default function CustomerManagementPage() {
               <StatLabel>{lang === 'zh' ? '总客户数' : 'Total Customers'}</StatLabel>
             </StatCard>
             <StatCard>
+              {/* Businesses attached to a customer on this page - not every
+                  business on record, which is what Business Management counts. */}
               <StatValue>{stats.totalBusinesses}</StatValue>
-              <StatLabel>{lang === 'zh' ? '总业务数' : 'Total Businesses'}</StatLabel>
+              <StatLabel>{lang === 'zh' ? '已关联商户' : 'Linked Businesses'}</StatLabel>
             </StatCard>
             <StatCard>
               <StatValue>{stats.recentAdditions}</StatValue>
@@ -1624,7 +1625,7 @@ export default function CustomerManagementPage() {
             <ActionButton onClick={() => setShowCreateModal(false)}>
               {lang === 'zh' ? '取消' : 'Cancel'}
             </ActionButton>
-            <ActionButton $variant="primary" onClick={handleCreateCustomer}>
+            <ActionButton $variant="primary" onClick={handleCreateCustomer} disabled={isCreatingCustomer}>
               <SaveIcon /> {lang === 'zh' ? '创建客户' : 'Create Customer'}
             </ActionButton>
           </ModalActions>

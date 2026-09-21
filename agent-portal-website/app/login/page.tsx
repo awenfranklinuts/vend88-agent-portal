@@ -10,7 +10,6 @@ import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { dict } from "@/i18n/translations";
 import { getApiUrl, API_CONFIG } from "@/config/api";
-import crypto from "crypto-js";
 
 // Add lazy loading for images
 import dynamic from 'next/dynamic';
@@ -580,6 +579,9 @@ const useDeviceFingerprint = () => {
   }, []);
 };
 
+// Courtesy throttle only: this lives in sessionStorage, so it slows an honest
+// person down and nobody else. The limit that counts is the backend's
+// loginLimiter (utils/rateLimit.js), which this cannot substitute for.
 const checkRateLimit = (email: string): { allowed: boolean; waitTime: number } => {
   if (typeof window === 'undefined') return { allowed: true, waitTime: 0 };
   
@@ -745,12 +747,10 @@ export default function LoginPage() {
         // Check if session is still valid
         if (!sessionTimeout || now < timeout) {
           // Session is valid, redirect to appropriate dashboard
-          console.log("Valid session found, redirecting to dashboard");
           router.push("/admin");
           return;
         } else {
           // Session expired, clear auth data
-          console.log("Session expired, clearing auth data");
           localStorage.removeItem('token');
           localStorage.removeItem('userEmail');
           localStorage.removeItem('role');
@@ -778,7 +778,11 @@ export default function LoginPage() {
       }
       
       // Generate unique request ID
-      setRequestId(crypto.lib.WordArray.random(16).toString());
+      // randomUUID needs a secure context; this id is only request metadata, so
+      // an insecure-origin deploy falls back rather than throwing on load.
+      setRequestId(
+        globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`
+      );
     }
   }, []);
 
@@ -819,21 +823,9 @@ export default function LoginPage() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, []);
 
-  // Generate and validate CSRF token
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      let csrfToken = sessionStorage.getItem('csrf_token');
-      if (!csrfToken) {
-        csrfToken = crypto.lib.WordArray.random(32).toString();
-        sessionStorage.setItem('csrf_token', csrfToken);
-      }
-    }
-  }, []);
-
   // Use callback for event handlers
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Form submitted, role:", role);
     setErrorKey("");
     setErrorMessage("");
     
@@ -859,17 +851,11 @@ export default function LoginPage() {
     
     setIsLoading(true);
 
-    console.log("Attempting login...");
     // Use proxy to bypass SSL certificate errors
     const apiUrl = '/api/login';
-    console.log("API URL:", apiUrl);
     
     // Security Check 5: Use device fingerprint from hook (already called at top level)
     // const deviceFingerprint = useDeviceFingerprint(); // REMOVED - already called above
-    
-    // Security Check 6: Generate request timestamp and nonce
-    const timestamp = Date.now();
-    const nonce = crypto.lib.WordArray.random(16).toString();
     
     try {
       const response = await axios.post(apiUrl, {
@@ -879,25 +865,20 @@ export default function LoginPage() {
         role: role === "agent" ? "team" : role,
       }, {
         timeout: 15000, // 15 second timeout
+        // Request metadata only. Authentication is the credentials in the body
+        // and the token the backend returns; nothing here is a security control.
         headers: {
           'X-Request-ID': requestId,
           'X-Device-Fingerprint': deviceFingerprint,
-          'X-Timestamp': timestamp.toString(),
-          'X-Nonce': nonce,
-          'X-Client-Version': '1.0.0',
-          'X-CSRF-Token': sessionStorage.getItem('csrf_token') || '',
         },
-        withCredentials: true, // Enable cookies for CSRF protection if backend supports it
       });
 
-      console.log("Login response:", response.data);
 
       if (response.data.status_code === 200 && response.data.token) {
         // Set authentication data
         const userToken = response.data.token;
         // Use role from server response if available, otherwise fall back to selected role
         const serverRole = response.data.user?.role || role;
-        console.log("Setting token:", userToken);
         setToken(userToken);
         setUserEmail(response.data.user?.email || sanitizedEmail);
         setRole(serverRole);
@@ -927,7 +908,6 @@ export default function LoginPage() {
         // One portal for everyone: team users land on the same dashboard with
         // their own permissions and scope applied
         const redirectPath = "/admin";
-        console.log("Login successful, redirecting to:", redirectPath);
         
         // Show loading screen during navigation
         setIsNavigating(true);
@@ -935,7 +915,6 @@ export default function LoginPage() {
         
         // Small delay to ensure state is saved, then redirect
         setTimeout(() => {
-          console.log("Navigating to:", redirectPath);
           router.push(redirectPath);
         }, 300);
       } else {

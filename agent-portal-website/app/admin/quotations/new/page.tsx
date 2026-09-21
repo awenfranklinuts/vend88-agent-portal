@@ -4,8 +4,10 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import QuotationShell from "@/components/quotations/QuotationShell";
 import QuotationEditor from "@/components/quotations/QuotationEditor";
+import { useRequirePortalUser } from "@/lib/useRequirePortalUser";
 
 export default function NewQuotationPage() {
+  useRequirePortalUser();
   return (
     <QuotationShell>
       <Suspense>

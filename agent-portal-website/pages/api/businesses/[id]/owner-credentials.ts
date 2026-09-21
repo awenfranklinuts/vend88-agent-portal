@@ -15,7 +15,6 @@ export default async function handler(
     const { id } = req.query;
     const suffix = req.method === 'PUT' ? '/update' : '';
     const fullUrl = `${getBackendBaseUrl()}/portal/businesses/${id}/owner-credentials${suffix}`;
-    console.log('[Business Owner Credentials API] Forwarding to:', fullUrl);
 
     const response = await axios.post(fullUrl, req.body, {
       headers: { 'Content-Type': 'application/json' },
@@ -24,7 +23,8 @@ export default async function handler(
 
     return res.status(response.status).json(response.data);
   } catch (error: any) {
-    console.error('[Business Owner Credentials API] Error:', error.response?.data || error.message);
+    // Status only - the body of this endpoint carries the POS login password.
+    console.error('[Business Owner Credentials API] Error:', error.response?.status || error.message);
 
     if (error.response) {
       return res.status(error.response.status).json(error.response.data);

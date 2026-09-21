@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import styled from "styled-components";
 import axios from "axios";
 import MainLayout from "@/components/layout/MainLayout";
@@ -904,6 +904,7 @@ const normalizeRegistration = (r: any): Registration => {
 export default function RegistrationDetailsPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const { token, role, isLoading, adminProfile } = useAuth();
   const { lang } = useLanguage();
   const { showToast } = useToast();
@@ -988,23 +989,15 @@ export default function RegistrationDetailsPage() {
     setError("");
 
     try {
-      console.log("[DEBUG] Fetching registration details");
-      console.log("[DEBUG] Registration ID:", registrationId);
-      console.log("[DEBUG] API URL:", `/api/registration/${registrationId}`);
-      console.log("[DEBUG] Token exists:", !!token);
       
       const resp = await axios.get(`/api/registration/${registrationId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       
-      console.log("[DEBUG] Fetch Response Status:", resp.status);
-      console.log("[DEBUG] Fetch Response Data:", resp.data);
       
       const payload = resp.data?.data || resp.data;
-      console.log("[DEBUG] Normalized Payload:", payload);
       
       setRegistration(normalizeRegistration(payload));
-      console.log("[DEBUG] Registration set successfully");
     } catch (err: any) {
       console.error("[DEBUG] Fetch Details Error:", err);
       console.error("[DEBUG] Error Response:", err.response?.data);
@@ -1223,10 +1216,6 @@ export default function RegistrationDetailsPage() {
     try {
       const endpoint = getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_REJECT.replace(":id", registration.id));
       
-      console.log("[DEBUG] Reject Started");
-      console.log("[DEBUG] Registration ID:", registration.id);
-      console.log("[DEBUG] Endpoint:", endpoint);
-      console.log("[DEBUG] Reason:", rejectionReason);
       
       const response = await fetch(endpoint, {
         method: "POST",
@@ -1240,7 +1229,6 @@ export default function RegistrationDetailsPage() {
         }),
       });
 
-      console.log("[DEBUG] Reject Response Status:", response.status);
 
       if (!response.ok) {
         const errorData = await response.text();
@@ -1249,7 +1237,6 @@ export default function RegistrationDetailsPage() {
       }
 
       const responseData = await response.json();
-      console.log("[DEBUG] Reject Response Body:", responseData);
 
       setShowRejectModal(false);
       setRejectionReason("");
@@ -1270,8 +1257,6 @@ export default function RegistrationDetailsPage() {
     try {
       const endpoint = getApiUrl(API_CONFIG.ENDPOINTS.REGISTRATION_REVOKE.replace(":id", registration.id));
       
-      console.log("[DEBUG] Revoke Started");
-      console.log("[DEBUG] Endpoint:", endpoint);
       
       const response = await fetch(
         endpoint,
@@ -1288,7 +1273,6 @@ export default function RegistrationDetailsPage() {
         }
       );
 
-      console.log("[DEBUG] Revoke Response Status:", response.status);
 
       if (!response.ok) {
         const errorData = await response.text();
@@ -1297,7 +1281,6 @@ export default function RegistrationDetailsPage() {
       }
 
       const responseData = await response.json();
-      console.log("[DEBUG] Revoke Response Body:", responseData);
 
       showToast(lang === "zh" ? "已撤销" : "Revoked successfully", "success");
       await fetchDetails();
@@ -1317,14 +1300,6 @@ export default function RegistrationDetailsPage() {
       // Use local API route instead of calling external API directly
       const endpoint = `/api/registration/${registration.id}`;
       
-      console.log("[DEBUG] Save Changes Started");
-      console.log("[DEBUG] Registration ID:", registration.id);
-      console.log("[DEBUG] Endpoint:", endpoint);
-      console.log("[DEBUG] Edited Data (original):", editedData);
-      console.log("[DEBUG] Token exists:", !!token);
-      console.log("[DEBUG] Token value (first 20 chars):", token?.substring(0, 20));
-      console.log("[DEBUG] Token length:", token?.length);
-      console.log("[DEBUG] Authorization Header:", `Bearer ${token?.substring(0, 20)}...`);
       
       // Convert camelCase to snake_case for API
       const apiData: any = {};
@@ -1357,8 +1332,6 @@ export default function RegistrationDetailsPage() {
         else apiData[key] = editedData[key as keyof Registration]; // Fallback for any field not explicitly mapped
       });
       
-      console.log("[DEBUG] Edited Data (converted to snake_case):", apiData);
-      console.log("[DEBUG] Request Body:", JSON.stringify(apiData));
 
       const response = await fetch(
         endpoint,
@@ -1375,13 +1348,6 @@ export default function RegistrationDetailsPage() {
         }
       );
 
-      console.log("[DEBUG] Response Status:", response.status);
-      console.log("[DEBUG] Response OK:", response.ok);
-      console.log("[DEBUG] Response Headers:", {
-        contentType: response.headers.get("content-type"),
-        contentLength: response.headers.get("content-length"),
-      });
-
       if (!response.ok) {
         const errorData = await response.text();
         console.error("[DEBUG] Error Response Body:", errorData);
@@ -1390,9 +1356,6 @@ export default function RegistrationDetailsPage() {
       }
 
       const responseData = await response.json();
-      console.log("[DEBUG] Success Response:", responseData);
-      console.log("[DEBUG] Response Data Type:", typeof responseData);
-      console.log("[DEBUG] Response Data Keys:", Object.keys(responseData));
       
       // Check if the response body contains an error (even if HTTP 200)
       if (responseData.message === "invalid token" || responseData.status_code === 400) {
@@ -1407,28 +1370,21 @@ export default function RegistrationDetailsPage() {
       
       // Check if response contains updated registration data
       const updatedReg = responseData?.data || responseData?.registration || responseData;
-      console.log("[DEBUG] Updated Registration from Response:", updatedReg);
-      console.log("[DEBUG] Updated Registration Keys:", Object.keys(updatedReg || {}));
       
       // Check if response is a complete registration object or just a partial update confirmation
       // A complete registration should have at least some contact/business info beyond just id/timestamps
       const hasContactInfo = updatedReg && (updatedReg.contact_name || updatedReg.contactName || updatedReg.business_name || updatedReg.businessName || updatedReg.contact_email || updatedReg.contactEmail);
       const hasOnlyTimestamps = updatedReg && updatedReg.id && !hasContactInfo;
       
-      console.log("[DEBUG] Has contact info:", hasContactInfo);
-      console.log("[DEBUG] Has only timestamps:", hasOnlyTimestamps);
       
       if (hasOnlyTimestamps) {
         // API returned only timestamps, refetch full registration data instead
-        console.log("[DEBUG] API returned partial response (timestamps only), refetching full data from server");
         await fetchDetails();
       } else if (updatedReg && updatedReg.id && hasContactInfo) {
         // API returned complete data, use it immediately
-        console.log("[DEBUG] Using response data to update state");
         setRegistration(normalizeRegistration(updatedReg));
       } else {
         // Response doesn't have valid data, refetch
-        console.log("[DEBUG] Response doesn't contain valid registration data, refetching...");
         await fetchDetails();
       }
       
@@ -1541,6 +1497,19 @@ export default function RegistrationDetailsPage() {
 
   // Approve/reject stay administrative; team users may only view their own registrations
   const canApprove = hasPermission(adminProfile, 'manage_registrations');
+
+  // The Approve button on the registrations list sends the admin here with
+  // ?approve=1, because the credentials and customer choice this dialog collects
+  // can't be gathered from a table row. Opened once per arrival - the ref keeps a
+  // re-render from reopening a dialog the admin has closed.
+  const autoApproveOpened = useRef(false);
+  useEffect(() => {
+    if (autoApproveOpened.current) return;
+    if (searchParams?.get('approve') !== '1') return;
+    if (!registration || registration.status !== 'submitted' || !canApprove || !token) return;
+    autoApproveOpened.current = true;
+    handleApproveClick();
+  }, [searchParams, registration, canApprove, token]);
   // Permanent delete is administrators only, whatever the registration's status
   const canDelete = canApprove && canSeeAllTeams(adminProfile);
 

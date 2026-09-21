@@ -18,6 +18,7 @@ import {
   PrimaryButton,
   SecondaryButton,
 } from "@/components/ui/AdminPageLayout";
+import { useRequirePortalUser } from "@/lib/useRequirePortalUser";
 import * as QuotationApi from "@/lib/quotationApi";
 import { downloadQuotationPdf } from "@/lib/quotationPdf";
 import {
@@ -151,6 +152,7 @@ const ConfirmCard = styled.div`
 type PendingAction = "send" | "accept" | "decline" | "revise" | "delete";
 
 export default function QuotationDetailPage() {
+  useRequirePortalUser();
   return (
     <QuotationShell>
       <QuotationDetail />

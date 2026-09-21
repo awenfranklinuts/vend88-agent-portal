@@ -9,8 +9,10 @@ import QuotationEditor from "@/components/quotations/QuotationEditor";
 import { LoadingText } from "@/components/ui/AdminPageLayout";
 import * as QuotationApi from "@/lib/quotationApi";
 import type { Quotation } from "@/lib/quotations";
+import { useRequirePortalUser } from "@/lib/useRequirePortalUser";
 
 export default function EditQuotationPage() {
+  useRequirePortalUser();
   return (
     <QuotationShell>
       <EditQuotation />
