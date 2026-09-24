@@ -300,20 +300,19 @@ const ToggleVisibilityButton = styled.button`
   }
 `;
 
-const GeneratePasswordButton = styled.button`
-  padding: 0 1rem;
-  background: #f3f4f6;
-  border: 1px solid #e0e7ef;
+const ToggleButton = styled.button<{ $active: boolean }>`
+  padding: 0.5rem 0.875rem;
   border-radius: 8px;
-  color: #374151;
+  border: 2px solid ${p => p.$active ? '#1a237e' : '#e0e7ef'};
+  background: ${p => p.$active ? '#1a237e' : 'white'};
+  color: ${p => p.$active ? 'white' : '#5c6b7a'};
   font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.2s ease;
 
-  &:hover {
-    background: #e5e7eb;
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 `;
 
@@ -405,57 +404,44 @@ const AdvancedSearchToggle = styled.button`
 
 
 const AdvancedSearchPanel = styled.div<{ $show: boolean }>`
-
   display: ${p => p.$show ? 'grid' : 'none'};
-
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 1rem;
-
-  padding-top: 1rem;
-
+  margin-top: 1rem;
+  padding-top: 1.25rem;
   border-top: 1px solid #e0e7ef;
-
 `;
 
 
 
 const FilterRow = styled.div`
-
-  display: flex;
-
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 1rem;
-
   align-items: center;
-
-  
+  margin-top: 1rem;
 
   @media (max-width: 968px) {
-
-    flex-direction: column;
-
+    grid-template-columns: 1fr;
   }
-
 `;
 
 
 
 const FilterCheckboxLabel = styled.label`
-
   display: flex;
-
   align-items: center;
-
   gap: 0.5rem;
-
   font-size: 0.875rem;
-
   color: #374151;
-
   cursor: pointer;
-
   white-space: nowrap;
+  grid-column: span 2;
 
+  @media (max-width: 968px) {
+    grid-column: auto;
+    white-space: normal;
+  }
 `;
 
 
@@ -670,7 +656,7 @@ const FilterSelect = styled.select`
 
   transition: all 0.2s ease;
 
-  min-width: 150px;
+  width: 100%;
 
   
 
@@ -1206,6 +1192,9 @@ const NoShops = styled.div`
 
 const formatStatus = (status: string) => {
   if (!status) return 'N/A';
+  // 'setup' is what provisioning stores; 'In Setup' is how it reads.
+  const normalized = status.toLowerCase().replace(/[_\s]/g, '');
+  if (normalized === 'setup' || normalized === 'insetup') return 'In Setup';
   return status
     .replace(/_/g, ' ')
     .toUpperCase();
@@ -2114,7 +2103,7 @@ export default function BusinessManagementPage() {
   // 'all' | 'house' (no team) | a team id. Only shown to users who see every team.
   const [filterTeam, setFilterTeam] = useState<string>('all');
 
-  const [includeTestAndNoStatus, setIncludeTestAndNoStatus] = useState(false);
+  const [includeNoStatus, setIncludeNoStatus] = useState(false);
 
   const [isLoadingData, setIsLoadingData] = useState(false);
 
@@ -2146,17 +2135,16 @@ export default function BusinessManagementPage() {
 
   const [searchByOwner, setSearchByOwner] = useState('');
 
-  const [dateFilterFrom, setDateFilterFrom] = useState('');
 
-  const [dateFilterTo, setDateFilterTo] = useState('');
 
   const [showStatusModal, setShowStatusModal] = useState(false);
 
   const [statusToChange, setStatusToChange] = useState<{businessId: string, newStatus: string} | null>(null);
 
   const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
+  // Empty means a new contact is being typed; set means link that customer.
+  const [newCustomerId, setNewCustomerId] = useState('');
 
-  const BUSINESS_EMAIL_DOMAIN = '@vend88.com';
 
   const PHONE_REGEX = /^\+[1-9]\d{7,14}$/;
 
@@ -2176,8 +2164,6 @@ export default function BusinessManagementPage() {
     postcode: '',
     country: 'Australia',
     notes: '',
-    emailPrefix: '',
-    password: '',
   };
 
   const [newBusinessAccount, setNewBusinessAccount] = useState(EMPTY_BUSINESS_ACCOUNT);
@@ -2190,7 +2176,6 @@ export default function BusinessManagementPage() {
 
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
 
-  const [showPassword, setShowPassword] = useState(false);
 
 
 
@@ -2368,13 +2353,15 @@ export default function BusinessManagementPage() {
 
       filtered = filtered.filter(b =>
 
-        b.name?.toLowerCase().includes(query) ||
+        searchableName(b).includes(query) ||
 
         b._id?.toLowerCase().includes(query) ||
 
         b.owner_id?.toLowerCase().includes(query) ||
 
-        b.contactEmail?.toLowerCase().includes(query)
+        b.contactEmail?.toLowerCase().includes(query) ||
+
+        b.contact_email?.toLowerCase().includes(query)
 
       );
 
@@ -2396,13 +2383,7 @@ export default function BusinessManagementPage() {
 
       const addressQuery = searchByAddress.toLowerCase();
 
-      filtered = filtered.filter(b => 
-
-        b.address?.toLowerCase().includes(addressQuery) ||
-
-        b.suburb?.toLowerCase().includes(addressQuery)
-
-      );
+      filtered = filtered.filter(b => searchableAddress(b).includes(addressQuery));
 
     }
 
@@ -2434,18 +2415,13 @@ export default function BusinessManagementPage() {
 
 
 
-    // Test accounts and businesses with no status set are hidden by default -
-    // only show them when the admin explicitly opts in.
+    // Businesses with no status set at all are hidden by default - they are
+    // half-made records rather than a state anyone chose. Test accounts are a
+    // real status and are filtered from the dropdown like any other.
 
-    if (!includeTestAndNoStatus) {
+    if (!includeNoStatus) {
 
-      filtered = filtered.filter(b => {
-
-        const status = (deriveBusinessStatus(b._id) || b.status || '').toLowerCase();
-
-        return status !== '' && status !== 'test';
-
-      });
+      filtered = filtered.filter(b => (deriveBusinessStatus(b._id) || b.status || '') !== '');
 
     }
 
@@ -2455,7 +2431,10 @@ export default function BusinessManagementPage() {
 
     if (filterState !== 'all') {
 
-      filtered = filtered.filter(b => b.state === filterState);
+      // The state often exists only inside the store's address line, so it is
+      // matched there too - as a whole word, so "NT" cannot hit "FRONT ST".
+      const stateWord = new RegExp(`\\b${filterState}\\b`, 'i');
+      filtered = filtered.filter(b => b.state === filterState || stateWord.test(searchableAddress(b)));
 
     }
 
@@ -2467,20 +2446,6 @@ export default function BusinessManagementPage() {
     }
 
     
-
-    // Date filters
-
-    if (dateFilterFrom) {
-
-      filtered = filtered.filter(b => new Date(b.createdAt) >= new Date(dateFilterFrom));
-
-    }
-
-    if (dateFilterTo) {
-
-      filtered = filtered.filter(b => new Date(b.createdAt) <= new Date(dateFilterTo));
-
-    }
 
     
 
@@ -2512,7 +2477,7 @@ export default function BusinessManagementPage() {
 
       } else if (sortField === 'createdAt') {
 
-        compareValue = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        compareValue = new Date(createdAtOf(a)).getTime() - new Date(createdAtOf(b)).getTime();
 
       } else if (sortField === 'status') {
 
@@ -2540,7 +2505,7 @@ export default function BusinessManagementPage() {
 
     setCurrentPage(1);
 
-  }, [searchQuery, searchByABN, searchByAddress, searchByOwner, filterStatus, filterState, filterTeam, includeTestAndNoStatus, dateFilterFrom, dateFilterTo, sortField, sortDirection, allBusinesses, customers, shops]);
+  }, [searchQuery, searchByABN, searchByAddress, searchByOwner, filterStatus, filterState, filterTeam, includeNoStatus, sortField, sortDirection, allBusinesses, customers, shops]);
 
   // Teams present in the loaded data, for the Team filter
   const teamOptions = Array.from(
@@ -2570,11 +2535,7 @@ export default function BusinessManagementPage() {
 
     setFilterTeam('all');
 
-    setIncludeTestAndNoStatus(false);
-
-    setDateFilterFrom('');
-
-    setDateFilterTo('');
+    setIncludeNoStatus(false);
 
   };
 
@@ -2680,14 +2641,8 @@ export default function BusinessManagementPage() {
 
   const resetCreateAccountForm = () => {
     setNewBusinessAccount(EMPTY_BUSINESS_ACCOUNT);
+    setNewCustomerId('');
     setCreateAccountError('');
-    setShowPassword(false);
-  };
-
-  const handleGeneratePassword = () => {
-    const digits = Math.floor(1000 + Math.random() * 9000);
-    setNewBusinessAccount((prev) => ({ ...prev, password: `Vend${digits}` }));
-    setShowPassword(true);
   };
 
   const handleCreateBusinessAccount = async () => {
@@ -2698,17 +2653,12 @@ export default function BusinessManagementPage() {
     // Only the business name is required. Anything else is checked for shape
     // only when it was actually filled in.
     if (!trimmed.business_name) {
-      setCreateAccountError(lang === 'zh' ? '请输入业务名称' : 'Business name is required');
-      return;
-    }
-    // The owner login is always created with the business from this form
-    if (!trimmed.emailPrefix || !newBusinessAccount.password.trim()) {
-      setCreateAccountError(lang === 'zh' ? '请填写 VendPOS 邮箱和密码' : 'VendPOS email and password are required');
+      setCreateAccountError(lang === 'zh' ? '请输入店铺名称' : 'Store name is required');
       return;
     }
 
     const validationError =
-      trimmed.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed.contact_email)
+      !newCustomerId && trimmed.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed.contact_email)
         ? (lang === 'zh' ? '请输入有效的邮箱地址' : 'Please enter a valid email address')
       : trimmed.phone && !PHONE_REGEX.test(trimmed.phone)
         ? (lang === 'zh' ? '请输入有效的电话号码（例如 +61400000000）' : 'Please enter a valid phone number (e.g. +61400000000)')
@@ -2728,8 +2678,6 @@ export default function BusinessManagementPage() {
     const [first_name, ...rest] = (trimmed.contact_name || trimmed.business_name).split(/\s+/);
     // A single-word name has no surname - repeating it gave owners like "John John".
     const last_name = rest.join(' ') || 'Owner';
-    const email = `${trimmed.emailPrefix.toLowerCase()}${BUSINESS_EMAIL_DOMAIN}`;
-    const password = newBusinessAccount.password.trim();
 
     setCreateAccountError('');
     setIsCreatingAccount(true);
@@ -2741,19 +2689,18 @@ export default function BusinessManagementPage() {
           token,
           first_name,
           last_name,
-          email,
           phone: trimmed.phone,
-          password,
           business_name: trimmed.business_name,
-          contact_name: trimmed.contact_name,
-          contact_email: trimmed.contact_email,
+          // Either an existing contact is linked, or the details below create one.
+          customer_id: newCustomerId || undefined,
+          contact_name: newCustomerId ? '' : trimmed.contact_name,
+          contact_email: newCustomerId ? '' : trimmed.contact_email,
           abn: trimmed.abn,
           address: trimmed.address,
           suburb: trimmed.suburb,
           state: trimmed.state,
           postcode: trimmed.postcode,
           country: trimmed.country,
-          notes: trimmed.notes,
         },
         {
           headers: {
@@ -2793,7 +2740,7 @@ export default function BusinessManagementPage() {
 
     const csvData = data.map(business => {
 
-      const owner = customers.find(c => c._id === business.owner_id);
+      const owner = linkedCustomer(business);
 
       return {
 
@@ -2823,7 +2770,7 @@ export default function BusinessManagementPage() {
 
         'EFTPOS Integration': business.eftposIntegration || 'N/A',
 
-        'Created': new Date(business.createdAt).toLocaleDateString()
+        'Created': formatDate(createdAtOf(business))
 
       };
 
@@ -2904,23 +2851,7 @@ export default function BusinessManagementPage() {
 
   
 
-  const getOwnerName = (ownerId: string) => {
-
-    const owner = customers.find(c => c._id === ownerId);
-
-    return owner?.name || ownerId;
-
-  };
-
   
-
-  const getOwnerEmail = (ownerId: string) => {
-
-    const owner = customers.find(c => c._id === ownerId);
-
-    return owner?.email || '';
-
-  };
 
 
 
@@ -2984,18 +2915,42 @@ export default function BusinessManagementPage() {
   const businessAddress = (business: any) =>
     [business.suburb, business.state].map((v: any) => String(v || '').trim()).filter(Boolean).join(', ');
 
+  // A card is titled and addressed from its store, so searching has to look
+  // there too - matching the business record alone found nothing for the many
+  // businesses whose address lives on the shop.
+  const createdAtOf = (business: any) => business.created_at || business.createdAt || '';
+
+  const searchableName = (business: any) => {
+    const store = getShopsForBusiness(business._id)[0] || null;
+    return [business.name, store ? shopDisplayName(store) : ''].filter(Boolean).join(' ').toLowerCase();
+  };
+
+  const searchableAddress = (business: any) => {
+    const store = getShopsForBusiness(business._id)[0] || null;
+    return [
+      storeAddress(store),
+      business.address, business.suburb, business.state, business.postcode,
+    ].filter(Boolean).join(' ').toLowerCase();
+  };
+
+  const linkedCustomer = (business: any) =>
+    business.customer_id ? customers.find((c: any) => c._id === business.customer_id) : undefined;
+
+  const getBusinessOwnerEmail = (business: any) => {
+    const customer = linkedCustomer(business);
+    return customer?.email || business?.owner_email || '';
+  };
+
   const getBusinessOwnerName = (business: any) => {
+    // The store owner is the linked customer, and nothing else. owner_id is the
+    // VendPOS login - for a store created with no contact details that account
+    // is auto-generated ("ajk Owner"), which is not a person anyone dealt with,
+    // so it must not stand in here. Matches the store's own page, which shows
+    // N/A in the same situation.
+    const customer = linkedCustomer(business);
+    if (customer) return customer.name || customer.email || business.customer_id;
 
-    // Check owner_name first (set when creating new business)
-
-    if (business.owner_name) return business.owner_name;
-
-    // Fall back to looking up by owner_id
-
-    if (business.owner_id) return getOwnerName(business.owner_id);
-
-    return 'N/A';
-
+    return business.contact_name || 'N/A';
   };
 
   
@@ -3185,9 +3140,9 @@ export default function BusinessManagementPage() {
 
                 {lang === "zh"
 
-                  ? "管理所有业务和地点。查看、添加、编辑和监控业务信息。"
+                  ? "管理所有店铺和地点。查看、添加、编辑和监控店铺信息。"
 
-                  : "Manage all businesses and locations. View, add, edit, and monitor business information."}
+                  : "Manage all stores and locations. View, add, edit, and monitor store information."}
 
               </PageDescription>
 
@@ -3204,7 +3159,7 @@ export default function BusinessManagementPage() {
 
               </svg>
 
-              {lang === 'zh' ? '创建新业务' : 'Create New Business'}
+              {lang === 'zh' ? '创建新店铺' : 'Create New Store'}
 
             </CreateBusinessButton>
             )}
@@ -3217,7 +3172,7 @@ export default function BusinessManagementPage() {
 
             <StatCard $clickable $active={filterStatus === 'all'} onClick={() => setFilterStatus('all')}>
 
-              <StatLabel>{lang === "zh" ? "总业务数" : "Total Businesses"}</StatLabel>
+              <StatLabel>{lang === "zh" ? "总店铺数" : "Total Stores"}</StatLabel>
 
               <StatValue>{stats.total}</StatValue>
 
@@ -3259,7 +3214,7 @@ export default function BusinessManagementPage() {
 
                 type="text"
 
-                placeholder={lang === "zh" ? "搜索业务名称、ID、邮箱..." : "Search business name, ID, email..."}
+                placeholder={lang === "zh" ? "搜索店铺名称、ID、邮箱..." : "Search store name, ID, email..."}
 
                 value={searchQuery}
 
@@ -3319,30 +3274,6 @@ export default function BusinessManagementPage() {
 
               />
 
-              <SearchInput
-
-                type="date"
-
-                placeholder={lang === "zh" ? "从日期" : "From date"}
-
-                value={dateFilterFrom}
-
-                onChange={(e) => setDateFilterFrom(e.target.value)}
-
-              />
-
-              <SearchInput
-
-                type="date"
-
-                placeholder={lang === "zh" ? "到日期" : "To date"}
-
-                value={dateFilterTo}
-
-                onChange={(e) => setDateFilterTo(e.target.value)}
-
-              />
-
             </AdvancedSearchPanel>
 
             
@@ -3355,7 +3286,9 @@ export default function BusinessManagementPage() {
 
                 <option value="active">{lang === "zh" ? "活跃" : "Active"}</option>
 
-                <option value="setup">{lang === "zh" ? "设置中" : "Setup"}</option>
+                <option value="setup">{lang === "zh" ? "设置中" : "In Setup"}</option>
+
+                <option value="test">{lang === "zh" ? "测试" : "Test"}</option>
 
                 <option value="inactive">{lang === "zh" ? "非活跃" : "Inactive"}</option>
 
@@ -3399,17 +3332,17 @@ export default function BusinessManagementPage() {
 
                 <Checkbox
 
-                  checked={includeTestAndNoStatus}
+                  checked={includeNoStatus}
 
-                  onChange={(e) => setIncludeTestAndNoStatus(e.target.checked)}
+                  onChange={(e) => setIncludeNoStatus(e.target.checked)}
 
                 />
 
-                {lang === "zh" ? "包含测试和无状态账户" : "Include test & no-status accounts"}
+                {lang === "zh" ? "包含无状态账户" : "Include accounts with no status"}
 
               </FilterCheckboxLabel>
 
-              {(searchQuery || searchByABN || searchByAddress || searchByOwner || filterStatus !== 'all' || filterState !== 'all' || filterTeam !== 'all' || includeTestAndNoStatus || dateFilterFrom || dateFilterTo) && (
+              {(searchQuery || searchByABN || searchByAddress || searchByOwner || filterStatus !== 'all' || filterState !== 'all' || filterTeam !== 'all' || includeNoStatus) && (
 
                 <ClearButton onClick={handleClearFilters}>
 
@@ -3509,11 +3442,11 @@ export default function BusinessManagementPage() {
 
               <EmptyIcon>🏢</EmptyIcon>
 
-              <EmptyText>{lang === "zh" ? "未找到业务" : "No businesses found"}</EmptyText>
+              <EmptyText>{lang === "zh" ? "未找到店铺" : "No stores found"}</EmptyText>
 
               <EmptySubtext>
 
-                {lang === "zh" ? "批准注册表单后，业务将自动创建。" : "Businesses will be created automatically when registrations are approved."}
+                {lang === "zh" ? "批准注册表单后，店铺将自动创建。" : "Stores will be created automatically when registrations are approved."}
 
               </EmptySubtext>
 
@@ -3529,7 +3462,7 @@ export default function BusinessManagementPage() {
 
                   {lang === 'zh' 
 
-                    ? `已选择 ${selectedRows.size} 个业务` 
+                    ? `已选择 ${selectedRows.size} 个店铺` 
 
                     : `${selectedRows.size} business${selectedRows.size > 1 ? 'es' : ''} selected`}
 
@@ -3573,7 +3506,7 @@ export default function BusinessManagementPage() {
 
                     <Th onClick={() => handleSort('name')}>
 
-                      {lang === 'zh' ? '业务名称' : 'Business Name'} <SortIcon />
+                      {lang === 'zh' ? '店铺名称' : 'Store Name'} <SortIcon />
 
                     </Th>
 
@@ -3646,7 +3579,7 @@ export default function BusinessManagementPage() {
 
                       <Td>{business.state ? `${business.suburb || ''}, ${business.state}` : 'N/A'}</Td>
 
-                      <Td>{new Date(business.createdAt).toLocaleDateString()}</Td>
+                      <Td>{formatDate(createdAtOf(business))}</Td>
 
                       <Td>
 
@@ -3679,16 +3612,14 @@ export default function BusinessManagementPage() {
               {paginatedBusinesses.map(business => {
 
                 // A business and its store are one entity, so a card shows one
-                // record rather than a business with a shop list hanging off it.
-                // The store's own name wins when the two differ - that is the
-                // name over the door - and the business name is kept underneath,
-                // so a card found by searching the business name still shows it.
+                // record rather than a business with a shop list hanging off it,
+                // under the store's own name - that is the name over the door.
+                // Searching still matches the business name behind it.
                 const businessShops = getShopsForBusiness(business._id);
                 const store = businessShops[0] || null;
                 const storeName = store ? shopDisplayName(store) : '';
                 const businessName = business.name || '';
                 const title = storeName && storeName !== businessName ? storeName : (businessName || 'N/A');
-                const subtitle = businessName && businessName !== title ? businessName : '';
                 const address = storeAddress(store) || businessAddress(business);
 
                 return (
@@ -3699,12 +3630,6 @@ export default function BusinessManagementPage() {
                     <div style={{ flex: 1 }}>
 
                       <BusinessName>{title}</BusinessName>
-
-                      {subtitle && (
-                        <div style={{ fontSize: '0.75rem', color: '#5c6b7a', marginTop: '-0.35rem', marginBottom: '0.4rem' }}>
-                          {lang === 'zh' ? `业务：${subtitle}` : `Business: ${subtitle}`}
-                        </div>
-                      )}
 
                       <InfoRow style={{ marginBottom: '0.5rem' }}>
 
@@ -3740,7 +3665,7 @@ export default function BusinessManagementPage() {
 
                     <InfoRow>
 
-                      <InfoLabel>{lang === "zh" ? "所有者:" : "Owner:"}</InfoLabel>
+                      <InfoLabel>{lang === "zh" ? "店主:" : "Store Owner:"}</InfoLabel>
 
                       <InfoValue>{getBusinessOwnerName(business)}</InfoValue>
 
@@ -3900,7 +3825,7 @@ export default function BusinessManagementPage() {
 
             <DetailItem>
 
-              <DetailLabel>{lang === 'zh' ? '业务ID' : 'Business ID'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? '店铺ID' : 'Store ID'}</DetailLabel>
 
               <DetailValue>{selectedBusiness?._id}</DetailValue>
 
@@ -3908,9 +3833,9 @@ export default function BusinessManagementPage() {
 
             <DetailItem>
 
-              <DetailLabel>{lang === 'zh' ? '所有者' : 'Owner'}</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? '店主' : 'Store Owner'}</DetailLabel>
 
-              <DetailValue>{selectedBusiness?.owner_name || (selectedBusiness ? getOwnerName(selectedBusiness.owner_id) : 'N/A') || 'N/A'}</DetailValue>
+              <DetailValue>{selectedBusiness ? getBusinessOwnerName(selectedBusiness) : 'N/A'}</DetailValue>
 
             </DetailItem>
 
@@ -3918,7 +3843,7 @@ export default function BusinessManagementPage() {
 
               <DetailLabel>{lang === 'zh' ? '所有者邮箱' : 'Owner Email'}</DetailLabel>
 
-              <DetailValue>{selectedBusiness?.owner_email || (selectedBusiness ? getOwnerEmail(selectedBusiness.owner_id) : 'N/A') || 'N/A'}</DetailValue>
+              <DetailValue>{(selectedBusiness ? getBusinessOwnerEmail(selectedBusiness) : '') || 'N/A'}</DetailValue>
 
             </DetailItem>
 
@@ -4033,9 +3958,9 @@ export default function BusinessManagementPage() {
 
             </ActionButton>
 
-            {selectedBusiness && getOwnerEmail(selectedBusiness.owner_id) && (
+            {selectedBusiness && getBusinessOwnerEmail(selectedBusiness) && (
 
-              <ActionButton onClick={() => window.location.href = `mailto:${getOwnerEmail(selectedBusiness.owner_id)}`}>
+              <ActionButton onClick={() => window.location.href = `mailto:${getBusinessOwnerEmail(selectedBusiness)}`}>
 
                 {lang === 'zh' ? '发送邮件' : 'Send Email'}
 
@@ -4055,7 +3980,7 @@ export default function BusinessManagementPage() {
 
             }}>
 
-              <EditIcon /> {lang === 'zh' ? '编辑业务' : 'Edit Business'}
+              <EditIcon /> {lang === 'zh' ? '编辑店铺' : 'Edit Store'}
 
             </ActionButton>
 
@@ -4125,7 +4050,7 @@ export default function BusinessManagementPage() {
 
             <ModalHeader>
 
-              <ModalTitle>{lang === 'zh' ? '创建业务账户' : 'Create Business Account'}</ModalTitle>
+              <ModalTitle>{lang === 'zh' ? '创建店铺' : 'Create Store'}</ModalTitle>
 
               <CloseButton onClick={() => setShowCreateAccountModal(false)}>×</CloseButton>
 
@@ -4135,13 +4060,46 @@ export default function BusinessManagementPage() {
 
               {lang === 'zh'
 
-                ? '创建业务、其所有者登录账户，以及它的店铺 —— 店铺使用下方的业务名称和地址。'
+                ? '创建店铺及其记录。仅店铺名称为必填项；VendPOS 登录账户将自动生成，可在详情页查看。'
 
-                : "Creates the business, a login account for its owner, and its store \u2014 the store takes the business name and address entered below."}
+                : "Creates the store and the record behind it. Only the store name is required \u2014 a VendPOS login is generated automatically and shown on the store's page."}
 
             </FieldHint>
 
-            <FormSectionTitle>{lang === 'zh' ? '客户联系信息' : 'Customer Contact Details'}</FormSectionTitle>
+            <FormSectionTitle>{lang === 'zh' ? '店主联系方式' : 'Store Owner Contact'}</FormSectionTitle>
+
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+              <ToggleButton type="button" $active={!newCustomerId} onClick={() => setNewCustomerId('')}>
+                {lang === 'zh' ? '新建客户' : 'New contact'}
+              </ToggleButton>
+              <ToggleButton
+                type="button"
+                $active={Boolean(newCustomerId)}
+                onClick={() => setNewCustomerId(customers[0]?._id || '')}
+                disabled={!customers.length}
+                title={!customers.length ? (lang === 'zh' ? '暂无客户' : 'No customers yet') : undefined}
+              >
+                {lang === 'zh' ? '关联已有客户' : 'Link existing customer'}
+              </ToggleButton>
+            </div>
+
+            {newCustomerId ? (
+              <Section>
+                <DetailLabel>{lang === 'zh' ? '客户' : 'Customer'}</DetailLabel>
+                <FilterSelect
+                  value={newCustomerId}
+                  onChange={(e) => setNewCustomerId(e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  {customers.map((c: any) => (
+                    <option key={c._id} value={c._id}>
+                      {c.name || c.email || c._id}{c.email && c.name ? ` — ${c.email}` : ''}
+                    </option>
+                  ))}
+                </FilterSelect>
+              </Section>
+            ) : (
+            <>
 
             <Section>
               <DetailLabel>{lang === 'zh' ? '邮箱地址' : 'Email Address'}</DetailLabel>
@@ -4175,11 +4133,14 @@ export default function BusinessManagementPage() {
             </Section>
             </FieldRow>
 
-            <FormSectionTitle>{lang === 'zh' ? '业务信息' : 'Business Details'}</FormSectionTitle>
+            </>
+            )}
+
+            <FormSectionTitle>{lang === 'zh' ? '店铺' : 'Store'}</FormSectionTitle>
 
             <FieldRow>
             <Section>
-              <DetailLabel>{lang === 'zh' ? '业务名称' : 'Business Name'} *</DetailLabel>
+              <DetailLabel>{lang === 'zh' ? '店铺名称' : 'Store Name'} *</DetailLabel>
               <Input
                 type="text"
                 value={newBusinessAccount.business_name}
@@ -4259,72 +4220,7 @@ export default function BusinessManagementPage() {
               </FormSelect>
             </Section>
 
-            <Section>
-              <DetailLabel>{lang === 'zh' ? '备注（可选）' : 'Additional Notes (Optional)'}</DetailLabel>
-              <FormTextarea
-                rows={3}
-                value={newBusinessAccount.notes}
-                onChange={(e) => updateNewBusinessAccount('notes', e.target.value)}
-                placeholder={lang === 'zh' ? '其他信息或特殊要求' : 'Extra information or special requirements'}
-              />
-            </Section>
 
-            <FormSectionTitle>{lang === 'zh' ? '创建业务账户' : 'Create Business Account'}</FormSectionTitle>
-
-            <FieldRow>
-            <Section>
-              <DetailLabel>{lang === 'zh' ? 'VendPOS 邮箱' : 'VendPOS Email'} *</DetailLabel>
-              <EmailInputGroup>
-                <Input
-                  type="text"
-                  style={{ borderRadius: '8px 0 0 8px' }}
-                  value={newBusinessAccount.emailPrefix}
-                  onChange={(e) => updateNewBusinessAccount('emailPrefix', e.target.value.toLowerCase())}
-                  placeholder={lang === 'zh' ? '输入邮箱前缀' : 'Enter email prefix'}
-                  autoComplete="off"
-                />
-                <EmailSuffix>{BUSINESS_EMAIL_DOMAIN}</EmailSuffix>
-              </EmailInputGroup>
-            </Section>
-
-            <Section>
-              <DetailLabel>{lang === 'zh' ? '密码' : 'Password'} *</DetailLabel>
-              <PasswordFieldRow>
-                <PasswordInputWrapper>
-                  <Input
-                    type={showPassword ? 'text' : 'password'}
-                    style={{ paddingRight: '2.5rem' }}
-                    value={newBusinessAccount.password}
-                    onChange={(e) => updateNewBusinessAccount('password', e.target.value)}
-                    placeholder={lang === 'zh' ? '输入密码' : 'Enter password'}
-                    autoComplete="new-password"
-                  />
-                  <ToggleVisibilityButton
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    aria-label={showPassword ? (lang === 'zh' ? '隐藏密码' : 'Hide password') : (lang === 'zh' ? '显示密码' : 'Show password')}
-                  >
-                    {showPassword ? (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.6 18.6 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                        <line x1="1" y1="1" x2="23" y2="23" />
-                      </svg>
-                    ) : (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                        <circle cx="12" cy="12" r="3" />
-                      </svg>
-                    )}
-                  </ToggleVisibilityButton>
-                </PasswordInputWrapper>
-                <GeneratePasswordButton type="button" onClick={handleGeneratePassword}>
-                  {lang === 'zh' ? '生成密码' : 'Generate'}
-                </GeneratePasswordButton>
-              </PasswordFieldRow>
-            </Section>
-            </FieldRow>
-
-            {createAccountError && <ErrorText>{createAccountError}</ErrorText>}
 
             <ModalActions>
 

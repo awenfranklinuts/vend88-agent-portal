@@ -1607,7 +1607,7 @@ export default function RegistrationDetailsPage() {
                         onClick={() => router.push(`/admin/businesses/${registration.linkedBusinessId}`)}
                       >
                         <BriefcaseIcon />
-                        {lang === "zh" ? "前往业务" : "Go to Business"}
+                        {lang === "zh" ? "前往店铺" : "Go to Store"}
                       </LinkedRecordButton>
                     )}
                     {registration.linkedCustomerId && (
@@ -2116,7 +2116,7 @@ export default function RegistrationDetailsPage() {
               {approvalResult.businessName && (
                 <div style={{ padding: '0.85rem 1rem', background: '#f7faff', border: '1px solid #e0e7ef', borderRadius: '10px' }}>
                   <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#5c6b7a', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.25rem' }}>
-                    {lang === 'zh' ? '业务' : 'Business'}
+                    {lang === 'zh' ? '店铺' : 'Store'}
                   </div>
                   <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#0a3655' }}>{approvalResult.businessName}</div>
                 </div>
@@ -2142,7 +2142,7 @@ export default function RegistrationDetailsPage() {
               )}
               {approvalResult.businessId && (
                 <ModalButton $primary onClick={() => router.push(`/admin/businesses/${approvalResult.businessId}`)}>
-                  {lang === 'zh' ? '前往业务' : 'Go to Business'}
+                  {lang === 'zh' ? '前往店铺' : 'Go to Store'}
                 </ModalButton>
               )}
             </ModalActions>
@@ -2188,13 +2188,13 @@ export default function RegistrationDetailsPage() {
                       )}
                     </div>
                     <div style={{ fontWeight: 700, color: '#0a3655', fontSize: '0.95rem' }}>
-                      {lang === 'zh' ? '创建新客户与业务' : 'Create New Customer & Business'}
+                      {lang === 'zh' ? '创建新客户与店铺' : 'Create New Customer & Store'}
                     </div>
                   </div>
                   <div style={{ fontSize: '0.8rem', color: '#64748b', lineHeight: 1.5, paddingLeft: '2.75rem' }}>
                     {lang === 'zh'
-                      ? '基于此注册信息创建一个全新的客户记录和业务'
-                      : 'Create a brand new customer record and business from this registration'}
+                      ? '基于此注册信息创建一个全新的客户记录和店铺'
+                      : 'Create a brand new customer record and store from this registration'}
                   </div>
                 </div>
 
@@ -2223,13 +2223,13 @@ export default function RegistrationDetailsPage() {
                       )}
                     </div>
                     <div style={{ fontWeight: 700, color: '#0a3655', fontSize: '0.95rem' }}>
-                      {lang === 'zh' ? '添加业务到已有客户' : 'Add Business to Existing Customer'}
+                      {lang === 'zh' ? '添加店铺到已有客户' : 'Add Store to Existing Customer'}
                     </div>
                   </div>
                   <div style={{ fontSize: '0.8rem', color: '#64748b', lineHeight: 1.5, paddingLeft: '2.75rem' }}>
                     {lang === 'zh'
-                      ? '将此注册的业务添加到系统中已有的客户账户下'
-                      : 'Add this registration\'s business to an existing customer in the system'}
+                      ? '将此注册的店铺添加到系统中已有的客户账户下'
+                      : 'Add this registration\'s store to an existing customer in the system'}
                   </div>
                 </div>
               </div>
@@ -2268,7 +2268,7 @@ export default function RegistrationDetailsPage() {
                     </div>
                   </div>
                   <div style={{ paddingTop: '1rem', borderTop: '1px solid #cbd5e1', fontSize: '0.85rem', color: '#b45309' }}>
-                    {lang === 'zh' ? '新客户和业务将在批准时自动创建' : 'A new customer and business will be created upon approval'}
+                    {lang === 'zh' ? '新客户和店铺将在批准时自动创建' : 'A new customer and store will be created upon approval'}
                   </div>
                 </div>
               ) : (
@@ -2369,7 +2369,7 @@ export default function RegistrationDetailsPage() {
                       {customerBusinesses.length > 0 && (
                         <div style={{ paddingTop: '1rem', borderTop: '1px solid #cbd5e1' }}>
                           <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '0.75rem' }}>
-                            {lang === 'zh' ? '现有业务' : 'Existing Businesses'} ({customerBusinesses.length})
+                            {lang === 'zh' ? '现有店铺' : 'Existing Stores'} ({customerBusinesses.length})
                           </div>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
                             {customerBusinesses.map((business, idx) => (
@@ -2389,7 +2389,7 @@ export default function RegistrationDetailsPage() {
                         <span style={{ fontSize: '0.95rem' }}>+</span>
                         <span>
                           {lang === 'zh'
-                            ? `一个新业务将被添加到 "${selectedCustomer.name}" 的账户下`
+                            ? `一个新店铺将被添加到 "${selectedCustomer.name}" 的账户下`
                             : `A new business will be added to "${selectedCustomer.name}"`}
                         </span>
                       </div>
@@ -2402,7 +2402,7 @@ export default function RegistrationDetailsPage() {
             {/* ─── Step 3: New Business Information ─── */}
             <div style={{ marginBottom: '2rem' }}>
               <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0a3655', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                {lang === 'zh' ? '新业务信息' : 'New Business Information'}
+                {lang === 'zh' ? '新店铺信息' : 'New Store Information'}
               </div>
               
               <div style={{
@@ -2414,7 +2414,7 @@ export default function RegistrationDetailsPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '2.5rem', marginBottom: '1.5rem' }}>
                   <div>
                     <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '0.6rem' }}>
-                      {lang === 'zh' ? '商户名称' : 'Business Name'}
+                      {lang === 'zh' ? '店铺名称' : 'Store Name'}
                     </div>
                     <div style={{ fontSize: '0.95rem', color: '#0a3655', fontWeight: 600 }}>
                       {registration ? getBusinessName(registration) : '-'}
@@ -2436,7 +2436,7 @@ export default function RegistrationDetailsPage() {
                   <span style={{ fontSize: '0.95rem' }}>✓</span>
                   <span>
                     {approvalMode === 'existing_customer' && selectedCustomer
-                      ? (lang === 'zh' ? `此业务将作为新业务添加到 "${selectedCustomer.name}" 的账户下` : `This business will be added as a new business under "${selectedCustomer.name}"`)
+                      ? (lang === 'zh' ? `此店铺将作为新店铺添加到 "${selectedCustomer.name}" 的账户下` : `This store will be added as a new business under "${selectedCustomer.name}"`)
                       : (lang === 'zh' ? '将与新客户一起创建' : 'Will be created along with the new customer')
                     }
                   </span>
@@ -2566,8 +2566,8 @@ export default function RegistrationDetailsPage() {
                 {isActing
                   ? (lang === 'zh' ? '处理中...' : 'Processing...')
                   : approvalMode === 'new_customer'
-                    ? (lang === 'zh' ? '确认 — 创建新客户与业务' : 'Confirm — Create New Customer & Business')
-                    : (lang === 'zh' ? '确认 — 添加业务到已有客户' : 'Confirm — Add Business to Existing Customer')
+                    ? (lang === 'zh' ? '确认 — 创建新客户与店铺' : 'Confirm — Create New Customer & Store')
+                    : (lang === 'zh' ? '确认 — 添加店铺到已有客户' : 'Confirm — Add Store to Existing Customer')
                 }
               </ModalButton>
             </ModalActions>

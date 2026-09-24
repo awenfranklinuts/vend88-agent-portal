@@ -1016,7 +1016,7 @@ export default function TeamDetailPage() {
 
         <StatsRow>
           <Stat><StatValue>{team.counts.members}</StatValue><StatLabel>{zh ? "成员" : "Members"}</StatLabel></Stat>
-          <Stat><StatValue>{team.counts.businesses}</StatValue><StatLabel>{zh ? "业务" : "Businesses"}</StatLabel></Stat>
+          <Stat><StatValue>{team.counts.businesses}</StatValue><StatLabel>{zh ? "店铺" : "Stores"}</StatLabel></Stat>
           <Stat><StatValue>{team.counts.open_registrations}</StatValue><StatLabel>{zh ? "待处理注册" : "Open registrations"}</StatLabel></Stat>
           <Stat><StatValue>{team.counts.quotations}</StatValue><StatLabel>{zh ? "报价" : "Quotations"}</StatLabel></Stat>
           <Stat><StatValue>{team.counts.inquiries}</StatValue><StatLabel>{zh ? "咨询" : "Inquiries"}</StatLabel></Stat>
@@ -1120,7 +1120,7 @@ export default function TeamDetailPage() {
         </CardHeader>
         <Tabs>
           {([
-            ["business", zh ? "业务" : "Businesses", attributed?.businesses.length || 0],
+            ["business", zh ? "店铺" : "Stores", attributed?.businesses.length || 0],
             ["registration", zh ? "注册" : "Registrations", attributed?.registrations.length || 0],
             ["quotation", zh ? "报价" : "Quotations", attributed?.quotations.length || 0],
             ["inquiry", zh ? "咨询" : "Inquiries", attributed?.inquiries.length || 0],

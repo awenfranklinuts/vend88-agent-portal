@@ -42,7 +42,7 @@ interface ReassignModalProps {
 }
 
 const ENTITY_LABELS: Record<ReassignableEntity, { en: string; zh: string }> = {
-  business: { en: "business", zh: "业务" },
+  business: { en: "store", zh: "店铺" },
   registration: { en: "registration", zh: "注册" },
   quotation: { en: "quotation", zh: "报价" },
   inquiry: { en: "inquiry", zh: "咨询" },

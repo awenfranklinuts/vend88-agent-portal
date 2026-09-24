@@ -119,11 +119,11 @@ export default function ReportsPage() {
             <PageDescription>
               {canSeeAllTeams(adminProfile)
                 ? (lang === "zh"
-                    ? "查看所有客户和业务的报告与分析，或按团队和成员筛选。"
-                    : "Reports and insights across all customers and businesses, or filtered to one team or person.")
+                    ? "查看所有客户和店铺的报告与分析，或按团队和成员筛选。"
+                    : "Reports and insights across all customers and stores, or filtered to one team or person.")
                 : (lang === "zh"
-                    ? "归属于您的客户和业务的报告与分析。"
-                    : "Reports and insights for the customers and businesses attributed to you.")}
+                    ? "归属于您的客户和店铺的报告与分析。"
+                    : "Reports and insights for the customers and stores attributed to you.")}
             </PageDescription>
           </ContentHeader>
 

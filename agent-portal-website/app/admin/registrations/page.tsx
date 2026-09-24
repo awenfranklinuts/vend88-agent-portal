@@ -1835,7 +1835,7 @@ export default function RegistrationsPage() {
           <SearchFilterContainer>
             <SearchInput
               type="text"
-              placeholder={lang === "zh" ? "搜索业务名称、邮箱、联系人、电话或ABN..." : "Search business name, email, contact, phone or ABN..."}
+              placeholder={lang === "zh" ? "搜索店铺名称、邮箱、联系人、电话或ABN..." : "Search store name, email, contact, phone or ABN..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -1881,7 +1881,7 @@ export default function RegistrationsPage() {
                   <Thead>
                     <Tr>
                       <CheckboxTh />
-                      <Th>{lang === "zh" ? "业务名称" : "Business Name"}</Th>
+                      <Th>{lang === "zh" ? "店铺名称" : "Store Name"}</Th>
                       <Th>{lang === "zh" ? "联系邮箱" : "Contact Email"}</Th>
                       {showTeamColumn && <Th>{lang === "zh" ? "团队" : "Team"}</Th>}
                       <Th>{lang === "zh" ? "生成时间" : "Generated"}</Th>
@@ -2011,7 +2011,7 @@ export default function RegistrationsPage() {
                           $active={sortField === 'businessName'}
                           onClick={() => handleSort('businessName')}
                         >
-                          {lang === "zh" ? "业务名称" : "Business Name"}
+                          {lang === "zh" ? "店铺名称" : "Store Name"}
                           <SortIcon $direction={sortField === 'businessName' ? sortDirection : undefined}>
                             {sortField === 'businessName' && sortDirection === 'asc' ? '↑' : '↓'}
                           </SortIcon>

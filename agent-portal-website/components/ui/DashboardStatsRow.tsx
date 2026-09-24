@@ -427,13 +427,13 @@ export default function DashboardStatsRow({ filter, showHeadline = true, title }
     },
     {
       key: "new_businesses",
-      label: lang === "zh" ? "新增商户" : "New businesses",
+      label: lang === "zh" ? "新增店铺" : "New stores",
       value: funnel?.growth.new_businesses.total ?? 0,
       previous: funnel?.growth.new_businesses.previous ?? 0,
     },
     {
       key: "active_businesses",
-      label: lang === "zh" ? "活跃商户" : "Active businesses",
+      label: lang === "zh" ? "活跃店铺" : "Active stores",
       value: funnel?.growth.active_businesses.total ?? 0,
       previous: funnel?.growth.active_businesses.previous ?? 0,
       sub: funnel

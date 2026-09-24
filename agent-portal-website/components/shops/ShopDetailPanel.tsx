@@ -9,8 +9,7 @@ import { useToast } from "@/context/ToastContext";
 import axios from "axios";
 import {
   getBusinessDevices,
-  getBusinessNotes,
-  getBusinessActivityLog
+  getBusinessNotes
 } from "@/lib/mockBusinessData";
 
 const ShopName = styled.h1`
@@ -859,6 +858,9 @@ interface ShopDetailPanelProps {
   // follows the grid, inside the same card.
   leadingFields?: ReactNode;
   trailingContent?: ReactNode;
+  // Rendered after the store logins card, so a host page can place its own
+  // sections on either side of it.
+  afterCredentials?: ReactNode;
   // Anchors, so a host page's section nav can scroll to the store card and to
   // the tab strip.
   cardId?: string;
@@ -870,7 +872,7 @@ interface ShopDetailPanelProps {
 // shown inline on the business page. A business and its store are one entity,
 // so the store is what the business's Details button opens onto - the separate
 // shop route stays for the older businesses that have more than one.
-export default function ShopDetailPanel({ businessId, shopId, embedded = false, onShopChanged, leadingFields, trailingContent, cardId, tabsId, credentialsId }: ShopDetailPanelProps) {
+export default function ShopDetailPanel({ businessId, shopId, embedded = false, onShopChanged, leadingFields, trailingContent, afterCredentials, cardId, tabsId, credentialsId }: ShopDetailPanelProps) {
   const router = useRouter();
   const { token, role, isLoading: authLoading, adminProfile } = useAuth();
   // Shop ids, keys and store logins are Vend88 internals, hidden from team users
@@ -985,10 +987,24 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
         console.error('Failed to fetch permissions:', err);
       }
 
-      // TODO: Fetch real devices/notes/activity when API is available
+      // The activity log is real: the portal's audit trail for this business.
+      // Failing to load it is not a reason to fail the whole page.
+      try {
+        const activityResponse = await axios.post(
+          `/api/businesses/${businessId}/activity`,
+          { token },
+          { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
+        );
+        if (activityResponse.data.status_code === 200) {
+          setActivityLog(activityResponse.data.data || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch activity log:', err);
+      }
+
+      // TODO: Fetch real devices/notes when an API is available
       setDevices(getBusinessDevices(shopId));
       setNotes(getBusinessNotes(shopId));
-      setActivityLog(getBusinessActivityLog(shopId));
     } catch (err) {
       console.error("Failed to fetch shop details:", err);
       setError(lang === "zh" ? "加载失败" : "Failed to load shop details");
@@ -1258,12 +1274,8 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
   };
 
   const handleAddDeviceSubmit = async () => {
-    if (!addDeviceForm.deviceName || !addDeviceForm.deviceType) {
-      showToast(lang === "zh" ? "请填写所有必填字段" : "Please fill all required fields", 'error');
-      return;
-    }
-    if (addDeviceForm.deviceType === 'Other' && !addDeviceForm.otherDeviceType) {
-      showToast(lang === "zh" ? "请指定设备类型" : "Please specify device type", 'error');
+    if (!addDeviceForm.deviceName) {
+      showToast(lang === "zh" ? "请输入设备名称" : "Please enter a device name", 'error');
       return;
     }
     // TODO: Replace with actual API endpoint when available
@@ -1272,12 +1284,8 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
   };
 
   const handleEditDeviceSubmit = async () => {
-    if (!editDeviceForm.deviceName || !editDeviceForm.deviceType) {
-      showToast(lang === "zh" ? "请填写所有必填字段" : "Please fill all required fields", 'error');
-      return;
-    }
-    if (editDeviceForm.deviceType === 'Other' && !editDeviceForm.otherDeviceType) {
-      showToast(lang === "zh" ? "请指定设备类型" : "Please specify device type", 'error');
+    if (!editDeviceForm.deviceName) {
+      showToast(lang === "zh" ? "请输入设备名称" : "Please enter a device name", 'error');
       return;
     }
     // TODO: Replace with actual API endpoint when available
@@ -1319,14 +1327,27 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
     showToast(lang === 'zh' ? '笔记已添加' : 'Note added', 'success');
   };
 
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'status': return '🔄';
-      case 'device': return '📱';
-      case 'permission': return '🔑';
-      case 'edit': return '✏️';
+  const getActivityIcon = (action: string) => {
+    switch (action) {
+      case 'created': return '✨';
+      case 'updated': return '✏️';
+      case 'deleted': return '🗑️';
+      case 'reassigned': return '🔄';
+      case 'permissions_changed': return '🔑';
       default: return '📝';
     }
+  };
+
+  const activityTitle = (action: string) => {
+    const titles: Record<string, { en: string; zh: string }> = {
+      created: { en: 'Created', zh: '创建' },
+      updated: { en: 'Updated', zh: '更新' },
+      deleted: { en: 'Deleted', zh: '删除' },
+      reassigned: { en: 'Reassigned', zh: '重新分配' },
+      permissions_changed: { en: 'Permissions changed', zh: '权限变更' },
+    };
+    const known = titles[action];
+    return known ? known[lang === "zh" ? "zh" : "en"] : action.replace(/_/g, ' ');
   };
 
   const formatActivityTime = (timestamp: string) => {
@@ -1334,10 +1355,10 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    if (days === 0) return lang === 'zh' ? '今天' : 'Today';
-    if (days === 1) return lang === 'zh' ? '昨天' : 'Yesterday';
-    if (days < 7) return lang === 'zh' ? `${days} 天前` : `${days} days ago`;
-    return date.toLocaleDateString();
+    if (Number.isNaN(date.getTime())) return String(timestamp);
+    if (days === 0) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (days === 1) return lang === 'zh' ? `昨天 ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : `Yesterday ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    return date.toLocaleString();
   };
 
   // shop_admin.created_at is a naive UTC timestamp with microseconds
@@ -1577,6 +1598,8 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
               </Card>
               )}
 
+              {afterCredentials}
+
               <TabContainer id={tabsId}>
                 <TabButtons>
                   <TabButton $active={activeTab === 'devices'} onClick={() => setActiveTab('devices')}>
@@ -1596,7 +1619,12 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
                 <TabContent>
                   {activeTab === 'devices' && (
                     <>
-                      <CardTitle>{lang === "zh" ? "注册设备" : "Registered Devices"}</CardTitle>
+                      <CardTitleRow>
+                        <CardTitle>{lang === "zh" ? "注册设备" : "Registered Devices"}</CardTitle>
+                        <AddLoginButton onClick={handleAddDeviceClick}>
+                          + {lang === "zh" ? "添加设备" : "Add Device"}
+                        </AddLoginButton>
+                      </CardTitleRow>
                       {devices.length > 0 ? (
                         <PermissionList>
                           {devices.map((device) => (
@@ -1604,26 +1632,8 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
                               <PermissionName>{device.deviceName || 'N/A'}</PermissionName>
                               <PermissionDetails>
                                 <PermissionDetailItem>
-                                  <PermissionLabel>{lang === "zh" ? "品牌" : "Brand"}</PermissionLabel>
-                                  <PermissionValue>{device.deviceBrand || 'N/A'}</PermissionValue>
-                                </PermissionDetailItem>
-                                <PermissionDetailItem>
                                   <PermissionLabel>{lang === "zh" ? "序列号" : "Serial Number"}</PermissionLabel>
                                   <PermissionValue>{device.serialNumber || 'N/A'}</PermissionValue>
-                                </PermissionDetailItem>
-                                <PermissionDetailItem>
-                                  <PermissionLabel>{lang === "zh" ? "设备类型" : "Device Type"}</PermissionLabel>
-                                  <PermissionValue>{device.deviceType || 'N/A'}</PermissionValue>
-                                </PermissionDetailItem>
-                                <PermissionDetailItem>
-                                  <PermissionLabel>{lang === "zh" ? "状态" : "Status"}</PermissionLabel>
-                                  <PermissionValue>
-                                    <StatusBadge $status={device.status}>
-                                      {device.status === 'active'
-                                        ? (lang === "zh" ? "活跃" : "Active")
-                                        : (lang === "zh" ? "非活跃" : "Inactive")}
-                                    </StatusBadge>
-                                  </PermissionValue>
                                 </PermissionDetailItem>
                                 <PermissionDetailItem>
                                   <PermissionLabel>{lang === "zh" ? "注册日期" : "Registered"}</PermissionLabel>
@@ -1646,15 +1656,17 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
                           {lang === "zh" ? "暂无设备" : "No devices found"}
                         </InfoValue>
                       )}
-                      <AddPermissionButton onClick={handleAddDeviceClick}>
-                        {lang === "zh" ? "添加设备" : "Add Device"}
-                      </AddPermissionButton>
                     </>
                   )}
 
                   {activeTab === 'permissions' && (
                     <>
-                      <CardTitle>{lang === "zh" ? "权限管理" : "Permissions Management"}</CardTitle>
+                      <CardTitleRow>
+                        <CardTitle>{lang === "zh" ? "权限管理" : "Permissions Management"}</CardTitle>
+                        <AddLoginButton onClick={handleAddClick}>
+                          + {lang === "zh" ? "添加权限" : "Add Permission"}
+                        </AddLoginButton>
+                      </CardTitleRow>
                       {permissions.length > 0 ? (
                         <PermissionList>
                           {permissions.map((permission) => (
@@ -1674,9 +1686,6 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
                           {lang === "zh" ? "暂无权限" : "No permissions found"}
                         </InfoValue>
                       )}
-                      <AddPermissionButton onClick={handleAddClick}>
-                        {lang === "zh" ? "添加权限" : "Add Permission"}
-                      </AddPermissionButton>
                     </>
                   )}
 
@@ -1685,15 +1694,19 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
                       <CardTitle>{lang === "zh" ? "活动日志" : "Activity Log"}</CardTitle>
                       {activityLog.length > 0 ? (
                         <ActivityList>
-                          {activityLog.map((activity, index) => (
-                            <ActivityItem key={index}>
-                              <ActivityIcon $type={activity.type}>
-                                {getActivityIcon(activity.type)}
+                          {activityLog.map((entry) => (
+                            <ActivityItem key={entry._id}>
+                              <ActivityIcon $type={entry.action}>
+                                {getActivityIcon(entry.action)}
                               </ActivityIcon>
                               <ActivityContent>
-                                <ActivityTitle>{activity.title}</ActivityTitle>
-                                <ActivityDescription>{activity.description}</ActivityDescription>
-                                <ActivityTime>{formatActivityTime(activity.timestamp)}</ActivityTime>
+                                <ActivityTitle>{activityTitle(entry.action)}</ActivityTitle>
+                                {entry.details && <ActivityDescription>{entry.details}</ActivityDescription>}
+                                <ActivityTime>
+                                  {entry.actor_email
+                                    ? `${entry.actor_email} · ${formatActivityTime(entry.timestamp)}`
+                                    : formatActivityTime(entry.timestamp)}
+                                </ActivityTime>
                               </ActivityContent>
                             </ActivityItem>
                           ))}
@@ -1797,8 +1810,8 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
           <ModalTitle>{lang === "zh" ? "关于权限" : "About Permissions"}</ModalTitle>
           <p style={{ marginBottom: '1.5rem', color: '#5c6b7a', fontSize: '0.875rem' }}>
             {lang === "zh"
-              ? '权限由后端API管理。业务权限从后端自动获取，并在权限选项卡中显示。无法在此添加或修改权限。'
-              : 'Permissions are managed by the backend API. Business permissions are automatically retrieved from the backend and displayed in the Permissions tab. You cannot add or modify permissions here.'}
+              ? '权限由后端API管理。店铺权限从后端自动获取，并在权限选项卡中显示。无法在此添加或修改权限。'
+              : 'Permissions are managed by the backend API. Store permissions are automatically retrieved from the backend and displayed in the Permissions tab. You cannot add or modify permissions here.'}
           </p>
           <ModalActions>
             <ModalButton $primary onClick={() => setShowAddModal(false)}>
@@ -1821,54 +1834,12 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
             />
           </FormGroup>
           <FormGroup>
-            <Label>{lang === "zh" ? "设备品牌 (可选)" : "Device Brand (Optional)"}</Label>
-            <Input
-              value={editDeviceForm.deviceBrand}
-              onChange={(e) => setEditDeviceForm({ ...editDeviceForm, deviceBrand: e.target.value })}
-              placeholder={lang === "zh" ? "输入设备品牌" : "Enter device brand"}
-            />
-          </FormGroup>
-          <FormGroup>
             <Label>{lang === "zh" ? "序列号 (可选)" : "Serial Number (Optional)"}</Label>
             <Input
               value={editDeviceForm.serialNumber}
               onChange={(e) => setEditDeviceForm({ ...editDeviceForm, serialNumber: e.target.value })}
               placeholder={lang === "zh" ? "输入序列号" : "Enter serial number"}
             />
-          </FormGroup>
-          <FormGroup>
-            <Label>{lang === "zh" ? "设备类型" : "Device Type"}</Label>
-            <Select
-              value={editDeviceForm.deviceType}
-              onChange={(e) => setEditDeviceForm({ ...editDeviceForm, deviceType: e.target.value, otherDeviceType: '' })}
-            >
-              <option value="">{lang === "zh" ? "选择类型" : "Select Type"}</option>
-              <option value="POS Terminal">POS Terminal</option>
-              <option value="Payment Gateway">Payment Gateway</option>
-              <option value="Card Reader">Card Reader</option>
-              <option value="Mobile Device">Mobile Device</option>
-              <option value="Other">Other</option>
-            </Select>
-          </FormGroup>
-          {editDeviceForm.deviceType === 'Other' && (
-            <FormGroup>
-              <Label>{lang === "zh" ? "请指定设备类型" : "Specify Device Type"}</Label>
-              <Input
-                value={editDeviceForm.otherDeviceType}
-                onChange={(e) => setEditDeviceForm({ ...editDeviceForm, otherDeviceType: e.target.value })}
-                placeholder={lang === "zh" ? "输入设备类型" : "Enter device type"}
-              />
-            </FormGroup>
-          )}
-          <FormGroup>
-            <Label>{lang === "zh" ? "状态" : "Status"}</Label>
-            <Select
-              value={editDeviceForm.status}
-              onChange={(e) => setEditDeviceForm({ ...editDeviceForm, status: e.target.value })}
-            >
-              <option value="active">{lang === "zh" ? "活跃" : "Active"}</option>
-              <option value="inactive">{lang === "zh" ? "非活跃" : "Inactive"}</option>
-            </Select>
           </FormGroup>
           <ModalActions>
             <ModalButton onClick={() => setShowEditDeviceModal(false)}>
@@ -1977,54 +1948,12 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
             />
           </FormGroup>
           <FormGroup>
-            <Label>{lang === "zh" ? "设备品牌 (可选)" : "Device Brand (Optional)"}</Label>
-            <Input
-              value={addDeviceForm.deviceBrand}
-              onChange={(e) => setAddDeviceForm({ ...addDeviceForm, deviceBrand: e.target.value })}
-              placeholder={lang === "zh" ? "输入设备品牌" : "Enter device brand"}
-            />
-          </FormGroup>
-          <FormGroup>
             <Label>{lang === "zh" ? "序列号 (可选)" : "Serial Number (Optional)"}</Label>
             <Input
               value={addDeviceForm.serialNumber}
               onChange={(e) => setAddDeviceForm({ ...addDeviceForm, serialNumber: e.target.value })}
               placeholder={lang === "zh" ? "输入序列号" : "Enter serial number"}
             />
-          </FormGroup>
-          <FormGroup>
-            <Label>{lang === "zh" ? "设备类型" : "Device Type"}</Label>
-            <Select
-              value={addDeviceForm.deviceType}
-              onChange={(e) => setAddDeviceForm({ ...addDeviceForm, deviceType: e.target.value, otherDeviceType: '' })}
-            >
-              <option value="">{lang === "zh" ? "选择类型" : "Select Type"}</option>
-              <option value="POS Terminal">POS Terminal</option>
-              <option value="Payment Gateway">Payment Gateway</option>
-              <option value="Card Reader">Card Reader</option>
-              <option value="Mobile Device">Mobile Device</option>
-              <option value="Other">Other</option>
-            </Select>
-          </FormGroup>
-          {addDeviceForm.deviceType === 'Other' && (
-            <FormGroup>
-              <Label>{lang === "zh" ? "请指定设备类型" : "Specify Device Type"}</Label>
-              <Input
-                value={addDeviceForm.otherDeviceType}
-                onChange={(e) => setAddDeviceForm({ ...addDeviceForm, otherDeviceType: e.target.value })}
-                placeholder={lang === "zh" ? "输入设备类型" : "Enter device type"}
-              />
-            </FormGroup>
-          )}
-          <FormGroup>
-            <Label>{lang === "zh" ? "状态" : "Status"}</Label>
-            <Select
-              value={addDeviceForm.status}
-              onChange={(e) => setAddDeviceForm({ ...addDeviceForm, status: e.target.value })}
-            >
-              <option value="active">{lang === "zh" ? "活跃" : "Active"}</option>
-              <option value="inactive">{lang === "zh" ? "非活跃" : "Inactive"}</option>
-            </Select>
           </FormGroup>
           <ModalActions>
             <ModalButton onClick={() => setShowAddDeviceModal(false)}>

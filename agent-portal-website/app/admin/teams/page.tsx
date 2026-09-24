@@ -625,7 +625,7 @@ export default function TeamManagementPage() {
                       <TeamCardStatValue $muted={!team.counts.members}>{team.counts.members}</TeamCardStatValue>
                     </TeamCardStat>
                     <TeamCardStat>
-                      <TeamCardStatLabel>{zh ? "业务" : "Businesses"}</TeamCardStatLabel>
+                      <TeamCardStatLabel>{zh ? "店铺" : "Stores"}</TeamCardStatLabel>
                       <TeamCardStatValue $muted={!team.counts.businesses}>{team.counts.businesses}</TeamCardStatValue>
                     </TeamCardStat>
                     <TeamCardStat>
@@ -662,7 +662,7 @@ export default function TeamManagementPage() {
                       <Th>{zh ? "类型" : "Kind"}</Th>
                       <Th>{zh ? "状态" : "Status"}</Th>
                       <Th>{zh ? "成员" : "Members"}</Th>
-                      <Th>{zh ? "业务" : "Businesses"}</Th>
+                      <Th>{zh ? "店铺" : "Stores"}</Th>
                       <Th>{zh ? "待处理注册" : "Open registrations"}</Th>
                       <Th>{zh ? "报价" : "Quotations"}</Th>
                       <Th>{zh ? "操作" : "Actions"}</Th>

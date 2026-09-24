@@ -172,7 +172,7 @@ export const AVAILABLE_FIELDS: FormField[] = [
     required: true,
     order: 18,
     group: "Menu Files",
-    description: "Menu files for the business (PDF, DOC, XLS)",
+    description: "Menu files for the store (PDF, DOC, XLS)",
   },
   {
     id: "menu_send_later",

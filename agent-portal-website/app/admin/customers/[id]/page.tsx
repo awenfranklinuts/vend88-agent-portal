@@ -124,43 +124,6 @@ const SectionTitle = styled.h2`
   border-bottom: 2px solid #e0e7ef;
 `;
 
-const SectionHeaderRow = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #e0e7ef;
-
-  ${SectionTitle} {
-    margin-bottom: 0;
-    padding-bottom: 0;
-    border-bottom: none;
-  }
-`;
-
-const AddBusinessButton = styled.button`
-  padding: 0.5rem 1rem;
-  background: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  white-space: nowrap;
-
-  &:hover {
-    background: #2563eb;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-  }
-`;
-
 const Modal = styled.div<{ $show: boolean }>`
   position: fixed;
   top: 0;
@@ -390,9 +353,11 @@ const BusinessStatus = styled.span<{ $status?: string }>`
       case 'insetup':
         return 'background: #dbeafe; color: #1e40af;';
       case 'inactive':
-        return 'background: #e5e7eb; color: #374151;';
-      case 'suspended':
         return 'background: #fee2e2; color: #991b1b;';
+      case 'suspended':
+        return 'background: #fecaca; color: #7f1d1d;';
+      case 'test':
+        return 'background: #fef3c7; color: #92400e;';
       default:
         return 'background: #e5e7eb; color: #374151;';
     }
@@ -521,6 +486,11 @@ interface Business {
   state?: string;
   created_at?: string;
   createdAt?: string;
+  // Resolved when the customer is loaded: the store's own name and address,
+  // falling back to the business record's.
+  display_name?: string;
+  display_address?: string;
+  display_location?: string;
 }
 
 export default function CustomerDetailPage() {
@@ -537,10 +507,6 @@ export default function CustomerDetailPage() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedCustomer, setEditedCustomer] = useState<Customer | null>(null);
-  const [showAddBusinessModal, setShowAddBusinessModal] = useState(false);
-  const [newBusinessName, setNewBusinessName] = useState('');
-  const [addBusinessError, setAddBusinessError] = useState('');
-  const [isAddingBusiness, setIsAddingBusiness] = useState(false);
 
   const t = (key: keyof typeof dict) => dict[key][lang];
 
@@ -592,6 +558,27 @@ export default function CustomerDetailPage() {
         }
       );
 
+      // The store holds the name and address for most records - the business row
+      // is frequently bare, which left these cards showing nothing at all.
+      let shopsList: any[] = [];
+      try {
+        const shopsResponse = await axios.post(
+          '/api/shops/list',
+          { token },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (shopsResponse.data.status_code === 200) {
+          shopsList = shopsResponse.data.data || [];
+        }
+      } catch (err) {
+        console.error('Failed to fetch shops:', err);
+      }
+
       if (customersData.status_code === 200 && businessesResponse.data.status_code === 200) {
         const customersList = customersData.customers || customersData.data || [];
         const businessesList = businessesResponse.data.data || businessesResponse.data.business || [];
@@ -603,9 +590,23 @@ export default function CustomerDetailPage() {
           const customerWithBusinesses = {
             ...foundCustomer,
             // Linked through customer_id only - owner_id is the VendPOS login
-            businesses: businessesList.filter((business: any) =>
-              business.customer_id && String(business.customer_id) === String(foundCustomer._id)
-            )
+            businesses: businessesList
+              .filter((business: any) =>
+                business.customer_id && String(business.customer_id) === String(foundCustomer._id)
+              )
+              .map((business: any) => {
+                const store = shopsList.find((sh: any) => String(sh.business_id) === String(business._id));
+                const storeLocation = typeof store?.location === 'string' ? store.location.trim() : '';
+                const businessLocality = [business.suburb, business.state].filter(Boolean).join(', ');
+                return {
+                  ...business,
+                  // Shown under the store's own name and address, like the rest
+                  // of the portal; the business record is the fallback.
+                  display_name: String(store?.store_name || '').trim() || business.name,
+                  display_address: storeLocation || business.address || '',
+                  display_location: storeLocation ? '' : businessLocality,
+                };
+              })
           };
           setCustomer(customerWithBusinesses);
           setEditedCustomer(customerWithBusinesses);
@@ -647,8 +648,6 @@ export default function CustomerDetailPage() {
             name: editedCustomer.name,
             email: editedCustomer.email,
             phone: editedCustomer.phone,
-            messagingAppType: editedCustomer.messagingAppType,
-            messagingAppId: editedCustomer.messagingAppId,
             status: editedCustomer.status
           })
         }
@@ -685,12 +684,6 @@ export default function CustomerDetailPage() {
     }
   };
 
-  const handleEmailCustomer = () => {
-    if (customer?.email) {
-      window.location.href = `mailto:${customer.email}`;
-    }
-  };
-
   // Permanent delete - administrators only. A customer is the contact record:
   // deleting it leaves their businesses (and VendPOS logins) in place, unlinked.
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -717,48 +710,11 @@ export default function CustomerDetailPage() {
     router.push(`/admin/businesses/${businessId}`);
   };
 
-  const handleAddBusiness = async () => {
-    if (!customer) return;
-
-    if (!newBusinessName.trim()) {
-      setAddBusinessError(lang === 'zh' ? '请输入业务名称' : 'Please enter a business name');
-      return;
-    }
-
-    setAddBusinessError('');
-    setIsAddingBusiness(true);
-
-    try {
-      const response = await axios.post(
-        `/api/customers/${customer._id}/add-business`,
-        { token, name: newBusinessName.trim() },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.data.status_code === 201 && response.data.business_id) {
-        setShowAddBusinessModal(false);
-        setNewBusinessName('');
-        router.push(`/admin/businesses/${response.data.business_id}`);
-      } else {
-        throw new Error(response.data.message || 'Failed to create business');
-      }
-    } catch (err: any) {
-      setAddBusinessError(
-        err?.response?.data?.message ||
-        (lang === 'zh' ? '创建业务失败，请重试' : 'Failed to create business, please try again')
-      );
-    } finally {
-      setIsAddingBusiness(false);
-    }
-  };
-
   const formatStatus = (status: string) => {
     if (!status) return 'N/A';
+    // 'setup' is what provisioning stores; 'In Setup' is how it reads.
+    const normalized = status.toLowerCase().replace(/[_\s]/g, '');
+    if (normalized === 'setup' || normalized === 'insetup') return 'In Setup';
     return status
       .replace(/_/g, ' ')
       .toUpperCase();
@@ -813,8 +769,8 @@ export default function CustomerDetailPage() {
               <PageTitle>{isEditMode ? (lang === 'zh' ? '编辑客户' : 'Edit Customer') : customer.name}</PageTitle>
               <PageDescription>
                 {lang === "zh"
-                  ? "查看和管理客户信息及其关联的业务"
-                  : "View and manage customer information and associated businesses"}
+                  ? "查看和管理客户信息及其关联的店铺"
+                  : "View and manage customer information and associated stores"}
               </PageDescription>
             </div>
           </ContentHeader>
@@ -862,24 +818,6 @@ export default function CustomerDetailPage() {
                   <DetailValue>{customer.phone || 'N/A'}</DetailValue>
                 )}
               </DetailItem>
-              {(customer.messagingAppType || isEditMode) && (
-                <DetailItem>
-                  <DetailLabel>{lang === "zh" ? "消息应用" : "Messaging App"}</DetailLabel>
-                  {isEditMode ? (
-                    <EditInput
-                      value={editedCustomer?.messagingAppId || ''}
-                      onChange={(e) => handleEditChange('messagingAppId', e.target.value)}
-                      placeholder={lang === 'zh' ? '消息应用 ID' : 'Messaging App ID'}
-                    />
-                  ) : customer.messagingAppType && customer.messagingAppId ? (
-                    <DetailValue>
-                      {customer.messagingAppType === 'wechat' ? 'WeChat' : 'WhatsApp'}: {customer.messagingAppId}
-                    </DetailValue>
-                  ) : (
-                    <DetailValue>N/A</DetailValue>
-                  )}
-                </DetailItem>
-              )}
               <DetailItem>
                 <DetailLabel>{lang === "zh" ? "来源表单" : "Source Form"}</DetailLabel>
                 {customer.registration_id ? (
@@ -907,10 +845,6 @@ export default function CustomerDetailPage() {
                 <>
                   <ActionButton $variant="primary" onClick={() => setIsEditMode(true)}>
                     {lang === 'zh' ? '编辑' : 'Edit'}
-                  </ActionButton>
-                  <ActionButton onClick={handleEmailCustomer}>
-                    <EmailIcon />
-                    {lang === 'zh' ? '发送邮件' : 'Send Email'}
                   </ActionButton>
                   {canSeeAllTeams(adminProfile) && (
                     <ActionButton onClick={() => setShowDeleteModal(true)} style={{ background: '#fee2e2', color: '#991b1b' }}>
@@ -942,8 +876,8 @@ export default function CustomerDetailPage() {
               <p style={{ fontSize: '0.875rem', color: '#5c6b7a', margin: '0.75rem 0 1rem', lineHeight: 1.6 }}>
                 {customer.businesses && customer.businesses.length > 0
                   ? (lang === 'zh'
-                      ? `确定要永久删除客户 "${customer.name}" 吗？其 ${customer.businesses.length} 个业务及其 VendPOS 登录会保留，只是不再关联任何客户。`
-                      : `Permanently delete the customer "${customer.name}"? Their ${customer.businesses.length} business${customer.businesses.length === 1 ? '' : 'es'} and VendPOS logins are kept - they'll simply have no customer linked.`)
+                      ? `确定要永久删除客户 "${customer.name}" 吗？其 ${customer.businesses.length} 个店铺及其 VendPOS 登录会保留，只是不再关联任何客户。`
+                      : `Permanently delete the customer "${customer.name}"? Their ${customer.businesses.length} store${customer.businesses.length === 1 ? '' : 's'} and VendPOS logins are kept - they'll simply have no customer linked.`)
                   : (lang === 'zh'
                       ? `确定要永久删除客户 "${customer.name}" 吗？`
                       : `Permanently delete the customer "${customer.name}"?`)}
@@ -967,100 +901,53 @@ export default function CustomerDetailPage() {
           </Modal>
 
           <DetailSection>
-            <SectionHeaderRow>
               <SectionTitle>
-                {lang === "zh" ? "业务" : "Businesses"} ({customer.businesses.length})
+                {lang === "zh" ? "店铺" : "Stores"} ({customer.businesses.length})
               </SectionTitle>
-              <AddBusinessButton onClick={() => { setNewBusinessName(''); setAddBusinessError(''); setShowAddBusinessModal(true); }}>
-                + {lang === "zh" ? "添加业务" : "Add Business"}
-              </AddBusinessButton>
-            </SectionHeaderRow>
             {customer.businesses.length > 0 ? (
               customer.businesses.map((business) => (
                 <BusinessDetailCard key={business._id} onClick={() => handleBusinessClick(business._id)}>
                   <BusinessHeader>
-                    <BusinessDetailName>{business.name}</BusinessDetailName>
+                    <BusinessDetailName>{business.display_name || business.name}</BusinessDetailName>
                     <BusinessStatus $status={business.status}>
                       {formatStatus(business.status || 'N/A')}
                     </BusinessStatus>
                   </BusinessHeader>
                   <BusinessInfo>
-                    {business.abn && (
-                      <BusinessInfoItem>
-                        <InfoLabel>{lang === "zh" ? "ABN" : "ABN"}</InfoLabel>
-                        <InfoValue>{business.abn}</InfoValue>
-                      </BusinessInfoItem>
-                    )}
-                    {business.address && (
-                      <BusinessInfoItem>
-                        <InfoLabel>{lang === "zh" ? "地址" : "Address"}</InfoLabel>
-                        <InfoValue>{business.address}</InfoValue>
-                      </BusinessInfoItem>
-                    )}
-                    {(business.suburb || business.state) && (
+                    <BusinessInfoItem>
+                      <InfoLabel>ABN</InfoLabel>
+                      <InfoValue>{business.abn || 'N/A'}</InfoValue>
+                    </BusinessInfoItem>
+                    <BusinessInfoItem>
+                      <InfoLabel>{lang === "zh" ? "地址" : "Address"}</InfoLabel>
+                      <InfoValue>{business.display_address || 'N/A'}</InfoValue>
+                    </BusinessInfoItem>
+                    {business.display_location && (
                       <BusinessInfoItem>
                         <InfoLabel>{lang === "zh" ? "位置" : "Location"}</InfoLabel>
-                        <InfoValue>
-                          {business.suburb && business.state ? `${business.suburb}, ${business.state}` : business.suburb || business.state}
-                        </InfoValue>
+                        <InfoValue>{business.display_location}</InfoValue>
                       </BusinessInfoItem>
                     )}
-                    {(business.created_at || business.createdAt) && (
-                      <BusinessInfoItem>
-                        <InfoLabel>{lang === "zh" ? "创建日期" : "Created Date"}</InfoLabel>
-                        <InfoValue>
-                          {new Date(business.created_at || business.createdAt || '').toLocaleDateString()}
-                        </InfoValue>
-                      </BusinessInfoItem>
-                    )}
+                    <BusinessInfoItem>
+                      <InfoLabel>{lang === "zh" ? "创建日期" : "Created Date"}</InfoLabel>
+                      <InfoValue>
+                        {business.created_at || business.createdAt
+                          ? new Date(String(business.created_at || business.createdAt)).toLocaleDateString()
+                          : 'N/A'}
+                      </InfoValue>
+                    </BusinessInfoItem>
                   </BusinessInfo>
                 </BusinessDetailCard>
               ))
             ) : (
               <DetailValue style={{ fontStyle: 'italic', opacity: 0.7 }}>
-                {lang === "zh" ? "此客户没有关联的业务" : "This customer has no associated businesses"}
+                {lang === "zh" ? "此客户没有关联的店铺" : "This customer has no associated stores"}
               </DetailValue>
             )}
           </DetailSection>
         </MainContent>
       </Container>
 
-      {/* Add Business Modal */}
-      <Modal $show={showAddBusinessModal} onClick={() => setShowAddBusinessModal(false)}>
-        <ModalContent onClick={(e) => e.stopPropagation()}>
-          <ModalHeader>
-            <ModalTitle>{lang === "zh" ? "添加业务" : "Add Business"}</ModalTitle>
-            <ModalCloseButton onClick={() => setShowAddBusinessModal(false)}>×</ModalCloseButton>
-          </ModalHeader>
-
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#5c6b7a', marginBottom: '0.5rem' }}>
-              {lang === "zh" ? "业务名称" : "Business Name"} *
-            </label>
-            <ModalInput
-              type="text"
-              value={newBusinessName}
-              onChange={(e) => setNewBusinessName(e.target.value)}
-              placeholder={lang === "zh" ? "输入业务名称" : "Enter business name"}
-            />
-          </div>
-
-          {addBusinessError && (
-            <p style={{ color: '#dc2626', fontSize: '0.8125rem', marginBottom: '1rem' }}>{addBusinessError}</p>
-          )}
-
-          <ModalActions>
-            <ModalButton onClick={() => setShowAddBusinessModal(false)} disabled={isAddingBusiness}>
-              {lang === "zh" ? "取消" : "Cancel"}
-            </ModalButton>
-            <ModalButton $primary onClick={handleAddBusiness} disabled={isAddingBusiness}>
-              {isAddingBusiness
-                ? (lang === "zh" ? "创建中..." : "Creating...")
-                : (lang === "zh" ? "创建业务" : "Create Business")}
-            </ModalButton>
-          </ModalActions>
-        </ModalContent>
-      </Modal>
     </MainLayout>
   );
 }

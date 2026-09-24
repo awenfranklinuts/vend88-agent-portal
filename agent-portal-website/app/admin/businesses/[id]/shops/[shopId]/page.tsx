@@ -88,7 +88,7 @@ export default function ShopDetailPage() {
         <MainContent>
           <BackButton onClick={() => router.push(`/admin/businesses/${businessId}`)}>
             <span>←</span>
-            {lang === "zh" ? "返回业务详情" : "Back to Business"}
+            {lang === "zh" ? "返回店铺详情" : "Back to Store"}
           </BackButton>
 
           <ShopDetailPanel businessId={businessId} shopId={shopId} />

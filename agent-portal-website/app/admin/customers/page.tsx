@@ -156,6 +156,23 @@ const ControlBar = styled.div`
   flex-wrap: wrap;
 `;
 
+const FilterCheckboxLabel = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #374151;
+  cursor: pointer;
+  white-space: nowrap;
+`;
+
+const Checkbox = styled.input.attrs({ type: 'checkbox' })`
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #1a237e;
+`;
+
 const ControlGroup = styled.div`
   display: flex;
   gap: 0.75rem;
@@ -445,9 +462,11 @@ const BusinessStatus = styled.span<{ $status: string }>`
       case 'insetup':
         return 'background: #dbeafe; color: #1e40af;';
       case 'inactive':
-        return 'background: #e5e7eb; color: #374151;';
-      case 'suspended':
         return 'background: #fee2e2; color: #991b1b;';
+      case 'suspended':
+        return 'background: #fecaca; color: #7f1d1d;';
+      case 'test':
+        return 'background: #fef3c7; color: #92400e;';
       default:
         return 'background: #e5e7eb; color: #374151;';
     }
@@ -852,12 +871,6 @@ const PhoneIcon = () => (
   </svg>
 );
 
-const MessagingIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-  </svg>
-);
-
 const UsersIcon = () => (
   <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -945,6 +958,8 @@ interface Customer {
 }
 
 interface Business {
+  // Resolved on load: the store's own name, falling back to the business row's.
+  display_name?: string;
   _id: string;
   name: string;
   owner_id: string;
@@ -969,6 +984,10 @@ export default function CustomerManagementPage() {
   const [sortField, setSortField] = useState<'name' | 'created_at' | 'businessCount'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [filterOption, setFilterOption] = useState<'all' | 'withBusiness' | 'withoutBusiness'>('all');
+  // By default the list is the customers who actually run a store: at least one
+  // linked business with a status set. The rest - no store at all, or only
+  // half-made ones - are opted into.
+  const [includeWithoutStore, setIncludeWithoutStore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12);
   const [advancedSearchVisible, setAdvancedSearchVisible] = useState(false);
@@ -980,8 +999,6 @@ export default function CustomerManagementPage() {
     name: '',
     email: '',
     phone: '',
-    messagingAppType: '',
-    messagingAppId: '',
     source_info: ''
   });
 
@@ -1011,8 +1028,8 @@ export default function CustomerManagementPage() {
         customer.name.toLowerCase().includes(query) ||
         customer.email.toLowerCase().includes(query) ||
         customer.phone?.toLowerCase().includes(query) ||
-        customer.businesses.some(business => 
-          business.name.toLowerCase().includes(query)
+        customer.businesses.some(business =>
+          `${business.name} ${business.display_name || ''}`.toLowerCase().includes(query)
         )
       );
     }
@@ -1034,6 +1051,12 @@ export default function CustomerManagementPage() {
         customer.businesses.some(business => 
           business.address?.toLowerCase().includes(addressQuery)
         )
+      );
+    }
+    
+    if (!includeWithoutStore) {
+      filtered = filtered.filter(customer =>
+        customer.businesses.some(business => String(business.status || '').trim() !== '')
       );
     }
     
@@ -1063,7 +1086,7 @@ export default function CustomerManagementPage() {
     
     setFilteredCustomers(filtered);
     setCurrentPage(1); // Reset to first page when filters change
-  }, [searchQuery, searchByABN, searchByAddress, filterOption, sortField, sortDirection, customers]);
+  }, [searchQuery, searchByABN, searchByAddress, filterOption, includeWithoutStore, sortField, sortDirection, customers]);
 
   const fetchCustomers = async () => {
     setIsLoadingData(true);
@@ -1099,6 +1122,27 @@ export default function CustomerManagementPage() {
         }
       );
 
+      // The store's own name is what the rest of the portal shows; the business
+      // record's name is often a slug-like internal one.
+      let shopsList: any[] = [];
+      try {
+        const shopsResponse = await axios.post(
+          '/api/shops/list',
+          { token },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (shopsResponse.data.status_code === 200) {
+          shopsList = shopsResponse.data.data || [];
+        }
+      } catch (err) {
+        console.error('Failed to fetch shops:', err);
+      }
+
       if (customersData.status_code === 200 && businessesResponse.data.status_code === 200) {
         const customersList = customersData.customers || customersData.data || [];
         const businessesList = businessesResponse.data.data || businessesResponse.data.business || [];
@@ -1108,9 +1152,17 @@ export default function CustomerManagementPage() {
           ...customer,
           // A business belongs to a customer through customer_id only. owner_id
           // is its VendPOS login, which lives in a different collection.
-          businesses: businessesList.filter((business: any) =>
-            business.customer_id && String(business.customer_id) === String(customer._id)
-          )
+          businesses: businessesList
+            .filter((business: any) =>
+              business.customer_id && String(business.customer_id) === String(customer._id)
+            )
+            .map((business: any) => {
+              const store = shopsList.find((sh: any) => String(sh.business_id) === String(business._id));
+              return {
+                ...business,
+                display_name: String(store?.store_name || '').trim() || business.name,
+              };
+            })
         }));
 
         setCustomers(customersWithBusinesses);
@@ -1137,8 +1189,6 @@ export default function CustomerManagementPage() {
       name: '',
       email: '',
       phone: '',
-      messagingAppType: '',
-      messagingAppId: '',
       source_info: ''
     });
   };
@@ -1149,10 +1199,19 @@ export default function CustomerManagementPage() {
     if (isCreatingCustomer) return;
     setIsCreatingCustomer(true);
     try {
-      // Validate required fields
-      if (!newCustomer.name || !newCustomer.email) {
+      // Only the name is required - a contact often arrives as a name and
+      // nothing else, and the rest can be filled in later.
+      if (!newCustomer.name.trim()) {
         showToast(
-          lang === 'zh' ? '请填写必填字段' : 'Please fill in required fields',
+          lang === 'zh' ? '请输入客户名' : 'Please enter a customer name',
+          'error'
+        );
+        return;
+      }
+      // An address that was typed still has to be a real one.
+      if (newCustomer.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newCustomer.email.trim())) {
+        showToast(
+          lang === 'zh' ? '邮箱格式无效' : 'Please enter a valid email address',
           'error'
         );
         return;
@@ -1168,11 +1227,9 @@ export default function CustomerManagementPage() {
           },
           body: JSON.stringify({
             token: token,
-            name: newCustomer.name,
-            email: newCustomer.email,
+            name: newCustomer.name.trim(),
+            email: newCustomer.email.trim() || undefined,
             phone: newCustomer.phone || undefined,
-            messagingAppType: newCustomer.messagingAppType || undefined,
-            messagingAppId: newCustomer.messagingAppId || undefined,
             source_info: newCustomer.source_info || undefined
           })
         }
@@ -1191,8 +1248,6 @@ export default function CustomerManagementPage() {
           name: '',
           email: '',
           phone: '',
-          messagingAppType: '',
-          messagingAppId: '',
           source_info: ''
         });
         setShowCreateModal(false);
@@ -1253,6 +1308,9 @@ export default function CustomerManagementPage() {
 
   const formatStatus = (status: string) => {
     if (!status) return 'N/A';
+    // 'setup' is what provisioning stores; 'In Setup' is how it reads.
+    const normalized = status.toLowerCase().replace(/[_\s]/g, '');
+    if (normalized === 'setup' || normalized === 'insetup') return 'In Setup';
     return status
       .replace(/_/g, ' ')
       .toUpperCase();
@@ -1333,7 +1391,7 @@ export default function CustomerManagementPage() {
               {/* Businesses attached to a customer on this page - not every
                   business on record, which is what Business Management counts. */}
               <StatValue>{stats.totalBusinesses}</StatValue>
-              <StatLabel>{lang === 'zh' ? '已关联商户' : 'Linked Businesses'}</StatLabel>
+              <StatLabel>{lang === 'zh' ? '已关联店铺' : 'Linked Stores'}</StatLabel>
             </StatCard>
             <StatCard>
               <StatValue>{stats.recentAdditions}</StatValue>
@@ -1345,7 +1403,7 @@ export default function CustomerManagementPage() {
             <SearchRow>
               <SearchInput
                 type="text"
-                placeholder={lang === "zh" ? "搜索客户名、邮箱、电话或业务..." : "Search by customer name, email, phone, or business..."}
+                placeholder={lang === "zh" ? "搜索客户名、邮箱、电话或店铺..." : "Search by customer name, email, phone, or business..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -1375,18 +1433,25 @@ export default function CustomerManagementPage() {
             <ControlGroup>
               <Select value={filterOption} onChange={(e) => setFilterOption(e.target.value as any)}>
                 <option value="all">{lang === 'zh' ? '所有客户' : 'All Customers'}</option>
-                <option value="withBusiness">{lang === 'zh' ? '有业务' : 'With Businesses'}</option>
-                <option value="withoutBusiness">{lang === 'zh' ? '无业务' : 'Without Businesses'}</option>
+                <option value="withBusiness">{lang === 'zh' ? '有店铺' : 'With Stores'}</option>
+                <option value="withoutBusiness">{lang === 'zh' ? '无店铺' : 'Without Stores'}</option>
               </Select>
               <Select value={sortField} onChange={(e) => setSortField(e.target.value as any)}>
                 <option value="name">{lang === 'zh' ? '按名称排序' : 'Sort by Name'}</option>
                 <option value="created_at">{lang === 'zh' ? '按日期排序' : 'Sort by Date'}</option>
-                <option value="businessCount">{lang === 'zh' ? '按业务数排序' : 'Sort by Business Count'}</option>
+                <option value="businessCount">{lang === 'zh' ? '按店铺数排序' : 'Sort by Store Count'}</option>
               </Select>
               <Select value={sortDirection} onChange={(e) => setSortDirection(e.target.value as any)}>
                 <option value="asc">{lang === 'zh' ? '升序' : 'Ascending'}</option>
                 <option value="desc">{lang === 'zh' ? '降序' : 'Descending'}</option>
               </Select>
+              <FilterCheckboxLabel>
+                <Checkbox
+                  checked={includeWithoutStore}
+                  onChange={(e) => setIncludeWithoutStore(e.target.checked)}
+                />
+                {lang === 'zh' ? '包含无店铺的客户' : 'Include customers without a store'}
+              </FilterCheckboxLabel>
             </ControlGroup>
             <ControlGroup>
               <ViewToggle>
@@ -1436,7 +1501,7 @@ export default function CustomerManagementPage() {
                     <Th>{lang === 'zh' ? '邮箱' : 'Email'}</Th>
                     <Th>{lang === 'zh' ? '电话' : 'Phone'}</Th>
                     <Th onClick={() => handleSort('businessCount')}>
-                      {lang === 'zh' ? '业务' : 'Businesses'} <SortIcon />
+                      {lang === 'zh' ? '店铺' : 'Stores'} <SortIcon />
                     </Th>
                     {showTeamColumn && <Th>{lang === 'zh' ? '团队' : 'Team'}</Th>}
                     <Th onClick={() => handleSort('created_at')}>
@@ -1492,21 +1557,16 @@ export default function CustomerManagementPage() {
                       <PhoneIcon /> {customer.phone}
                     </CustomerDetail>
                   )}
-                  {customer.messagingAppType && customer.messagingAppId && (
-                    <CustomerDetail>
-                      <MessagingIcon /> {customer.messagingAppType === 'wechat' ? 'WeChat' : 'WhatsApp'}: {customer.messagingAppId}
-                    </CustomerDetail>
-                  )}
                   
                   <BusinessSection>
                     <BusinessTitle>
-                      {lang === "zh" ? "业务" : "Businesses"} ({customer.businesses.length})
+                      {lang === "zh" ? "店铺" : "Stores"} ({customer.businesses.length})
                     </BusinessTitle>
                     {customer.businesses.length > 0 ? (
                       <BusinessList>
                         {customer.businesses.slice(0, 3).map((business) => (
                           <BusinessItem key={business._id}>
-                            <BusinessName>{business.name}</BusinessName>
+                            <BusinessName>{business.display_name || business.name}</BusinessName>
                             <BusinessStatus $status={business.status || 'N/A'}>
                               {formatStatus(business.status || 'N/A')}
                             </BusinessStatus>
@@ -1515,14 +1575,14 @@ export default function CustomerManagementPage() {
                         {customer.businesses.length > 3 && (
                           <CustomerDetail style={{ marginTop: '0.5rem', fontStyle: 'italic' }}>
                             {lang === "zh" 
-                              ? `+ ${customer.businesses.length - 3} 更多业务` 
-                              : `+ ${customer.businesses.length - 3} more business${customer.businesses.length - 3 > 1 ? 'es' : ''}`}
+                              ? `+ ${customer.businesses.length - 3} 更多店铺` 
+                              : `+ ${customer.businesses.length - 3} more store${customer.businesses.length - 3 > 1 ? 's' : ''}`}
                           </CustomerDetail>
                         )}
                       </BusinessList>
                     ) : (
                       <CustomerDetail style={{ fontStyle: 'italic', opacity: 0.7 }}>
-                        {lang === "zh" ? "无业务" : "No businesses"}
+                        {lang === "zh" ? "无店铺" : "No stores"}
                       </CustomerDetail>
                     )}
                   </BusinessSection>
@@ -1602,7 +1662,7 @@ export default function CustomerManagementPage() {
           </Section>
 
           <Section>
-            <DetailLabel>{lang === "zh" ? "电子邮件" : "Email"} *</DetailLabel>
+            <DetailLabel>{lang === "zh" ? "电子邮件" : "Email"}</DetailLabel>
             <Input
               type="email"
               value={newCustomer.email}

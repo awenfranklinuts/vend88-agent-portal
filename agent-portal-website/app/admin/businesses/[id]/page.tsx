@@ -225,38 +225,6 @@ const FieldGrid = styled.div`
   max-width: 1080px;
 `;
 
-const NotesBox = styled.div`
-  background: #f7faff;
-  border: 1px solid #e0e7ef;
-  border-radius: 2px;
-  padding: 0.875rem 1rem;
-  font-size: 0.9375rem;
-  color: #0a3655;
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
-`;
-
-const NotesTextarea = styled.textarea`
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 2px;
-  font-size: 0.9375rem;
-  font-family: inherit;
-  color: #0a3655;
-  resize: vertical;
-
-  &:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  }
-
-  &::placeholder {
-    color: #94a3b8;
-  }
-`;
-
 const WarningCard = styled.div`
   display: flex;
   flex-direction: column;
@@ -564,6 +532,14 @@ const SectionNavItem = styled.button<{ $active: boolean }>`
 
 const SHOP_STATUSES = ['active', 'inactive', 'test', 'suspended'];
 
+const BUSINESS_STATUS_OPTIONS = [
+  { value: 'active', label: 'Active' },
+  { value: 'setup', label: 'In Setup' },
+  { value: 'test', label: 'Test' },
+  { value: 'inactive', label: 'Inactive' },
+  { value: 'suspended', label: 'Suspended' },
+];
+
 const InternalToggle = styled.button`
   display: flex;
   align-items: center;
@@ -861,7 +837,7 @@ export default function BusinessDetailPage() {
 
   // Attach a customer while editing a business that has none: either a new
   // record from typed details, or an existing one from Customer Management
-  const [customerMode, setCustomerMode] = useState<'new' | 'existing'>('new');
+  const [customerMode, setCustomerMode] = useState<'new' | 'existing' | 'edit'>('new');
   const [customerForm, setCustomerForm] = useState({ name: '', email: '', phone: '' });
   const [existingCustomers, setExistingCustomers] = useState<any[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
@@ -958,14 +934,14 @@ export default function BusinessDetailPage() {
     try {
       const response = await axios.post('/api/businesses/delete', { token, id: business._id });
       if (response.data?.status_code === 200) {
-        showToast(lang === 'zh' ? '业务已删除' : 'Business deleted', 'success');
+        showToast(lang === 'zh' ? '店铺已删除' : 'Store deleted', 'success');
         router.push('/admin/businesses');
       } else {
-        showToast(response.data?.message || (lang === 'zh' ? '删除失败' : 'Failed to delete business'), 'error');
+        showToast(response.data?.message || (lang === 'zh' ? '删除失败' : 'Failed to delete store'), 'error');
         setIsDeleting(false);
       }
     } catch (err: any) {
-      showToast(err?.response?.data?.message || (lang === 'zh' ? '删除失败' : 'Failed to delete business'), 'error');
+      showToast(err?.response?.data?.message || (lang === 'zh' ? '删除失败' : 'Failed to delete store'), 'error');
       setIsDeleting(false);
     }
   };
@@ -973,7 +949,6 @@ export default function BusinessDetailPage() {
   const { showToast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [business, setBusiness] = useState<Business | null>(null);
-  const deleteConfirmed = !!business && deleteConfirmText.trim() === (business.name || '').trim();
   const hasOwner = !!business?.owner_id;
   const [originalBusiness, setOriginalBusiness] = useState<Business | null>(null);
   const [owner, setOwner] = useState<any>(null);
@@ -1114,19 +1089,28 @@ export default function BusinessDetailPage() {
             console.error('Failed to fetch shops:', err);
           }
         } else {
-          setError(lang === "zh" ? "未找到业务" : "Business not found");
+          setError(lang === "zh" ? "未找到店铺" : "Store not found");
         }
       }
     } catch (err) {
       console.error("Failed to fetch business details:", err);
-      setError(lang === "zh" ? "加载失败" : "Failed to load business details");
+      setError(lang === "zh" ? "加载失败" : "Failed to load store details");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleEditBusiness = () => {
-    if (!owner) { setAttachCustomerError(''); loadExistingCustomers(); }
+    setAttachCustomerError('');
+    loadExistingCustomers();
+    // With a customer linked, the fields start as that customer's own details
+    // and edit them in place; 'existing' swaps to picking a different one.
+    setCustomerMode(owner ? 'edit' : 'new');
+    setCustomerForm({
+      name: owner?.name || '',
+      email: owner?.email || '',
+      phone: owner?.phone || '',
+    });
     // The field shows the store's display name, so that is what the input opens
     // on - otherwise editing would start from a different name than was read.
     setBusiness((prev) => (prev && storeName ? { ...prev, name: storeName } : prev));
@@ -1167,7 +1151,7 @@ export default function BusinessDetailPage() {
 
       // A business and its store are one record, so a rename or a status change
       // is written to both - the store's own store_name and status are what the
-      // POS shows. 'setup'/'in_setup' have no shop equivalent, so they stay on
+      // POS shows. 'setup' has no shop equivalent, so it stays on
       // the business alone rather than being mapped onto something they aren't.
       const shopUpdate: { store_name?: string; status?: string; location?: string } = {};
       if (changes.name) shopUpdate.store_name = changes.name;
@@ -1181,13 +1165,35 @@ export default function BusinessDetailPage() {
         );
       }
 
+      // The linked customer's own details, edited in place. Linking a different
+      // customer is its own action and has already been applied by this point.
+      if (owner?._id && customerMode === 'edit') {
+        const contact = {
+          name: customerForm.name.trim(),
+          email: customerForm.email.trim(),
+          phone: customerForm.phone.trim(),
+        };
+        const changed =
+          contact.name !== (owner.name || '') ||
+          contact.email !== (owner.email || '') ||
+          contact.phone !== (owner.phone || '');
+        if (changed) {
+          if (contact.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)) {
+            showToast(lang === 'zh' ? '邮箱格式无效' : 'Invalid email address', 'error');
+            return;
+          }
+          await axios.post('/api/customer/update', { token, id: owner._id, ...contact }, { headers });
+          await fetchBusinessDetails();
+        }
+      }
+
       const saved = { ...business, notes, name: name || business.name, abn };
       setBusiness(saved);
       setOriginalBusiness(saved);
       setIsEditMode(false);
       if (Object.keys(shopUpdate).length || changes.name || changes.status) await fetchBusinessDetails();
       showToast(
-        lang === 'zh' ? '业务信息已更新' : 'Business information updated',
+        lang === 'zh' ? '店铺信息已更新' : 'Store information updated',
         'success'
       );
     } catch (err) {
@@ -1250,7 +1256,7 @@ export default function BusinessDetailPage() {
 
   // In-page section nav. The ids are set on the cards below and on the store
   // panel's card and tab strip, which it takes as props.
-  const sectionIds = ['store', 'customer', 'store-logins', 'internal', 'store-records'];
+  const sectionIds = ['store', 'customer', 'store-logins', 'attribution', 'internal', 'store-records'];
   const [activeSection, setActiveSection] = useState('store');
 
   useEffect(() => {
@@ -1427,6 +1433,9 @@ export default function BusinessDetailPage() {
 
   const formatStatus = (status: string) => {
     if (!status) return 'N/A';
+    // 'setup' is what provisioning stores; 'In Setup' is how it reads.
+    const normalized = status.toLowerCase().replace(/[_\s]/g, '');
+    if (normalized === 'setup' || normalized === 'insetup') return 'In Setup';
     return status
       .replace(/_/g, ' ')
       .toUpperCase();
@@ -1462,6 +1471,10 @@ export default function BusinessDetailPage() {
 
   const storeLocation =
     typeof shownShop?.location === 'string' ? shownShop.location.trim() : '';
+
+  // The page shows the store's name throughout, so that is what a confirmation
+  // can reasonably ask for - the business name behind it may appear nowhere.
+  const deleteConfirmed = !!business && !!storeName && deleteConfirmText.trim() === storeName;
 
 
 
@@ -1551,19 +1564,24 @@ export default function BusinessDetailPage() {
   const businessTrailingContent = business ? (
   <>
     <Card id="customer">
-      <CardHeading>{lang === "zh" ? "店主联系方式" : "Store Owner Contact"}</CardHeading>
-      {!owner && isEditMode && isInternal ? (
-        // No customer linked yet: create one or point at an existing one.
+      <CardHeading>{lang === "zh" ? "店主" : "Store Owner"}</CardHeading>
+      {isEditMode && isInternal ? (
+        // Editable: change this customer's own details, or point the business
+        // at a different customer record.
         <>
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-            <SmallButton onClick={() => setCustomerMode('new')} style={customerMode === 'new' ? { background: '#1a237e', color: 'white', borderColor: '#1a237e' } : undefined}>
-              {lang === "zh" ? "新建客户" : "New customer"}
+            <SmallButton onClick={() => setCustomerMode(owner ? 'edit' : 'new')} style={customerMode !== 'existing' ? { background: '#1a237e', color: 'white', borderColor: '#1a237e' } : undefined}>
+              {owner
+                ? (lang === "zh" ? "编辑客户资料" : "Edit details")
+                : (lang === "zh" ? "新建客户" : "New customer")}
             </SmallButton>
             <SmallButton onClick={() => setCustomerMode('existing')} style={customerMode === 'existing' ? { background: '#1a237e', color: 'white', borderColor: '#1a237e' } : undefined}>
-              {lang === "zh" ? "关联已有客户" : "Link existing"}
+              {owner
+                ? (lang === "zh" ? "关联其他客户" : "Link a different customer")
+                : (lang === "zh" ? "关联已有客户" : "Link existing")}
             </SmallButton>
           </div>
-          {customerMode === 'new' ? (
+          {customerMode !== 'existing' ? (
             <FieldGrid>
               <Input value={customerForm.name} onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })} placeholder={lang === "zh" ? "姓名" : "Name"} />
               <Input value={customerForm.email} onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })} placeholder={lang === "zh" ? "邮箱" : "Email"} autoComplete="off" />
@@ -1582,13 +1600,21 @@ export default function BusinessDetailPage() {
           {attachCustomerError && (
             <p style={{ color: '#dc2626', fontSize: '0.8125rem', margin: '0.5rem 0 0' }}>{attachCustomerError}</p>
           )}
-          <SmallButton $variant="save" onClick={handleAttachCustomer} disabled={isAttachingCustomer} style={{ marginTop: '0.75rem' }}>
-            {isAttachingCustomer
-              ? (lang === "zh" ? "处理中..." : "Saving...")
-              : customerMode === 'existing'
-                ? (lang === "zh" ? "关联客户" : "Link customer")
-                : (lang === "zh" ? "创建并关联" : "Create & link")}
-          </SmallButton>
+          {customerMode === 'edit' ? (
+            <MutedText style={{ marginTop: '0.75rem' }}>
+              {lang === "zh"
+                ? "更改将随页面顶部的「保存更改」一并保存。"
+                : "Changes are saved with Save Changes at the top of the page."}
+            </MutedText>
+          ) : (
+            <SmallButton $variant="save" onClick={handleAttachCustomer} disabled={isAttachingCustomer} style={{ marginTop: '0.75rem' }}>
+              {isAttachingCustomer
+                ? (lang === "zh" ? "处理中..." : "Saving...")
+                : customerMode === 'existing'
+                  ? (lang === "zh" ? "关联客户" : "Link customer")
+                  : (lang === "zh" ? "创建并关联" : "Create & link")}
+            </SmallButton>
+          )}
         </>
       ) : (
         <>
@@ -1627,6 +1653,23 @@ export default function BusinessDetailPage() {
 
     </Card>
 
+  </>
+  ) : null;
+
+  const businessAfterCredentials = business ? (
+  <>
+    <AttributionCard
+      id="attribution"
+      entityType="business"
+      entityId={business._id}
+      entityLabel={business.name || business._id}
+      teamName={business.team_name}
+      attributedToName={business.attributed_to_name}
+      attributedToEmail={business.attributed_to_email}
+      ownerUserId={business.owner_user_id}
+      onChanged={fetchBusinessDetails}
+    />
+
     {isInternal && (
       <Card id="internal">
         <InternalToggle onClick={() => setShowInternal((v) => !v)} aria-expanded={showInternal}>
@@ -1639,8 +1682,8 @@ export default function BusinessDetailPage() {
               <WarningCard role="status">
                 <strong>{lang === "zh" ? "未找到所有者账户" : "Owner account not found"}</strong>
                 {lang === "zh"
-                  ? "此业务关联的所有者账户在 admin 集合中不存在，因此无法显示 VendPOS 登录信息，也无法添加店铺登录账户。"
-                  : "The owner account linked to this business doesn't exist in the admin collection, so VendPOS login details can't be shown and store logins can't be added."}
+                  ? "此店铺关联的所有者账户在 admin 集合中不存在，因此无法显示 VendPOS 登录信息，也无法添加店铺登录账户。"
+                  : "The owner account linked to this store doesn't exist in the admin collection, so VendPOS login details can't be shown and store logins can't be added."}
               </WarningCard>
             )}
 
@@ -1648,7 +1691,7 @@ export default function BusinessDetailPage() {
               <>
                 <SubHeading>{lang === "zh" ? "VendPOS 登录" : "VendPOS Login"}</SubHeading>
                 <OwnerPrimary>N/A</OwnerPrimary>
-                <OwnerLine>{lang === "zh" ? "此业务尚无登录账户。" : "This business has no login account yet."}</OwnerLine>
+                <OwnerLine>{lang === "zh" ? "此店铺尚无登录账户。" : "This store has no login account yet."}</OwnerLine>
                 {isInternal && (
                   <SmallButton onClick={openCreateOwnerModal} style={{ marginTop: '0.75rem' }}>
                     <UserIcon /> {lang === "zh" ? "创建登录账户" : "Create Login"}
@@ -1772,35 +1815,10 @@ export default function BusinessDetailPage() {
             )}
             <MutedText style={{ marginTop: '1.25rem' }}>
               {lang === "zh"
-                ? "收银机上使用的店铺登录账户见下方「登录凭据」标签页。"
-                : "Store logins — what staff type into the till — are under the Credentials tab below."}
+                ? "收银机上使用的店铺登录账户见上方「店铺登录」部分。"
+                : "Store logins — what staff type into the till — are in the Store Logins section above."}
             </MutedText>
 
-            <SubHeading>{lang === "zh" ? "备注" : "Notes"}</SubHeading>
-            {isEditMode ? (
-              <NotesTextarea
-                rows={4}
-                value={business.notes || ''}
-                onChange={(e) => handleBusinessChange('notes', e.target.value)}
-                placeholder={lang === "zh" ? "其他信息或特殊要求" : "Extra information or special requirements"}
-              />
-            ) : business.notes ? (
-              <NotesBox>{business.notes}</NotesBox>
-            ) : (
-              <MutedText>{lang === "zh" ? "暂无备注" : "No notes"}</MutedText>
-            )}
-
-            <AttributionCard
-              entityType="business"
-              entityId={business._id}
-              entityLabel={business.name || business._id}
-              teamName={business.team_name}
-              attributedToName={business.attributed_to_name}
-              attributedToEmail={business.attributed_to_email}
-              ownerUserId={business.owner_user_id}
-              onChanged={fetchBusinessDetails}
-              bare
-            />
 
             {isInternal && (
               <>
@@ -1808,13 +1826,13 @@ export default function BusinessDetailPage() {
                 <IdGrid>
                   <IdRow>
                     <CredentialInfo>
-                      <CredentialLabel>{lang === "zh" ? "业务 ID" : "Business ID"}</CredentialLabel>
+                      <CredentialLabel>{lang === "zh" ? "店铺记录 ID" : "Store Record ID"}</CredentialLabel>
                       <IdText title={business._id}>{shortenId(business._id)}</IdText>
                     </CredentialInfo>
                     <IconButton
-                      onClick={() => handleCopyToClipboard(business._id, lang === "zh" ? "业务 ID" : "Business ID")}
-                      title={lang === "zh" ? "复制业务 ID" : "Copy business ID"}
-                      aria-label={lang === "zh" ? "复制业务 ID" : "Copy business ID"}
+                      onClick={() => handleCopyToClipboard(business._id, lang === "zh" ? "店铺记录 ID" : "Store Record ID")}
+                      title={lang === "zh" ? "复制店铺记录 ID" : "Copy store record ID"}
+                      aria-label={lang === "zh" ? "复制店铺记录 ID" : "Copy store record ID"}
                     >
                       <CopyIcon />
                     </IconButton>
@@ -1896,7 +1914,7 @@ export default function BusinessDetailPage() {
 
   return (
     <MainLayout
-      currentPage={lang === "zh" ? "业务详情" : "Business Details"}
+      currentPage={lang === "zh" ? "店铺详情" : "Store Details"}
       onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}
     >
       <Container>
@@ -1904,7 +1922,7 @@ export default function BusinessDetailPage() {
         <MainContent>
           <BackButton onClick={() => router.push('/admin/businesses')}>
             <span>←</span>
-            {lang === "zh" ? "返回业务列表" : "Back to Businesses"}
+            {lang === "zh" ? "返回店铺列表" : "Back to Stores"}
           </BackButton>
 
           {isLoading ? (
@@ -1924,16 +1942,28 @@ export default function BusinessDetailPage() {
                         onChange={(e) => handleBusinessChange('status', e.target.value)}
                         aria-label={lang === "zh" ? "状态" : "Status"}
                       >
-                        <option value="active">Active</option>
-                        <option value="setup">Setup</option>
-                        <option value="in_setup">In Setup</option>
-                        <option value="test">Test</option>
-                        <option value="inactive">Inactive</option>
-                        <option value="suspended">Suspended</option>
+                        {/* A business with no status, or one outside the known
+                            set, gets an option of its own. Without it the
+                            select matches nothing and the browser displays the
+                            first option instead - so it would read "Active"
+                            while the record was untouched, and saving would
+                            look like it silently reverted. */}
+                        {!BUSINESS_STATUS_OPTIONS.some((o) => o.value === (business.status || '')) && (
+                          <option value={business.status || ''}>
+                            {business.status
+                              ? formatStatus(business.status)
+                              : (lang === "zh" ? "未设置" : "Not set")}
+                          </option>
+                        )}
+                        {BUSINESS_STATUS_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
                       </StatusSelect>
                     ) : (
                       <StatusBadge $status={business.status || 'N/A'} $large>
-                        {formatStatus(business.status || 'inactive')}
+                        {/* Never invent 'inactive' for a record that simply has
+                            no status - that is what hid this in the first place. */}
+                        {formatStatus(business.status)}
                       </StatusBadge>
                     )}
                   </TitleRow>
@@ -1990,6 +2020,7 @@ export default function BusinessDetailPage() {
                       'store': { en: 'Store', zh: '店铺' },
                       'customer': { en: 'Store Owner', zh: '店主' },
                       'store-logins': { en: 'Store Logins', zh: '店铺登录' },
+                      'attribution': { en: 'Attribution', zh: '归属' },
                       'internal': { en: 'Internal', zh: '内部信息' },
                       'store-records': { en: 'Devices & Activity', zh: '设备与活动' },
                     };
@@ -2034,21 +2065,22 @@ export default function BusinessDetailPage() {
                       onShopChanged={fetchBusinessDetails}
                       leadingFields={businessLeadingFields}
                       trailingContent={businessTrailingContent}
+                      afterCredentials={businessAfterCredentials}
                       cardId="store"
                       tabsId="store-records"
                       credentialsId="store-logins"
                     />
                   </>
               ) : (
-                  <Card>
+                <>
+                  <Card id="store">
                     <CardHeading>{lang === "zh" ? "详情" : "Details"}</CardHeading>
                     <FieldGrid>{businessLeadingFields}</FieldGrid>
-                    {businessTrailingContent}
                     <SubHeading>{lang === "zh" ? "店铺" : "Store"}</SubHeading>
                     <MutedText>
                       {lang === "zh"
-                        ? "此业务创建于店铺自动创建之前，尚无店铺。"
-                        : "This business predates stores being created automatically and has none yet."}
+                        ? "此记录创建于店铺自动创建之前，尚无店铺。"
+                        : "This record predates stores being created automatically and has none yet."}
                     </MutedText>
                     <AddShopButton
                       onClick={() => { resetAddShopForm(); setShowAddShopModal(true); }}
@@ -2059,13 +2091,16 @@ export default function BusinessDetailPage() {
                       + {lang === "zh" ? "创建店铺" : "Create Store"}
                     </AddShopButton>
                   </Card>
+                  {businessTrailingContent}
+                  {businessAfterCredentials}
+                </>
               )}
                 </div>
               </SectionLayout>
 
             </>
           ) : (
-            <ErrorText>{lang === "zh" ? "未找到业务" : "Business not found"}</ErrorText>
+            <ErrorText>{lang === "zh" ? "未找到店铺" : "Store not found"}</ErrorText>
           )}
         </MainContent>
       </Container>
@@ -2076,7 +2111,7 @@ export default function BusinessDetailPage() {
           <ModalTitle>{lang === "zh" ? "确认状态更改" : "Confirm Status Change"}</ModalTitle>
           <p style={{ marginBottom: '1.5rem', color: '#5c6b7a' }}>
             {lang === "zh"
-              ? `确定要将业务状态更改为 "${newStatus}" 吗？`
+              ? `确定要将店铺状态更改为 "${newStatus}" 吗？`
               : `Are you sure you want to change the business status to "${newStatus}"?`}
           </p>
           <ModalActions>
@@ -2096,8 +2131,8 @@ export default function BusinessDetailPage() {
           <ModalTitle>{lang === "zh" ? "创建所有者登录" : "Create Owner Login"}</ModalTitle>
           <p style={{ fontSize: '0.875rem', color: '#5c6b7a', marginBottom: '1.25rem', lineHeight: 1.6 }}>
             {lang === "zh"
-              ? `为 "${business?.name}" 创建 VendPOS 登录账户。所有字段均可选：邮箱留空则按业务名称生成，密码留空则自动生成。`
-              : `Create the VendPOS login for "${business?.name}". Everything is optional: a blank email is derived from the business name and a blank password is generated.`}
+              ? `为 "${business?.name}" 创建 VendPOS 登录账户。所有字段均可选：邮箱留空则按店铺名称生成，密码留空则自动生成。`
+              : `Create the VendPOS login for "${business?.name}". Everything is optional: a blank email is derived from the store name and a blank password is generated.`}
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
             <div>
@@ -2137,18 +2172,18 @@ export default function BusinessDetailPage() {
       {/* Delete business - administrators only */}
       <Modal $show={showDeleteModal} onClick={() => !isDeleting && setShowDeleteModal(false)}>
         <ModalContent onClick={(e) => e.stopPropagation()}>
-          <ModalTitle>{lang === "zh" ? "删除业务" : "Delete Business"}</ModalTitle>
+          <ModalTitle>{lang === "zh" ? "删除店铺" : "Delete Store"}</ModalTitle>
           <p style={{ fontSize: '0.875rem', color: '#5c6b7a', marginBottom: '1rem', lineHeight: 1.6 }}>
             {lang === "zh"
-              ? `确定要永久删除 "${business?.name}" 吗？其 ${shops.length} 个店铺及店铺登录账户将一并删除。订单和交易记录会保留，所有者账户不受影响。`
-              : `Permanently delete "${business?.name}"? Its ${shops.length} shop${shops.length === 1 ? '' : 's'} and their store logins are deleted with it. Orders and transactions are kept as history; the owner's account is not affected.`}
+              ? `确定要永久删除 "${storeName}" 吗？其 ${shops.length} 个店铺及店铺登录账户将一并删除。订单和交易记录会保留，所有者账户不受影响。`
+              : `Permanently delete "${storeName}"? Its ${shops.length} store${shops.length === 1 ? '' : 's'} and their store logins are deleted with it. Orders and transactions are kept as history; the owner's account is not affected.`}
           </p>
           <p style={{ fontSize: '0.8125rem', color: '#991b1b', background: '#fee2e2', padding: '0.75rem 1rem', borderRadius: 8, marginBottom: '1.25rem' }}>
             {lang === "zh" ? "此操作无法撤销。" : "This cannot be undone."}
           </p>
           <div style={{ marginBottom: '1.25rem' }}>
             <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#5c6b7a', marginBottom: '0.5rem' }}>
-              {lang === "zh" ? <>请输入 <strong style={{ color: '#0a3655' }}>{business?.name}</strong> 以确认</> : <>Type <strong style={{ color: '#0a3655' }}>{business?.name}</strong> to confirm</>}
+              {lang === "zh" ? <>请输入 <strong style={{ color: '#0a3655' }}>{storeName}</strong> 以确认</> : <>Type <strong style={{ color: '#0a3655' }}>{storeName}</strong> to confirm</>}
             </label>
             <Input
               type="text"

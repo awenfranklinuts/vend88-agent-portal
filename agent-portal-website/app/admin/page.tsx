@@ -326,8 +326,8 @@ export default function AdminDashboard() {
             <PageDescription>
               {canSeeAllTeams(adminProfile)
                 ? (lang === "zh"
-                    ? "选择一个选项来管理您的业务、客户、团队等。"
-                    : "Select an option to manage your businesses, customers, teams, and more.")
+                    ? "选择一个选项来管理您的店铺、客户、团队等。"
+                    : "Select an option to manage your stores, customers, teams, and more.")
                 : (lang === "zh"
                     ? `${adminProfile?.team?.name ? `${adminProfile.team.name} · ` : ""}您只会看到归属于您的客户和交易。`
                     : `${adminProfile?.team?.name ? `${adminProfile.team.name} · ` : ""}You see the customers and deals attributed to you.`)}

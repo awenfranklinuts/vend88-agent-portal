@@ -7,18 +7,12 @@ import { useLanguage } from "@/context/LanguageContext";
 import ReassignModal, { type ReassignableEntity } from "./ReassignModal";
 
 const Card = styled.div`
+  scroll-margin-top: 85px;
   background: white;
   border-radius: 16px;
   box-shadow: 0 4px 16px rgba(30, 64, 175, 0.08);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
-`;
-
-// The same contents without the card shell, for embedding in someone else's card.
-const Bare = styled.div`
-  margin-top: 1.5rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid #eef2f7;
 `;
 
 const Heading = styled.h3`
@@ -84,9 +78,8 @@ interface AttributionCardProps {
   ownerUserId?: string | null;
   /** Called after a reassignment so the page can refetch */
   onChanged?: () => void;
-  /** Render without the card shell, for pages that show this inside a card of
-   *  their own rather than as a card beside one. */
-  bare?: boolean;
+  /** Anchor, so a host page's section nav can scroll to this card. */
+  id?: string;
 }
 
 /**
@@ -95,7 +88,7 @@ interface AttributionCardProps {
  * backend decides how far they can move it).
  */
 export default function AttributionCard({
-  entityType, entityId, entityLabel, teamName, attributedToName, attributedToEmail, ownerUserId, onChanged, bare = false,
+  entityType, entityId, entityLabel, teamName, attributedToName, attributedToEmail, ownerUserId, onChanged, id,
 }: AttributionCardProps) {
   const { adminProfile } = useAuth();
   const { lang } = useLanguage();
@@ -105,10 +98,8 @@ export default function AttributionCard({
   const canReassign = hasPermission(adminProfile, "manage_team_members");
   const house = !ownerUserId;
 
-  const Shell = bare ? Bare : Card;
-
   return (
-    <Shell>
+    <Card id={id}>
       <Heading>
         <span>{zh ? "归属" : "Attribution"}</span>
         {canReassign && (
@@ -142,6 +133,6 @@ export default function AttributionCard({
         onClose={() => setOpen(false)}
         onReassigned={onChanged}
       />
-    </Shell>
+    </Card>
   );
 }
