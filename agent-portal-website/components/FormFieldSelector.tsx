@@ -193,7 +193,12 @@ export const AVAILABLE_FIELDS: FormField[] = [
   },
 ];
 
-const ALWAYS_REQUIRED_FIELD_IDS = new Set<string>(["contact_email"]);
+// Fields a registration cannot do without: approving one creates a store and
+// the customer behind it, and these are what that needs. Without a store name
+// the store is named after the contact, or literally "New Business"; without an
+// email there is no contact to create. They stay selected and required, so a
+// template can never be saved in a shape that can't be approved.
+const ALWAYS_REQUIRED_FIELD_IDS = new Set<string>(["contact_email", "business_name"]);
 
 interface FormFieldSelectorProps {
   isOpen: boolean;

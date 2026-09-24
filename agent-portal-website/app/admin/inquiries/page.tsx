@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import styled from "styled-components";
-import { useAuth, isPortalUser, hasPermission } from "@/context/AuthContext";
+import { useAuth, isPortalUser, hasPermission, canSeeAllTeams } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import { getApiUrl, API_CONFIG } from "@/config/api";
@@ -327,7 +327,9 @@ export default function InquiriesPage() {
     }
   }, [token, role, isLoading, router]);
 
-  const canManageInquiries = hasPermission(adminProfile, "manage_inquiries");
+  // Administrators only - the nav hides this from team users, and a direct URL
+  // has to be turned away too.
+  const canManageInquiries = canSeeAllTeams(adminProfile) && hasPermission(adminProfile, "manage_inquiries");
 
   const fetchInquiries = useCallback(async () => {
     if (!token) return;

@@ -599,10 +599,15 @@ export default function FormTemplatesPage() {
     if (formVisibility === 'specific_roles' && formVisibleRoles.length === 0) {
       errors.roles = lang === 'zh' ? '请至少选择一个角色' : 'At least one role must be selected';
     }
-    // Validate email field is present
+    // A template that can't be approved is not worth saving: approving a
+    // registration creates a store and its customer, which needs both of these.
+    // Older templates saved before this can still be missing the store name.
     const hasEmail = pendingFields.some(f => f.id === 'contact_email' || f.type === 'email');
+    const hasStoreName = pendingFields.some(f => f.id === 'business_name');
     if (pendingFields.length > 0 && !hasEmail) {
       errors.fields = lang === 'zh' ? '邮箱字段是必须的' : 'Email field is mandatory';
+    } else if (pendingFields.length > 0 && !hasStoreName) {
+      errors.fields = lang === 'zh' ? '店铺名称字段是必须的' : 'Store name field is mandatory';
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;

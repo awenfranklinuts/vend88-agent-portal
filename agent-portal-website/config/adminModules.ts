@@ -65,6 +65,9 @@ export interface AdminModule {
   superAdminOnly?: boolean;
   /** Only for team users - administrators (who see every team) don't need it. */
   teamOnly?: boolean;
+  /** Only for administrators - team users never see it, whatever permissions
+   *  their role carries. */
+  internalOnly?: boolean;
   /** Not offered in the admin permission editor (implied by another permission). */
   editorHidden?: boolean;
 }
@@ -82,6 +85,9 @@ export const ADMIN_MODULES: AdminModule[] = [
     href: "/admin/inquiries",
     icon: InquiryIcon,
     permission: "manage_inquiries",
+    // Inquiries arrive from the public sites and are triaged by Vend88, not by
+    // the teams selling to them.
+    internalOnly: true,
   },
   {
     id: "quotations",
@@ -234,6 +240,7 @@ export const ALL_PERMISSION_IDS: string[] = ADMIN_MODULES.flatMap(m => getModule
 
 export const canAccessModule = (profile: ProfileLike, module: AdminModule): boolean => {
   if (module.teamOnly && canSeeAllTeams(profile)) return false;
+  if (module.internalOnly && !canSeeAllTeams(profile)) return false;
   if (module.viewPermission && hasPermission(profile, module.viewPermission)) return true;
   return getModulePermissions(module).some(p => hasPermission(profile, p.id));
 };
