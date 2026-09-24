@@ -1319,6 +1319,17 @@ export default function RegistrationDetailsPage() {
         else if (key === "notes") apiData.notes = editedData[key as keyof Registration]; // ← ADDED (already lowercase)
         else apiData[key] = editedData[key as keyof Registration]; // Fallback for any field not explicitly mapped
       });
+
+      // editedData only holds fields that were actually typed into, so pressing
+      // Save without changing anything used to post an empty body and come back
+      // as "No editable fields supplied" - an error for doing nothing wrong.
+      if (Object.keys(apiData).length === 0) {
+        setIsEditMode(false);
+        setEditedData({});
+        setIsSaving(false);
+        showToast(lang === "zh" ? "没有需要保存的更改" : "No changes to save", "info");
+        return;
+      }
       
 
       const response = await fetch(
