@@ -14,6 +14,13 @@ const Card = styled.div`
   margin-bottom: 1.5rem;
 `;
 
+// The same contents without the card shell, for embedding in someone else's card.
+const Bare = styled.div`
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #eef2f7;
+`;
+
 const Heading = styled.h3`
   font-size: 1rem;
   font-weight: 700;
@@ -29,6 +36,7 @@ const Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 1rem;
+  max-width: 1080px;
 `;
 
 const Label = styled.div`
@@ -76,6 +84,9 @@ interface AttributionCardProps {
   ownerUserId?: string | null;
   /** Called after a reassignment so the page can refetch */
   onChanged?: () => void;
+  /** Render without the card shell, for pages that show this inside a card of
+   *  their own rather than as a card beside one. */
+  bare?: boolean;
 }
 
 /**
@@ -84,7 +95,7 @@ interface AttributionCardProps {
  * backend decides how far they can move it).
  */
 export default function AttributionCard({
-  entityType, entityId, entityLabel, teamName, attributedToName, attributedToEmail, ownerUserId, onChanged,
+  entityType, entityId, entityLabel, teamName, attributedToName, attributedToEmail, ownerUserId, onChanged, bare = false,
 }: AttributionCardProps) {
   const { adminProfile } = useAuth();
   const { lang } = useLanguage();
@@ -94,8 +105,10 @@ export default function AttributionCard({
   const canReassign = hasPermission(adminProfile, "manage_team_members");
   const house = !ownerUserId;
 
+  const Shell = bare ? Bare : Card;
+
   return (
-    <Card>
+    <Shell>
       <Heading>
         <span>{zh ? "归属" : "Attribution"}</span>
         {canReassign && (
@@ -129,6 +142,6 @@ export default function AttributionCard({
         onClose={() => setOpen(false)}
         onReassigned={onChanged}
       />
-    </Card>
+    </Shell>
   );
 }

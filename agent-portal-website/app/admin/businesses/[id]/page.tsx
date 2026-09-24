@@ -8,6 +8,11 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import MainLayout from "@/components/layout/MainLayout";
 import AttributionCard from "@/components/teams/AttributionCard";
+import ShopDetailPanel, {
+  InfoItem as PanelInfoItem,
+  InfoLabel as PanelInfoLabel,
+  InfoValue as PanelInfoValue,
+} from "@/components/shops/ShopDetailPanel";
 import AdminSidebar from "../../../../components/layout/AdminSidebar";
 import axios from "axios";
 
@@ -141,30 +146,36 @@ const AddShopButton = styled.button`
 
 // Main column holds the business; the fixed-width side column holds owner,
 // login and IDs. Collapses to one column once the sidebar squeezes it.
-const DetailLayout = styled.div`
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 1.5rem;
-  align-items: start;
+const StoreSwitcher = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+`;
 
-  @media (max-width: 1280px) {
-    grid-template-columns: minmax(0, 1fr);
+const StoreSwitcherButton = styled.button<{ $active: boolean }>`
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: 2px solid ${p => p.$active ? '#3b82f6' : '#e0e7ef'};
+  background: ${p => p.$active ? 'rgba(59, 130, 246, 0.08)' : 'white'};
+  color: ${p => p.$active ? '#3b82f6' : '#5c6b7a'};
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    border-color: #3b82f6;
+    color: #3b82f6;
   }
 `;
 
-const Column = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  min-width: 0;
-`;
-
 const Card = styled.section`
+  scroll-margin-top: 85px;
   background: white;
-  border: 1px solid #e0e7ef;
-  border-radius: 2px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  padding: 1.5rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(30, 64, 175, 0.08);
+  padding: 2rem;
+  margin-bottom: 1.5rem;
 `;
 
 const CardHeading = styled.h2`
@@ -196,12 +207,22 @@ const SubHeading = styled.h3`
   margin: 1.5rem 0 1rem;
   padding-top: 1.25rem;
   border-top: 1px solid #eef2f7;
+
+  /* The card edge already separates the first section - a rule there reads as
+     a stray line rather than a divider. */
+  &:first-child,
+  ${CardHeading} + & {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
 `;
 
 const FieldGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1.25rem 1.5rem;
+  max-width: 1080px;
 `;
 
 const NotesBox = styled.div`
@@ -494,6 +515,108 @@ const ModalButton = styled.button<{ $primary?: boolean }>`
   `}
 `;
 
+// A sub-section heading with an action beside it, for sections inside a card.
+// Real records, but only wanted now and then - folded away so they don't
+// compete with the things this page is usually opened for.
+const SectionLayout = styled.div`
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+
+  @media (max-width: 1100px) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+`;
+
+// Sticky so it stays with you down a long page; hidden on narrow screens,
+// where the sections are already one on top of the other.
+const SectionNav = styled.nav`
+  position: sticky;
+  top: 85px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+
+  @media (max-width: 1100px) {
+    display: none;
+  }
+`;
+
+const SectionNavItem = styled.button<{ $active: boolean }>`
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-left: 2px solid ${p => p.$active ? '#1273eb' : 'transparent'};
+  background: ${p => p.$active ? 'rgba(18, 115, 235, 0.06)' : 'transparent'};
+  color: ${p => p.$active ? '#1273eb' : '#5c6b7a'};
+  font-size: 0.875rem;
+  font-weight: ${p => p.$active ? '600' : '500'};
+  text-align: left;
+  cursor: pointer;
+  border-radius: 0 4px 4px 0;
+
+  &:hover {
+    color: #1273eb;
+    background: rgba(18, 115, 235, 0.06);
+  }
+`;
+
+const SHOP_STATUSES = ['active', 'inactive', 'test', 'suspended'];
+
+const InternalToggle = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0a3655;
+  text-align: left;
+
+  &:not(:last-child) {
+    margin-bottom: 1.5rem;
+  }
+
+  &:hover {
+    color: #1273eb;
+  }
+`;
+
+const SubHeadingRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1.5rem 0 1rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #eef2f7;
+
+  ${SubHeading} {
+    margin: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+`;
+
+const IdGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.75rem 2rem;
+  max-width: 1080px;
+`;
+
+const ContactNameRow = styled.div`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+`;
+
 const OwnerPrimary = styled.div`
   font-size: 1.125rem;
   font-weight: 700;
@@ -510,19 +633,14 @@ const CredentialsList = styled.div`
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  max-width: 560px;
 `;
 
 const IdRow = styled.div`
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.625rem 0;
-  border-bottom: 1px solid #eef2f7;
-
-  &:last-of-type {
-    border-bottom: none;
-  }
+  gap: 0.625rem;
+  padding: 0.375rem 0;
 `;
 
 const IdText = styled.div`
@@ -1009,6 +1127,10 @@ export default function BusinessDetailPage() {
 
   const handleEditBusiness = () => {
     if (!owner) { setAttachCustomerError(''); loadExistingCustomers(); }
+    // The field shows the store's display name, so that is what the input opens
+    // on - otherwise editing would start from a different name than was read.
+    setBusiness((prev) => (prev && storeName ? { ...prev, name: storeName } : prev));
+    setAddressDraft(storeLocation);
     setIsEditMode(true);
   };
 
@@ -1021,30 +1143,49 @@ export default function BusinessDetailPage() {
     if (!business) return;
 
     try {
-      const changes: { status?: string; notes?: string } = {};
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      };
+
+      const changes: { status?: string; notes?: string; name?: string; abn?: string } = {};
       if (business.status !== originalBusiness?.status) changes.status = business.status;
       const notes = (business.notes || '').trim();
       if (notes !== (originalBusiness?.notes || '')) changes.notes = notes;
+      const name = (business.name || '').trim();
+      if (name && name !== storeName) changes.name = name;
+      const abn = (business.abn || '').trim();
+      if (abn !== (originalBusiness?.abn || '').trim()) changes.abn = abn;
 
       if (Object.keys(changes).length) {
         await axios.post(
           '/api/businesses/update',
           { token, id: business._id, ...changes },
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
+          { headers }
         );
       }
 
-      // TODO: persist the remaining editable fields (name, abn) - only status
-      // and notes are wired up to a real endpoint so far.
-      const saved = { ...business, notes };
+      // A business and its store are one record, so a rename or a status change
+      // is written to both - the store's own store_name and status are what the
+      // POS shows. 'setup'/'in_setup' have no shop equivalent, so they stay on
+      // the business alone rather than being mapped onto something they aren't.
+      const shopUpdate: { store_name?: string; status?: string; location?: string } = {};
+      if (changes.name) shopUpdate.store_name = changes.name;
+      if (changes.status && SHOP_STATUSES.includes(changes.status)) shopUpdate.status = changes.status;
+      if (addressDraft.trim() !== storeLocation) shopUpdate.location = addressDraft.trim();
+      if (Object.keys(shopUpdate).length && shownShop?._id) {
+        await axios.post(
+          '/api/shops/update',
+          { token, id: shownShop._id, ...shopUpdate },
+          { headers }
+        );
+      }
+
+      const saved = { ...business, notes, name: name || business.name, abn };
       setBusiness(saved);
       setOriginalBusiness(saved);
       setIsEditMode(false);
+      if (Object.keys(shopUpdate).length || changes.name || changes.status) await fetchBusinessDetails();
       showToast(
         lang === 'zh' ? '业务信息已更新' : 'Business information updated',
         'success'
@@ -1085,32 +1226,63 @@ export default function BusinessDetailPage() {
     }
   };
 
+  // Prefilled from the business, because the store is the business: this is the
+  // same name and address that creating a business now gives its store, so a
+  // repaired older business ends up looking like a newly created one.
   const resetAddShopForm = () => {
-    setNewShop({ name: '', location: '' });
+    const addressLine = [
+      business?.address,
+      [business?.suburb, business?.state, business?.postcode].filter(Boolean).join(' '),
+    ].filter(Boolean).join(', ');
+    setNewShop({ name: business?.name || '', location: addressLine });
     setAddShopError('');
   };
 
-  // A freshly provisioned business has no shop yet, so the first visit offers
-  // to create one. It is a prompt, not a gate: "Skip for now" (or clicking
-  // outside) puts it away, and that choice is remembered per business in this
-  // browser so it doesn't come back on every visit. The Add Shop button on the
-  // page stays available whenever they're ready. Scoped to status 'setup' (what
-  // provisioning sets) so older shop-less businesses aren't prompted.
-  const firstShopPromptKey = `firstShopPromptDismissed:${businessId}`;
-  const [firstShopDismissed, setFirstShopDismissed] = useState(true);
+  // A business and its store are the same thing, so this page is one record:
+  // the store's own details and its logins, devices and permissions first,
+  // then what belongs to the business behind it - its customer, its owner
+  // login, its attribution. No business/store switch, because there is nothing
+  // to switch between.
+  // Only ever set on an older business that has more than one store.
+  const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
+  const [showInternal, setShowInternal] = useState(false);
+  const [addressDraft, setAddressDraft] = useState('');
+
+  // In-page section nav. The ids are set on the cards below and on the store
+  // panel's card and tab strip, which it takes as props.
+  const sectionIds = ['store', 'customer', 'store-logins', 'internal', 'store-records'];
+  const [activeSection, setActiveSection] = useState('store');
+
   useEffect(() => {
-    try {
-      setFirstShopDismissed(localStorage.getItem(firstShopPromptKey) === '1');
-    } catch {
-      setFirstShopDismissed(false);
-    }
-  }, [firstShopPromptKey]);
-  const dismissFirstShopPrompt = () => {
-    setFirstShopDismissed(true);
-    try { localStorage.setItem(firstShopPromptKey, '1'); } catch { /* per-browser convenience only */ }
+    if (isLoading || !business) return;
+    const seen = new Map<string, number>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => seen.set(e.target.id, e.intersectionRatio));
+        // The topmost section that is actually on screen wins, so the highlight
+        // follows reading position rather than whichever fired last.
+        const visible = sectionIds.filter((id) => (seen.get(id) || 0) > 0);
+        if (visible.length) setActiveSection(visible[0]);
+      },
+      { rootMargin: '-85px 0px -55% 0px', threshold: [0, 0.01] }
+    );
+    sectionIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, [isLoading, business, shops, showInternal]);
+
+  const goToSection = (id: string) => {
+    // The Internal section is collapsed by default - opening it from the nav
+    // saves a click, and gives the scroll something to land on.
+    if (id === 'internal') setShowInternal(true);
+    requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    setActiveSection(id);
   };
-  const showFirstShopPrompt =
-    !isLoading && !error && !!business && business.status === 'setup' && shops.length === 0 && !firstShopDismissed;
+  const primaryShop = shops[0] || null;
 
   const handleCreateShop = async () => {
     if (!business) return;
@@ -1272,6 +1444,28 @@ export default function BusinessDetailPage() {
     return [b.address, locality, b.country].filter(Boolean).join(', ');
   };
 
+  // The store's own address is what the POS shows, so it is the one the header
+  // carries; the business record's address is the fallback for a business that
+  // has no store yet.
+  const shownShop = shops.find((sh) => sh._id === selectedShopId) || primaryShop;
+  const headerAddress =
+    (typeof shownShop?.location === 'string' && shownShop.location.trim())
+      ? shownShop.location.trim()
+      : (business ? formatAddress(business) : '');
+
+  // The store's display name is what the POS and the portal both show, so it is
+  // the name this page carries. The `name` beside it on the shop is the
+  // sanitized shop_key slug ("abowlofnoodleshaymarket") and is never shown -
+  // fall back to the business's own name when a store has no store_name set.
+  const storeName =
+    String(shownShop?.store_name || '').trim() || String(business?.name || '').trim();
+
+  const storeLocation =
+    typeof shownShop?.location === 'string' ? shownShop.location.trim() : '';
+
+
+
+
   // 12345678901 -> 12 345 678 901
   const formatAbn = (abn?: string) => {
     const digits = (abn || '').replace(/\s+/g, '');
@@ -1294,8 +1488,411 @@ export default function BusinessDetailPage() {
 
   const contactEmail = business?.contact_email || business?.contactEmail;
   const contactPhone = business?.contact_phone || business?.contactPhone;
+
+  // The customer linked to this business is who the contact details belong to.
+  // The business's own contact_* fields are what a registration collected
+  // before any customer record existed, so they stand in when there is no link.
+  const customerName = owner?.name || business?.contact_name || '';
+  const customerEmail = owner?.email || contactEmail || '';
+  const customerPhone = owner?.phone || contactPhone || '';
+
+  // A business and its store are one record, so these are shown inside the
+  // store's own card rather than in a second card beside it. They are built
+  // here so the same fields also stand alone for an older business that has no
+  // store to fold them into.
   const customerId = business?.customer_id || null;
   const loginAccountId = business?.owner_id || null;
+
+  const businessLeadingFields = business ? (
+  <>
+    <PanelInfoItem>
+      <PanelInfoLabel>{lang === "zh" ? "名称" : "Name"}</PanelInfoLabel>
+      {isEditMode ? (
+        <Input
+          value={business.name || ''}
+          onChange={(e) => handleBusinessChange('name', e.target.value)}
+        />
+      ) : (
+        <PanelInfoValue>{storeName || 'N/A'}</PanelInfoValue>
+      )}
+    </PanelInfoItem>
+    <PanelInfoItem>
+      <PanelInfoLabel>ABN</PanelInfoLabel>
+      {isEditMode ? (
+        <Input
+          value={business.abn || ''}
+          onChange={(e) => handleBusinessChange('abn', e.target.value)}
+        />
+      ) : (
+        <PanelInfoValue>{formatAbn(business.abn) || 'N/A'}</PanelInfoValue>
+      )}
+    </PanelInfoItem>
+    {primaryShop && (
+      <PanelInfoItem style={{ gridColumn: '1 / -1' }}>
+        <PanelInfoLabel>{lang === "zh" ? "地址" : "Address"}</PanelInfoLabel>
+        {isEditMode ? (
+          <Input
+            value={addressDraft}
+            onChange={(e) => setAddressDraft(e.target.value)}
+            placeholder={lang === "zh" ? "例如：191 Parramatta Rd, Auburn, NSW" : "e.g. 191 Parramatta Rd, Auburn, NSW"}
+          />
+        ) : (
+          <PanelInfoValue>
+            {storeLocation || (
+              <span style={{ color: '#9ca3af' }}>{lang === "zh" ? "未设置地址" : "No address set"}</span>
+            )}
+          </PanelInfoValue>
+        )}
+      </PanelInfoItem>
+    )}
+  </>
+  ) : null;
+
+  const businessTrailingContent = business ? (
+  <>
+    <Card id="customer">
+      <CardHeading>{lang === "zh" ? "店主联系方式" : "Store Owner Contact"}</CardHeading>
+      {!owner && isEditMode && isInternal ? (
+        // No customer linked yet: create one or point at an existing one.
+        <>
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+            <SmallButton onClick={() => setCustomerMode('new')} style={customerMode === 'new' ? { background: '#1a237e', color: 'white', borderColor: '#1a237e' } : undefined}>
+              {lang === "zh" ? "新建客户" : "New customer"}
+            </SmallButton>
+            <SmallButton onClick={() => setCustomerMode('existing')} style={customerMode === 'existing' ? { background: '#1a237e', color: 'white', borderColor: '#1a237e' } : undefined}>
+              {lang === "zh" ? "关联已有客户" : "Link existing"}
+            </SmallButton>
+          </div>
+          {customerMode === 'new' ? (
+            <FieldGrid>
+              <Input value={customerForm.name} onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })} placeholder={lang === "zh" ? "姓名" : "Name"} />
+              <Input value={customerForm.email} onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })} placeholder={lang === "zh" ? "邮箱" : "Email"} autoComplete="off" />
+              <Input value={customerForm.phone} onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })} placeholder={lang === "zh" ? "电话" : "Phone"} />
+            </FieldGrid>
+          ) : (
+            <StatusSelect value={selectedCustomerId} onChange={(e) => setSelectedCustomerId(e.target.value)} style={{ width: '100%' }}>
+              <option value="">{existingCustomers.length ? (lang === "zh" ? "选择客户..." : "Select a customer...") : (lang === "zh" ? "暂无客户" : "No customers yet")}</option>
+              {existingCustomers.map((c) => (
+                <option key={c._id} value={c._id}>
+                  {c.name || c.email || c._id}{c.email && c.name ? ` — ${c.email}` : ''}
+                </option>
+              ))}
+            </StatusSelect>
+          )}
+          {attachCustomerError && (
+            <p style={{ color: '#dc2626', fontSize: '0.8125rem', margin: '0.5rem 0 0' }}>{attachCustomerError}</p>
+          )}
+          <SmallButton $variant="save" onClick={handleAttachCustomer} disabled={isAttachingCustomer} style={{ marginTop: '0.75rem' }}>
+            {isAttachingCustomer
+              ? (lang === "zh" ? "处理中..." : "Saving...")
+              : customerMode === 'existing'
+                ? (lang === "zh" ? "关联客户" : "Link customer")
+                : (lang === "zh" ? "创建并关联" : "Create & link")}
+          </SmallButton>
+        </>
+      ) : (
+        <>
+          <FieldGrid>
+            <InfoItem>
+              <InfoLabel>{lang === "zh" ? "姓名" : "Name"}</InfoLabel>
+              <ContactNameRow>
+                <InfoValue>{customerName || 'N/A'}</InfoValue>
+                {owner && (
+                  <SmallButton onClick={handleViewOwner}>
+                    <UserIcon /> {lang === "zh" ? "查看客户资料" : "View Customer Record"}
+                  </SmallButton>
+                )}
+              </ContactNameRow>
+            </InfoItem>
+            <InfoItem>
+              <InfoLabel>{lang === "zh" ? "邮箱" : "Email"}</InfoLabel>
+              <InfoValue>
+                {customerEmail ? <ValueLink href={`mailto:${customerEmail}`}>{customerEmail}</ValueLink> : 'N/A'}
+              </InfoValue>
+            </InfoItem>
+            <InfoItem>
+              <InfoLabel>{lang === "zh" ? "电话" : "Phone"}</InfoLabel>
+              <InfoValue>
+                {customerPhone ? <ValueLink href={`tel:${customerPhone}`}>{customerPhone}</ValueLink> : 'N/A'}
+              </InfoValue>
+            </InfoItem>
+          </FieldGrid>
+          {!owner && isInternal && (
+            <MutedText style={{ marginTop: '0.75rem' }}>
+              {lang === "zh" ? "点击「编辑」以添加或关联客户记录。" : "Click Edit to add or link a customer record."}
+            </MutedText>
+          )}
+        </>
+      )}
+
+    </Card>
+
+    {isInternal && (
+      <Card id="internal">
+        <InternalToggle onClick={() => setShowInternal((v) => !v)} aria-expanded={showInternal}>
+          <span>{showInternal ? "▾" : "▸"}</span>
+          {lang === "zh" ? "内部信息" : "Internal"}
+        </InternalToggle>
+        {showInternal && (
+          <>
+            {isInternal && ownerAccountMissing && (
+              <WarningCard role="status">
+                <strong>{lang === "zh" ? "未找到所有者账户" : "Owner account not found"}</strong>
+                {lang === "zh"
+                  ? "此业务关联的所有者账户在 admin 集合中不存在，因此无法显示 VendPOS 登录信息，也无法添加店铺登录账户。"
+                  : "The owner account linked to this business doesn't exist in the admin collection, so VendPOS login details can't be shown and store logins can't be added."}
+              </WarningCard>
+            )}
+
+            {!hasOwner && (
+              <>
+                <SubHeading>{lang === "zh" ? "VendPOS 登录" : "VendPOS Login"}</SubHeading>
+                <OwnerPrimary>N/A</OwnerPrimary>
+                <OwnerLine>{lang === "zh" ? "此业务尚无登录账户。" : "This business has no login account yet."}</OwnerLine>
+                {isInternal && (
+                  <SmallButton onClick={openCreateOwnerModal} style={{ marginTop: '0.75rem' }}>
+                    <UserIcon /> {lang === "zh" ? "创建登录账户" : "Create Login"}
+                  </SmallButton>
+                )}
+              </>
+            )}
+
+            {isInternal && ownerCredentials && (
+              <>
+                <SubHeadingRow>
+                  <SubHeading>{lang === "zh" ? "VendPOS 登录" : "VendPOS Login"}</SubHeading>
+                  {!isEditingCredentials && (
+                    <SmallButton onClick={handleStartEditCredentials}>
+                      <EditIcon /> {lang === "zh" ? "编辑" : "Edit"}
+                    </SmallButton>
+                  )}
+                </SubHeadingRow>
+
+                <CredentialsList>
+                  <CredentialRow>
+                    <CredentialInfo style={{ flex: 1 }}>
+                      <CredentialLabel>{lang === "zh" ? "邮箱" : "Email"}</CredentialLabel>
+                      {isEditingCredentials ? (
+                        <CredentialInput
+                          type="email"
+                          value={credentialsDraft.email}
+                          disabled={isSavingCredentials}
+                          autoComplete="off"
+                          onChange={(e) =>
+                            setCredentialsDraft({ ...credentialsDraft, email: e.target.value })
+                          }
+                        />
+                      ) : (
+                        <CredentialValue>{ownerCredentials.email || 'N/A'}</CredentialValue>
+                      )}
+                    </CredentialInfo>
+                    {!isEditingCredentials && ownerCredentials.email && (
+                      <CredentialButtons>
+                        <IconButton
+                          onClick={() => handleCopyToClipboard(ownerCredentials.email, lang === "zh" ? "邮箱" : "Email")}
+                          title={lang === "zh" ? "复制邮箱" : "Copy email"}
+                          aria-label={lang === "zh" ? "复制邮箱" : "Copy email"}
+                        >
+                          <CopyIcon />
+                        </IconButton>
+                      </CredentialButtons>
+                    )}
+                  </CredentialRow>
+
+                  <CredentialRow>
+                    <CredentialInfo style={{ flex: 1 }}>
+                      <CredentialLabel>{lang === "zh" ? "密码" : "Password"}</CredentialLabel>
+                      {isEditingCredentials ? (
+                        <CredentialInput
+                          type={showPassword ? "text" : "password"}
+                          value={credentialsDraft.password}
+                          disabled={isSavingCredentials}
+                          autoComplete="new-password"
+                          onChange={(e) =>
+                            setCredentialsDraft({ ...credentialsDraft, password: e.target.value })
+                          }
+                        />
+                      ) : (
+                        <CredentialValue>
+                          {!ownerCredentials.password
+                            ? 'N/A'
+                            : showPassword
+                              ? ownerCredentials.password
+                              : MASKED_VALUE}
+                        </CredentialValue>
+                      )}
+                    </CredentialInfo>
+                    <CredentialButtons>
+                      <IconButton
+                        onClick={() => setShowPassword(!showPassword)}
+                        title={
+                          showPassword
+                            ? (lang === "zh" ? "隐藏密码" : "Hide password")
+                            : (lang === "zh" ? "显示密码" : "Show password")
+                        }
+                        aria-label={
+                          showPassword
+                            ? (lang === "zh" ? "隐藏密码" : "Hide password")
+                            : (lang === "zh" ? "显示密码" : "Show password")
+                        }
+                      >
+                        {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                      </IconButton>
+                      {!isEditingCredentials && (
+                        <IconButton
+                          onClick={() => handleCopyToClipboard(ownerCredentials.password, lang === "zh" ? "密码" : "Password")}
+                          title={lang === "zh" ? "复制密码" : "Copy password"}
+                          aria-label={lang === "zh" ? "复制密码" : "Copy password"}
+                        >
+                          <CopyIcon />
+                        </IconButton>
+                      )}
+                    </CredentialButtons>
+                  </CredentialRow>
+
+                  {credentialsError && (
+                    <CredentialFieldError>{credentialsError}</CredentialFieldError>
+                  )}
+
+                  {isEditingCredentials && (
+                    <CredentialEditActions>
+                      <SmallButton onClick={handleCancelEditCredentials} disabled={isSavingCredentials}>
+                        {lang === "zh" ? "取消" : "Cancel"}
+                      </SmallButton>
+                      <SmallButton $variant="save" onClick={handleSaveCredentials} disabled={isSavingCredentials}>
+                        <SaveIcon />
+                        {isSavingCredentials
+                          ? (lang === "zh" ? "保存中..." : "Saving...")
+                          : (lang === "zh" ? "保存" : "Save")}
+                      </SmallButton>
+                    </CredentialEditActions>
+                  )}
+                </CredentialsList>
+              </>
+            )}
+            <MutedText style={{ marginTop: '1.25rem' }}>
+              {lang === "zh"
+                ? "收银机上使用的店铺登录账户见下方「登录凭据」标签页。"
+                : "Store logins — what staff type into the till — are under the Credentials tab below."}
+            </MutedText>
+
+            <SubHeading>{lang === "zh" ? "备注" : "Notes"}</SubHeading>
+            {isEditMode ? (
+              <NotesTextarea
+                rows={4}
+                value={business.notes || ''}
+                onChange={(e) => handleBusinessChange('notes', e.target.value)}
+                placeholder={lang === "zh" ? "其他信息或特殊要求" : "Extra information or special requirements"}
+              />
+            ) : business.notes ? (
+              <NotesBox>{business.notes}</NotesBox>
+            ) : (
+              <MutedText>{lang === "zh" ? "暂无备注" : "No notes"}</MutedText>
+            )}
+
+            <AttributionCard
+              entityType="business"
+              entityId={business._id}
+              entityLabel={business.name || business._id}
+              teamName={business.team_name}
+              attributedToName={business.attributed_to_name}
+              attributedToEmail={business.attributed_to_email}
+              ownerUserId={business.owner_user_id}
+              onChanged={fetchBusinessDetails}
+              bare
+            />
+
+            {isInternal && (
+              <>
+                <SubHeading>{lang === "zh" ? "系统 ID" : "System IDs"}</SubHeading>
+                <IdGrid>
+                  <IdRow>
+                    <CredentialInfo>
+                      <CredentialLabel>{lang === "zh" ? "业务 ID" : "Business ID"}</CredentialLabel>
+                      <IdText title={business._id}>{shortenId(business._id)}</IdText>
+                    </CredentialInfo>
+                    <IconButton
+                      onClick={() => handleCopyToClipboard(business._id, lang === "zh" ? "业务 ID" : "Business ID")}
+                      title={lang === "zh" ? "复制业务 ID" : "Copy business ID"}
+                      aria-label={lang === "zh" ? "复制业务 ID" : "Copy business ID"}
+                    >
+                      <CopyIcon />
+                    </IconButton>
+                  </IdRow>
+                  {shownShop?._id && (
+                    <IdRow>
+                      <CredentialInfo>
+                        <CredentialLabel>{lang === "zh" ? "店铺 ID" : "Store ID"}</CredentialLabel>
+                        <IdText title={shownShop._id}>{shortenId(shownShop._id)}</IdText>
+                      </CredentialInfo>
+                      <IconButton
+                        onClick={() => handleCopyToClipboard(shownShop._id, lang === "zh" ? "店铺 ID" : "Store ID")}
+                        title={lang === "zh" ? "复制店铺 ID" : "Copy store ID"}
+                        aria-label={lang === "zh" ? "复制店铺 ID" : "Copy store ID"}
+                      >
+                        <CopyIcon />
+                      </IconButton>
+                    </IdRow>
+                  )}
+                  {shownShop?.shop_key && (
+                    <IdRow>
+                      <CredentialInfo>
+                        <CredentialLabel>{lang === "zh" ? "店铺密钥" : "Shop Key"}</CredentialLabel>
+                        <IdText title={shownShop.shop_key}>{shownShop.shop_key}</IdText>
+                      </CredentialInfo>
+                      <IconButton
+                        onClick={() => handleCopyToClipboard(shownShop.shop_key, lang === "zh" ? "店铺密钥" : "Shop key")}
+                        title={lang === "zh" ? "复制店铺密钥" : "Copy shop key"}
+                        aria-label={lang === "zh" ? "复制店铺密钥" : "Copy shop key"}
+                      >
+                        <CopyIcon />
+                      </IconButton>
+                    </IdRow>
+                  )}
+                  {customerId && (
+                    <IdRow>
+                      <CredentialInfo>
+                        <CredentialLabel>{lang === "zh" ? "客户 ID" : "Customer ID"}</CredentialLabel>
+                        <IdText title={customerId}>{shortenId(customerId)}</IdText>
+                      </CredentialInfo>
+                      <IconButton
+                        onClick={() => handleCopyToClipboard(customerId, lang === "zh" ? "客户 ID" : "Customer ID")}
+                        title={lang === "zh" ? "复制客户 ID" : "Copy customer ID"}
+                        aria-label={lang === "zh" ? "复制客户 ID" : "Copy customer ID"}
+                      >
+                        <CopyIcon />
+                      </IconButton>
+                    </IdRow>
+                  )}
+                  {loginAccountId && (
+                    <IdRow>
+                      <CredentialInfo>
+                        <CredentialLabel>{lang === "zh" ? "登录账户 ID" : "Login Account ID"}</CredentialLabel>
+                        <IdText title={loginAccountId}>{shortenId(loginAccountId)}</IdText>
+                      </CredentialInfo>
+                      <IconButton
+                        onClick={() => handleCopyToClipboard(loginAccountId, lang === "zh" ? "登录账户 ID" : "Login account ID")}
+                        title={lang === "zh" ? "复制登录账户 ID" : "Copy login account ID"}
+                        aria-label={lang === "zh" ? "复制登录账户 ID" : "Copy login account ID"}
+                      >
+                        <CopyIcon />
+                      </IconButton>
+                    </IdRow>
+                  )}
+                </IdGrid>
+                {(business.registrationId || business.registration_id) && (
+                  <SmallButton onClick={handleViewRegistration} style={{ marginTop: '0.75rem' }}>
+                    {lang === "zh" ? "查看注册表单" : "View Registration Form"}
+                  </SmallButton>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </Card>
+    )}
+  </>
+  ) : null;
 
   return (
     <MainLayout
@@ -1320,7 +1917,7 @@ export default function BusinessDetailPage() {
               <PageHeader>
                 <div style={{ minWidth: 0 }}>
                   <TitleRow>
-                    <BusinessName>{business.name || 'N/A'}</BusinessName>
+                    <BusinessName>{storeName || 'N/A'}</BusinessName>
                     {isEditMode ? (
                       <StatusSelect
                         value={business.status || ''}
@@ -1340,13 +1937,13 @@ export default function BusinessDetailPage() {
                       </StatusBadge>
                     )}
                   </TitleRow>
-                  {formatAddress(business) && (
+                  {headerAddress && (
                     <BusinessLocation>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
                         <circle cx="12" cy="10" r="3"/>
                       </svg>
-                      {formatAddress(business)}
+                      {headerAddress}
                     </BusinessLocation>
                   )}
                 </div>
@@ -1384,388 +1981,88 @@ export default function BusinessDetailPage() {
                 </HeaderActions>
               </PageHeader>
 
-              <DetailLayout>
-                {/* Main column: the business itself */}
-                <Column>
-                  <Card>
-                    <CardHeading>{lang === "zh" ? "业务信息" : "Business Details"}</CardHeading>
-                    <FieldGrid>
-                      <InfoItem>
-                        <InfoLabel>{lang === "zh" ? "业务名称" : "Business Name"}</InfoLabel>
-                        {isEditMode ? (
-                          <Input
-                            value={business.name || ''}
-                            onChange={(e) => handleBusinessChange('name', e.target.value)}
-                          />
-                        ) : (
-                          <InfoValue>{business.name || 'N/A'}</InfoValue>
-                        )}
-                      </InfoItem>
-                      <InfoItem>
-                        <InfoLabel>ABN</InfoLabel>
-                        {isEditMode ? (
-                          <Input
-                            value={business.abn || ''}
-                            onChange={(e) => handleBusinessChange('abn', e.target.value)}
-                          />
-                        ) : (
-                          <InfoValue>{formatAbn(business.abn) || 'N/A'}</InfoValue>
-                        )}
-                      </InfoItem>
-                      <InfoItem>
-                        <InfoLabel>{lang === "zh" ? "地址" : "Address"}</InfoLabel>
-                        <InfoValue>{formatAddress(business) || 'N/A'}</InfoValue>
-                      </InfoItem>
-                    </FieldGrid>
-
-                    <SubHeading>{lang === "zh" ? "客户联系信息" : "Customer Contact"}</SubHeading>
-                    <FieldGrid>
-                      <InfoItem>
-                        <InfoLabel>{lang === "zh" ? "姓名" : "Name"}</InfoLabel>
-                        <InfoValue>{business.contact_name || 'N/A'}</InfoValue>
-                      </InfoItem>
-                      <InfoItem>
-                        <InfoLabel>{lang === "zh" ? "邮箱" : "Email"}</InfoLabel>
-                        <InfoValue>
-                          {contactEmail ? <ValueLink href={`mailto:${contactEmail}`}>{contactEmail}</ValueLink> : 'N/A'}
-                        </InfoValue>
-                      </InfoItem>
-                      <InfoItem>
-                        <InfoLabel>{lang === "zh" ? "电话" : "Phone"}</InfoLabel>
-                        <InfoValue>
-                          {contactPhone ? <ValueLink href={`tel:${contactPhone}`}>{contactPhone}</ValueLink> : 'N/A'}
-                        </InfoValue>
-                      </InfoItem>
-                    </FieldGrid>
-
-                    <SubHeading>{lang === "zh" ? "备注" : "Notes"}</SubHeading>
-                    {isEditMode ? (
-                      <NotesTextarea
-                        rows={4}
-                        value={business.notes || ''}
-                        onChange={(e) => handleBusinessChange('notes', e.target.value)}
-                        placeholder={lang === "zh" ? "其他信息或特殊要求" : "Extra information or special requirements"}
-                      />
-                    ) : business.notes ? (
-                      <NotesBox>{business.notes}</NotesBox>
-                    ) : (
-                      <MutedText>{lang === "zh" ? "暂无备注" : "No notes"}</MutedText>
-                    )}
-                  </Card>
-
-                  <AttributionCard
-                    entityType="business"
-                    entityId={business._id}
-                    entityLabel={business.name || business._id}
-                    teamName={business.team_name}
-                    attributedToName={business.attributed_to_name}
-                    attributedToEmail={business.attributed_to_email}
-                    ownerUserId={business.owner_user_id}
-                    onChanged={fetchBusinessDetails}
-                  />
-
-                  <Card>
-                    <CardHeadingRow>
-                      <CardHeading>
-                        {lang === "zh" ? `店铺 (${shops.length})` : `Shops (${shops.length})`}
-                      </CardHeading>
-                      <AddShopButton
-                        onClick={() => { resetAddShopForm(); setShowAddShopModal(true); }}
-                        disabled={!hasOwner}
-                        title={!hasOwner ? (lang === "zh" ? "请先创建所有者登录" : "Create an owner login first") : undefined}
-                        style={!hasOwner ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+              <SectionLayout>
+                <SectionNav aria-label={lang === "zh" ? "页面分区" : "Page sections"}>
+                  {sectionIds.map((id) => {
+                    // 'store-records' is the store's own tab strip - logins,
+                    // devices and the rest - not another card.
+                    const labels: Record<string, { en: string; zh: string }> = {
+                      'store': { en: 'Store', zh: '店铺' },
+                      'customer': { en: 'Store Owner', zh: '店主' },
+                      'store-logins': { en: 'Store Logins', zh: '店铺登录' },
+                      'internal': { en: 'Internal', zh: '内部信息' },
+                      'store-records': { en: 'Devices & Activity', zh: '设备与活动' },
+                    };
+                    if ((id === 'internal' || id === 'store-logins') && !isInternal) return null;
+                    if (id === 'store-logins' && !primaryShop) return null;
+                    if ((id === 'store' || id === 'store-records') && !primaryShop) return null;
+                    return (
+                      <SectionNavItem
+                        key={id}
+                        $active={activeSection === id}
+                        onClick={() => goToSection(id)}
                       >
-                        + {lang === "zh" ? "添加店铺" : "Add Shop"}
-                      </AddShopButton>
-                    </CardHeadingRow>
-                    {shops.length > 0 ? (
-                      <PermissionList>
+                        {labels[id][lang === "zh" ? "zh" : "en"]}
+                      </SectionNavItem>
+                    );
+                  })}
+                </SectionNav>
+
+                <div>
+              {primaryShop ? (
+                  <>
+                    {/* Older businesses can have more than one store; the rest
+                        of them are reachable from here, one at a time. */}
+                    {shops.length > 1 && (
+                      <StoreSwitcher>
                         {shops.map((shop) => (
-                          <PermissionCard
+                          <StoreSwitcherButton
                             key={shop._id}
-                            onClick={() => router.push(`/admin/businesses/${business._id}/shops/${shop._id}`)}
+                            $active={shop._id === selectedShopId}
+                            onClick={() => setSelectedShopId(shop._id)}
                           >
-                            <ShopCardHeader>
-                              <PermissionName style={{ marginBottom: 0 }}>{shop.store_name || shop.name || 'N/A'}</PermissionName>
-                              {shop.status && (
-                                <StatusBadge $status={shop.status}>
-                                  {formatStatus(shop.status)}
-                                </StatusBadge>
-                              )}
-                            </ShopCardHeader>
-                            <ShopMeta>
-                              <span>
-                                {formatShopLocation(shop.location)
-                                  || (lang === "zh" ? "未设置地址" : "No address set")}
-                                {shop.phone ? ` · ${shop.phone}` : ''}
-                              </span>
-                              <span aria-hidden="true">→</span>
-                            </ShopMeta>
-                          </PermissionCard>
+                            {shop.store_name || shop.name || shop._id}
+                          </StoreSwitcherButton>
                         ))}
-                      </PermissionList>
-                    ) : (
-                      <MutedText>{lang === "zh" ? "暂无店铺" : "No shops linked to this business"}</MutedText>
+                      </StoreSwitcher>
                     )}
-                  </Card>
-                </Column>
-
-                {/* Side column: who owns it and how they log in */}
-                <Column>
-                  {isInternal && ownerAccountMissing && (
-                    <WarningCard role="status">
-                      <strong>{lang === "zh" ? "未找到所有者账户" : "Owner account not found"}</strong>
+                    <ShopDetailPanel
+                      key={selectedShopId || primaryShop._id}
+                      businessId={businessId}
+                      shopId={selectedShopId || primaryShop._id}
+                      embedded
+                      onShopChanged={fetchBusinessDetails}
+                      leadingFields={businessLeadingFields}
+                      trailingContent={businessTrailingContent}
+                      cardId="store"
+                      tabsId="store-records"
+                      credentialsId="store-logins"
+                    />
+                  </>
+              ) : (
+                  <Card>
+                    <CardHeading>{lang === "zh" ? "详情" : "Details"}</CardHeading>
+                    <FieldGrid>{businessLeadingFields}</FieldGrid>
+                    {businessTrailingContent}
+                    <SubHeading>{lang === "zh" ? "店铺" : "Store"}</SubHeading>
+                    <MutedText>
                       {lang === "zh"
-                        ? "此业务关联的所有者账户在 admin 集合中不存在，因此无法显示 VendPOS 登录信息，也无法添加店铺登录账户。"
-                        : "The owner account linked to this business doesn't exist in the admin collection, so VendPOS login details can't be shown and store logins can't be added."}
-                    </WarningCard>
-                  )}
-
-                  <Card>
-                    <CardHeading>
-                      <UserIcon /> {lang === "zh" ? "客户" : "Customer"}
-                    </CardHeading>
-                    {owner ? (
-                      <>
-                        <OwnerPrimary>{owner.name || owner.email || 'N/A'}</OwnerPrimary>
-                        {owner.email && <OwnerLine>{owner.email}</OwnerLine>}
-                        {owner.phone && <OwnerLine>{owner.phone}</OwnerLine>}
-                        <SmallButton onClick={handleViewOwner} style={{ marginTop: '0.75rem' }}>
-                          <UserIcon /> {lang === "zh" ? "查看客户资料" : "View Profile"}
-                        </SmallButton>
-                      </>
-                    ) : isEditMode && isInternal ? (
-                      <>
-                        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                          <SmallButton onClick={() => setCustomerMode('new')} style={customerMode === 'new' ? { background: '#1a237e', color: 'white', borderColor: '#1a237e' } : undefined}>
-                            {lang === "zh" ? "新建客户" : "New customer"}
-                          </SmallButton>
-                          <SmallButton onClick={() => setCustomerMode('existing')} style={customerMode === 'existing' ? { background: '#1a237e', color: 'white', borderColor: '#1a237e' } : undefined}>
-                            {lang === "zh" ? "关联已有客户" : "Link existing"}
-                          </SmallButton>
-                        </div>
-                        {customerMode === 'new' ? (
-                          <div style={{ display: 'grid', gap: '0.5rem' }}>
-                            <Input value={customerForm.name} onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })} placeholder={lang === "zh" ? "姓名" : "Name"} />
-                            <Input value={customerForm.email} onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })} placeholder={lang === "zh" ? "邮箱" : "Email"} autoComplete="off" />
-                            <Input value={customerForm.phone} onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })} placeholder={lang === "zh" ? "电话" : "Phone"} />
-                          </div>
-                        ) : (
-                          <StatusSelect value={selectedCustomerId} onChange={(e) => setSelectedCustomerId(e.target.value)} style={{ width: '100%' }}>
-                            <option value="">{existingCustomers.length ? (lang === "zh" ? "选择客户..." : "Select a customer...") : (lang === "zh" ? "暂无客户" : "No customers yet")}</option>
-                            {existingCustomers.map((c) => (
-                              <option key={c._id} value={c._id}>
-                                {c.name || c.email || c._id}{c.email && c.name ? ` — ${c.email}` : ''}
-                              </option>
-                            ))}
-                          </StatusSelect>
-                        )}
-                        {attachCustomerError && (
-                          <p style={{ color: '#dc2626', fontSize: '0.8125rem', margin: '0.5rem 0 0' }}>{attachCustomerError}</p>
-                        )}
-                        <SmallButton $variant="save" onClick={handleAttachCustomer} disabled={isAttachingCustomer} style={{ marginTop: '0.75rem' }}>
-                          {isAttachingCustomer
-                            ? (lang === "zh" ? "处理中..." : "Saving...")
-                            : customerMode === 'existing'
-                              ? (lang === "zh" ? "关联客户" : "Link customer")
-                              : (lang === "zh" ? "创建并关联" : "Create & link")}
-                        </SmallButton>
-                      </>
-                    ) : (
-                      <>
-                        <OwnerPrimary>N/A</OwnerPrimary>
-                        <OwnerLine>{lang === "zh" ? "未记录客户联系信息。" : "No customer contact recorded."}</OwnerLine>
-                        {isInternal && (
-                          <OwnerLine style={{ marginTop: '0.5rem', color: '#9ca3af' }}>
-                            {lang === "zh" ? "点击「编辑」以添加或关联客户。" : "Click Edit to add or link a customer."}
-                          </OwnerLine>
-                        )}
-                      </>
-                    )}
+                        ? "此业务创建于店铺自动创建之前，尚无店铺。"
+                        : "This business predates stores being created automatically and has none yet."}
+                    </MutedText>
+                    <AddShopButton
+                      onClick={() => { resetAddShopForm(); setShowAddShopModal(true); }}
+                      disabled={!hasOwner}
+                      title={!hasOwner ? (lang === "zh" ? "请先创建所有者登录" : "Create an owner login first") : undefined}
+                      style={{ marginTop: '1rem', ...(!hasOwner ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
+                    >
+                      + {lang === "zh" ? "创建店铺" : "Create Store"}
+                    </AddShopButton>
                   </Card>
+              )}
+                </div>
+              </SectionLayout>
 
-                  {!hasOwner && (
-                    <Card>
-                      <CardHeading>{lang === "zh" ? "VendPOS 登录" : "VendPOS Login"}</CardHeading>
-                      <OwnerPrimary>N/A</OwnerPrimary>
-                      <OwnerLine>{lang === "zh" ? "此业务尚无登录账户。" : "This business has no login account yet."}</OwnerLine>
-                      {isInternal && (
-                        <SmallButton onClick={openCreateOwnerModal} style={{ marginTop: '0.75rem' }}>
-                          <UserIcon /> {lang === "zh" ? "创建登录账户" : "Create Login"}
-                        </SmallButton>
-                      )}
-                    </Card>
-                  )}
-
-                  {isInternal && ownerCredentials && (
-                    <Card>
-                      <CardHeadingRow>
-                        <CardHeading>{lang === "zh" ? "VendPOS 登录" : "VendPOS Login"}</CardHeading>
-                        {!isEditingCredentials && (
-                          <SmallButton onClick={handleStartEditCredentials}>
-                            <EditIcon /> {lang === "zh" ? "编辑" : "Edit"}
-                          </SmallButton>
-                        )}
-                      </CardHeadingRow>
-
-                      <CredentialsList>
-                        <CredentialRow>
-                          <CredentialInfo style={{ flex: 1 }}>
-                            <CredentialLabel>{lang === "zh" ? "邮箱" : "Email"}</CredentialLabel>
-                            {isEditingCredentials ? (
-                              <CredentialInput
-                                type="email"
-                                value={credentialsDraft.email}
-                                disabled={isSavingCredentials}
-                                autoComplete="off"
-                                onChange={(e) =>
-                                  setCredentialsDraft({ ...credentialsDraft, email: e.target.value })
-                                }
-                              />
-                            ) : (
-                              <CredentialValue>{ownerCredentials.email || 'N/A'}</CredentialValue>
-                            )}
-                          </CredentialInfo>
-                          {!isEditingCredentials && ownerCredentials.email && (
-                            <CredentialButtons>
-                              <IconButton
-                                onClick={() => handleCopyToClipboard(ownerCredentials.email, lang === "zh" ? "邮箱" : "Email")}
-                                title={lang === "zh" ? "复制邮箱" : "Copy email"}
-                                aria-label={lang === "zh" ? "复制邮箱" : "Copy email"}
-                              >
-                                <CopyIcon />
-                              </IconButton>
-                            </CredentialButtons>
-                          )}
-                        </CredentialRow>
-
-                        <CredentialRow>
-                          <CredentialInfo style={{ flex: 1 }}>
-                            <CredentialLabel>{lang === "zh" ? "密码" : "Password"}</CredentialLabel>
-                            {isEditingCredentials ? (
-                              <CredentialInput
-                                type={showPassword ? "text" : "password"}
-                                value={credentialsDraft.password}
-                                disabled={isSavingCredentials}
-                                autoComplete="new-password"
-                                onChange={(e) =>
-                                  setCredentialsDraft({ ...credentialsDraft, password: e.target.value })
-                                }
-                              />
-                            ) : (
-                              <CredentialValue>
-                                {!ownerCredentials.password
-                                  ? 'N/A'
-                                  : showPassword
-                                    ? ownerCredentials.password
-                                    : MASKED_VALUE}
-                              </CredentialValue>
-                            )}
-                          </CredentialInfo>
-                          <CredentialButtons>
-                            <IconButton
-                              onClick={() => setShowPassword(!showPassword)}
-                              title={
-                                showPassword
-                                  ? (lang === "zh" ? "隐藏密码" : "Hide password")
-                                  : (lang === "zh" ? "显示密码" : "Show password")
-                              }
-                              aria-label={
-                                showPassword
-                                  ? (lang === "zh" ? "隐藏密码" : "Hide password")
-                                  : (lang === "zh" ? "显示密码" : "Show password")
-                              }
-                            >
-                              {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                            </IconButton>
-                            {!isEditingCredentials && (
-                              <IconButton
-                                onClick={() => handleCopyToClipboard(ownerCredentials.password, lang === "zh" ? "密码" : "Password")}
-                                title={lang === "zh" ? "复制密码" : "Copy password"}
-                                aria-label={lang === "zh" ? "复制密码" : "Copy password"}
-                              >
-                                <CopyIcon />
-                              </IconButton>
-                            )}
-                          </CredentialButtons>
-                        </CredentialRow>
-
-                        {credentialsError && (
-                          <CredentialFieldError>{credentialsError}</CredentialFieldError>
-                        )}
-
-                        {isEditingCredentials && (
-                          <CredentialEditActions>
-                            <SmallButton onClick={handleCancelEditCredentials} disabled={isSavingCredentials}>
-                              {lang === "zh" ? "取消" : "Cancel"}
-                            </SmallButton>
-                            <SmallButton $variant="save" onClick={handleSaveCredentials} disabled={isSavingCredentials}>
-                              <SaveIcon />
-                              {isSavingCredentials
-                                ? (lang === "zh" ? "保存中..." : "Saving...")
-                                : (lang === "zh" ? "保存" : "Save")}
-                            </SmallButton>
-                          </CredentialEditActions>
-                        )}
-                      </CredentialsList>
-                    </Card>
-                  )}
-
-                  {isInternal && (
-                  <Card>
-                    <CardHeading>{lang === "zh" ? "系统 ID" : "System IDs"}</CardHeading>
-                    <IdRow>
-                      <CredentialInfo>
-                        <CredentialLabel>{lang === "zh" ? "业务 ID" : "Business ID"}</CredentialLabel>
-                        <IdText title={business._id}>{shortenId(business._id)}</IdText>
-                      </CredentialInfo>
-                      <IconButton
-                        onClick={() => handleCopyToClipboard(business._id, lang === "zh" ? "业务 ID" : "Business ID")}
-                        title={lang === "zh" ? "复制业务 ID" : "Copy business ID"}
-                        aria-label={lang === "zh" ? "复制业务 ID" : "Copy business ID"}
-                      >
-                        <CopyIcon />
-                      </IconButton>
-                    </IdRow>
-                    {customerId && (
-                      <IdRow>
-                        <CredentialInfo>
-                          <CredentialLabel>{lang === "zh" ? "客户 ID" : "Customer ID"}</CredentialLabel>
-                          <IdText title={customerId}>{shortenId(customerId)}</IdText>
-                        </CredentialInfo>
-                        <IconButton
-                          onClick={() => handleCopyToClipboard(customerId, lang === "zh" ? "客户 ID" : "Customer ID")}
-                          title={lang === "zh" ? "复制客户 ID" : "Copy customer ID"}
-                          aria-label={lang === "zh" ? "复制客户 ID" : "Copy customer ID"}
-                        >
-                          <CopyIcon />
-                        </IconButton>
-                      </IdRow>
-                    )}
-                    {loginAccountId && (
-                      <IdRow>
-                        <CredentialInfo>
-                          <CredentialLabel>{lang === "zh" ? "登录账户 ID" : "Login Account ID"}</CredentialLabel>
-                          <IdText title={loginAccountId}>{shortenId(loginAccountId)}</IdText>
-                        </CredentialInfo>
-                        <IconButton
-                          onClick={() => handleCopyToClipboard(loginAccountId, lang === "zh" ? "登录账户 ID" : "Login account ID")}
-                          title={lang === "zh" ? "复制登录账户 ID" : "Copy login account ID"}
-                          aria-label={lang === "zh" ? "复制登录账户 ID" : "Copy login account ID"}
-                        >
-                          <CopyIcon />
-                        </IconButton>
-                      </IdRow>
-                    )}
-                    {(business.registrationId || business.registration_id) && (
-                      <SmallButton onClick={handleViewRegistration} style={{ marginTop: '0.75rem' }}>
-                        {lang === "zh" ? "查看注册表单" : "View Registration Form"}
-                      </SmallButton>
-                    )}
-                  </Card>
-                  )}
-                </Column>
-              </DetailLayout>
             </>
           ) : (
             <ErrorText>{lang === "zh" ? "未找到业务" : "Business not found"}</ErrorText>
@@ -1879,63 +2176,10 @@ export default function BusinessDetailPage() {
         </ModalContent>
       </Modal>
 
-      {/* First-shop prompt: shown once per business, dismissible */}
-      <Modal $show={showFirstShopPrompt} onClick={() => !isAddingShop && dismissFirstShopPrompt()}>
-        <ModalContent onClick={(e) => e.stopPropagation()}>
-          <ModalTitle>
-            {lang === "zh" ? "添加第一个店铺" : "Add the First Shop"}
-          </ModalTitle>
-          <p style={{ fontSize: '0.875rem', color: '#5c6b7a', marginBottom: '1.25rem', lineHeight: 1.6 }}>
-            {lang === "zh"
-              ? `"${business?.name}" 还没有店铺。现在创建第一个店铺，或稍后通过"添加店铺"按钮添加。`
-              : `"${business?.name}" has no shop yet. Create its first shop now, or add one later with the Add Shop button.`}
-          </p>
-
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#5c6b7a', marginBottom: '0.5rem' }}>
-              {lang === "zh" ? "店铺名称" : "Shop Name"} *
-            </label>
-            <Input
-              type="text"
-              value={newShop.name}
-              onChange={(e) => setNewShop({ ...newShop, name: e.target.value })}
-              placeholder={lang === "zh" ? "输入店铺名称" : "Enter shop name"}
-            />
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#5c6b7a', marginBottom: '0.5rem' }}>
-              {lang === "zh" ? "地址" : "Location"}
-            </label>
-            <Input
-              type="text"
-              value={newShop.location}
-              onChange={(e) => setNewShop({ ...newShop, location: e.target.value })}
-              placeholder={lang === "zh" ? "输入店铺地址（可选）" : "Enter shop address (optional)"}
-            />
-          </div>
-
-          {addShopError && (
-            <p style={{ color: '#dc2626', fontSize: '0.8125rem', marginBottom: '1rem' }}>{addShopError}</p>
-          )}
-
-          <ModalActions>
-            <ModalButton onClick={dismissFirstShopPrompt} disabled={isAddingShop}>
-              {lang === "zh" ? "暂时跳过" : "Skip for now"}
-            </ModalButton>
-            <ModalButton $primary onClick={handleCreateShop} disabled={isAddingShop}>
-              {isAddingShop
-                ? (lang === "zh" ? "创建中..." : "Creating...")
-                : (lang === "zh" ? "创建店铺" : "Create Shop")}
-            </ModalButton>
-          </ModalActions>
-        </ModalContent>
-      </Modal>
-
-      {/* Add Shop Modal */}
+      {/* Create Store: the repair path for a business that has no store yet */}
       <Modal $show={showAddShopModal} onClick={() => setShowAddShopModal(false)}>
         <ModalContent onClick={(e) => e.stopPropagation()}>
-          <ModalTitle>{lang === "zh" ? "添加店铺" : "Add Shop"}</ModalTitle>
+          <ModalTitle>{lang === "zh" ? "创建店铺" : "Create Store"}</ModalTitle>
 
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#5c6b7a', marginBottom: '0.5rem' }}>

@@ -1192,84 +1192,6 @@ const InfoValue = styled.span`
 
 
 
-const ShopSection = styled.div`
-
-  margin-top: 0.75rem;
-
-  padding-top: 0.75rem;
-
-  border-top: 1px solid #e0e7ef;
-
-`;
-
-
-
-const ShopSectionTitle = styled.div`
-
-  font-size: 0.75rem;
-
-  font-weight: 600;
-
-  color: #5c6b7a;
-
-  text-transform: uppercase;
-
-  letter-spacing: 0.5px;
-
-  margin-bottom: 0.5rem;
-
-`;
-
-
-
-const ShopItem = styled.div`
-
-  display: flex;
-
-  flex-direction: column;
-
-  padding: 0.5rem 0.75rem;
-
-  background: #f7faff;
-
-  border-radius: 8px;
-
-  margin-bottom: 0.5rem;
-
-  font-size: 0.8125rem;
-
-
-
-  &:last-child {
-
-    margin-bottom: 0;
-
-  }
-
-`;
-
-
-
-const ShopName = styled.span`
-
-  font-weight: 600;
-
-  color: #0a3655;
-
-`;
-
-
-
-const ShopLocation = styled.span`
-
-  color: #5c6b7a;
-
-  font-size: 0.75rem;
-
-`;
-
-
-
 const NoShops = styled.div`
 
   font-size: 0.8125rem;
@@ -3047,6 +2969,21 @@ export default function BusinessManagementPage() {
 
 
 
+  const shopDisplayName = (shop: any) => String(shop?.store_name || shop?.name || '').trim();
+
+  // The POS writes a [lng, lat] placeholder on shops whose address was never
+  // set. Showing "[0, 0]" where an address belongs is worse than showing nothing.
+  const isPlaceholderLocation = (value: string) =>
+    /^\[?\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*\]?$/.test(value.trim());
+
+  const storeAddress = (shop: any) => {
+    const value = shop ? formatShopLocation(shop.location) : null;
+    return value && !isPlaceholderLocation(value) ? value : '';
+  };
+
+  const businessAddress = (business: any) =>
+    [business.suburb, business.state].map((v: any) => String(v || '').trim()).filter(Boolean).join(', ');
+
   const getBusinessOwnerName = (business: any) => {
 
     // Check owner_name first (set when creating new business)
@@ -3739,15 +3676,35 @@ export default function BusinessManagementPage() {
 
             <BusinessGrid>
 
-              {paginatedBusinesses.map(business => (
+              {paginatedBusinesses.map(business => {
 
+                // A business and its store are one entity, so a card shows one
+                // record rather than a business with a shop list hanging off it.
+                // The store's own name wins when the two differ - that is the
+                // name over the door - and the business name is kept underneath,
+                // so a card found by searching the business name still shows it.
+                const businessShops = getShopsForBusiness(business._id);
+                const store = businessShops[0] || null;
+                const storeName = store ? shopDisplayName(store) : '';
+                const businessName = business.name || '';
+                const title = storeName && storeName !== businessName ? storeName : (businessName || 'N/A');
+                const subtitle = businessName && businessName !== title ? businessName : '';
+                const address = storeAddress(store) || businessAddress(business);
+
+                return (
                 <BusinessCard key={business._id}>
 
                   <CardHeader>
 
                     <div style={{ flex: 1 }}>
 
-                      <BusinessName>{business.name || 'N/A'}</BusinessName>
+                      <BusinessName>{title}</BusinessName>
+
+                      {subtitle && (
+                        <div style={{ fontSize: '0.75rem', color: '#5c6b7a', marginTop: '-0.35rem', marginBottom: '0.4rem' }}>
+                          {lang === 'zh' ? `业务：${subtitle}` : `Business: ${subtitle}`}
+                        </div>
+                      )}
 
                       <InfoRow style={{ marginBottom: '0.5rem' }}>
 
@@ -3761,7 +3718,7 @@ export default function BusinessManagementPage() {
 
                           </svg>
 
-                          {(business.suburb || business.state) ? `${business.suburb}${business.state && `, ${business.state}`}` : 'N/A'}
+                          {address || 'N/A'}
 
                         </span>
 
@@ -3797,28 +3754,22 @@ export default function BusinessManagementPage() {
 
                     </InfoRow>
 
-                  </BusinessInfo>
-
-                  <ShopSection>
-
-                    <ShopSectionTitle>
-                      {lang === 'zh' ? `店铺 (${getShopsForBusiness(business._id).length})` : `Shops (${getShopsForBusiness(business._id).length})`}
-                    </ShopSectionTitle>
-
-                    {getShopsForBusiness(business._id).length === 0 ? (
-                      <NoShops>{lang === 'zh' ? '暂无店铺' : 'No shops yet'}</NoShops>
-                    ) : (
-                      getShopsForBusiness(business._id).map(shop => (
-                        <ShopItem key={shop._id}>
-                          <ShopName>{shop.store_name || shop.name || 'N/A'}</ShopName>
-                          {formatShopLocation(shop.location) && (
-                            <ShopLocation>{formatShopLocation(shop.location)}</ShopLocation>
-                          )}
-                        </ShopItem>
-                      ))
+                    {/* Older businesses, made before a store came with one */}
+                    {!store && (
+                      <NoShops style={{ marginTop: '0.35rem' }}>
+                        {lang === 'zh' ? '尚未创建店铺' : 'No store yet'}
+                      </NoShops>
                     )}
 
-                  </ShopSection>
+                    {businessShops.length > 1 && (
+                      <NoShops style={{ marginTop: '0.35rem' }}>
+                        {lang === 'zh'
+                          ? `另有 ${businessShops.length - 1} 个店铺`
+                          : `+${businessShops.length - 1} more store${businessShops.length - 1 === 1 ? '' : 's'}`}
+                      </NoShops>
+                    )}
+
+                  </BusinessInfo>
 
                   <CardActions>
 
@@ -3831,9 +3782,8 @@ export default function BusinessManagementPage() {
                   </CardActions>
 
                 </BusinessCard>
-
-              ))}
-
+                );
+              })}
             </BusinessGrid>
 
           )}
@@ -4185,9 +4135,9 @@ export default function BusinessManagementPage() {
 
               {lang === 'zh'
 
-                ? '创建业务及其所有者的登录账户。'
+                ? '创建业务、其所有者登录账户，以及它的店铺 —— 店铺使用下方的业务名称和地址。'
 
-                : 'Creates the business along with a login account for its owner.'}
+                : "Creates the business, a login account for its owner, and its store \u2014 the store takes the business name and address entered below."}
 
             </FieldHint>
 
