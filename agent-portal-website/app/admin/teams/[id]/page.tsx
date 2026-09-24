@@ -573,6 +573,9 @@ export default function TeamDetailPage() {
   // Suspend / delete team
   const [confirmStatus, setConfirmStatus] = useState<null | "active" | "suspended">(null);
   const [confirmDeleteTeam, setConfirmDeleteTeam] = useState(false);
+  // Deleting a team is irreversible, so it takes the same typed confirmation a
+  // store deletion does rather than a single click on a red button.
+  const [deleteTeamText, setDeleteTeamText] = useState("");
   const [savingStatus, setSavingStatus] = useState(false);
 
   const allowed = hasPermission(adminProfile, "manage_team_members");
@@ -663,8 +666,12 @@ export default function TeamDetailPage() {
     }
   };
 
+  // The typed name has to match before anything is sent, so a stray Enter or a
+  // click on a stale modal can't delete a team.
+  const deleteTeamConfirmed = !!team?.name && deleteTeamText.trim() === team.name.trim();
+
   const handleDeleteTeam = async () => {
-    if (!team) return;
+    if (!team || !deleteTeamConfirmed) return;
     setSavingStatus(true);
     try {
       await axios.post("/api/teams/delete", { token, team_id: team.id });
@@ -965,7 +972,7 @@ export default function TeamDetailPage() {
                   <ActionButton $variant="approve" onClick={() => setConfirmStatus("active")}>{zh ? "重新激活" : "Reactivate"}</ActionButton>
                 )}
                 {can?.edit_team && team.slug !== "vend88-direct" && (
-                  <ActionButton $variant="delete" onClick={() => setConfirmDeleteTeam(true)}>{zh ? "删除" : "Delete"}</ActionButton>
+                  <ActionButton $variant="delete" onClick={() => { setDeleteTeamText(""); setConfirmDeleteTeam(true); }}>{zh ? "删除" : "Delete"}</ActionButton>
                 )}
               </>
             )}
@@ -1430,9 +1437,29 @@ export default function TeamDetailPage() {
               ? "只有没有成员且没有任何归属记录的团队才能删除。要在保留历史的同时锁定团队，请改用暂停。"
               : "Only a team with no members and nothing attributed to it can be deleted. To lock a team out while keeping its history, suspend it instead."}
           </ModalText>
+          <ModalText style={{ color: "#991b1b", background: "#fee2e2", padding: "0.75rem 1rem", borderRadius: 8 }}>
+            {zh ? "此操作无法撤销。" : "This cannot be undone."}
+          </ModalText>
+          <FormGroup>
+            <FormLabel>
+              {zh
+                ? <>请输入 <strong style={{ color: "#0a3655" }}>{team?.name}</strong> 以确认</>
+                : <>Type <strong style={{ color: "#0a3655" }}>{team?.name}</strong> to confirm</>}
+            </FormLabel>
+            <FormInput
+              value={deleteTeamText}
+              onChange={e => setDeleteTeamText(e.target.value)}
+              placeholder={team?.name || ""}
+              disabled={savingStatus}
+              autoFocus
+              onKeyDown={e => {
+                if (e.key === "Enter" && deleteTeamConfirmed && !savingStatus) handleDeleteTeam();
+              }}
+            />
+          </FormGroup>
           <ModalActions>
             <ModalButton onClick={() => setConfirmDeleteTeam(false)} disabled={savingStatus}>{zh ? "取消" : "Cancel"}</ModalButton>
-            <ModalButton $danger onClick={handleDeleteTeam} disabled={savingStatus}>{savingStatus ? "..." : (zh ? "删除" : "Delete")}</ModalButton>
+            <ModalButton $danger onClick={handleDeleteTeam} disabled={savingStatus || !deleteTeamConfirmed}>{savingStatus ? "..." : (zh ? "永久删除" : "Delete Permanently")}</ModalButton>
           </ModalActions>
         </ModalContent>
       </Modal>

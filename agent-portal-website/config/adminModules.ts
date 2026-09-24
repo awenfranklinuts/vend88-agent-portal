@@ -100,10 +100,10 @@ export const ADMIN_MODULES: AdminModule[] = [
   {
     id: "businesses",
     section: "accounts",
-    label: { en: "Business Management", zh: "业务管理" },
+    label: { en: "Store Management", zh: "店铺管理" },
     description: {
-      en: "Manage all businesses and locations. View, add, edit, and monitor business information.",
-      zh: "管理所有业务和地点。查看、添加、编辑和监控业务信息。",
+      en: "Manage all stores and locations. View, add, edit, and monitor store information.",
+      zh: "管理所有店铺和地点。查看、添加、编辑和监控店铺信息。",
     },
     href: "/admin/businesses",
     icon: BusinessIcon,
@@ -181,8 +181,8 @@ export const ADMIN_MODULES: AdminModule[] = [
     section: "insights",
     label: { en: "Reports & Analytics", zh: "报告与分析" },
     description: {
-      en: "View detailed reports, analytics, and insights across all customers and businesses.",
-      zh: "查看详细报告、分析和所有客户和业务的洞察。",
+      en: "View detailed reports, analytics, and insights across all customers and stores.",
+      zh: "查看详细报告、分析和所有客户和店铺的洞察。",
     },
     href: "/admin/reports",
     icon: ReportsIcon,

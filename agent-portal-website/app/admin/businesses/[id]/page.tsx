@@ -1469,8 +1469,12 @@ export default function BusinessDetailPage() {
   const storeName =
     String(shownShop?.store_name || '').trim() || String(business?.name || '').trim();
 
-  const storeLocation =
-    typeof shownShop?.location === 'string' ? shownShop.location.trim() : '';
+  // Production stores a [0, 0] placeholder on a shop whose address was never
+  // set. It is not an address, and showing it as one reads as corrupt data.
+  const storeLocation = (() => {
+    const raw = typeof shownShop?.location === 'string' ? shownShop.location.trim() : '';
+    return /^\[?\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*\]?$/.test(raw) ? '' : raw;
+  })();
 
   // The page shows the store's name throughout, so that is what a confirmation
   // can reasonably ask for - the business name behind it may appear nowhere.
@@ -1668,6 +1672,12 @@ export default function BusinessDetailPage() {
       attributedToEmail={business.attributed_to_email}
       ownerUserId={business.owner_user_id}
       onChanged={fetchBusinessDetails}
+      sourceLabel={
+        business.registration_id
+          ? (lang === "zh" ? `注册表单 ${business.registration_id}` : `Registration ${business.registration_id}`)
+          : null
+      }
+      onSourceClick={handleViewRegistration}
     />
 
     {isInternal && (
@@ -1898,11 +1908,6 @@ export default function BusinessDetailPage() {
                     </IdRow>
                   )}
                 </IdGrid>
-                {(business.registrationId || business.registration_id) && (
-                  <SmallButton onClick={handleViewRegistration} style={{ marginTop: '0.75rem' }}>
-                    {lang === "zh" ? "查看注册表单" : "View Registration Form"}
-                  </SmallButton>
-                )}
               </>
             )}
           </>

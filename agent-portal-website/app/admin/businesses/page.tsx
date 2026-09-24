@@ -977,67 +977,48 @@ const BusinessGrid = styled.div`
 
 
 const BusinessCard = styled.div`
-
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   background: white;
-
   border-radius: 16px;
-
   box-shadow: 0 4px 16px rgba(30, 64, 175, 0.08);
-
   padding: 1.5rem;
-
   transition: all 0.3s ease;
-
   position: relative;
-
   overflow: hidden;
 
-  
-
   &::before {
-
     content: '';
-
     position: absolute;
-
     top: 0;
-
     left: 0;
-
     right: 0;
-
     height: 4px;
-
     background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
-
   }
-
-  
 
   &:hover {
-
     transform: translateY(-4px);
-
     box-shadow: 0 8px 24px rgba(30, 64, 175, 0.15);
-
   }
-
 `;
 
 
 
 const CardHeader = styled.div`
-
   display: flex;
-
   justify-content: space-between;
-
   align-items: flex-start;
-
   margin-bottom: 1rem;
-
   gap: 1rem;
 
+  /* Absorbs whatever slack a short address leaves, so the rows beneath it line
+     up across a row of cards however many lines the address runs to. */
+  > div:first-child {
+    flex: 1;
+    min-width: 0;
+  }
 `;
 
 
@@ -1131,15 +1112,10 @@ const BusinessName = styled.h3`
 
 
 const BusinessInfo = styled.div`
-
   display: flex;
-
   flex-direction: column;
-
   gap: 0.5rem;
-
-  margin-bottom: 1rem;
-
+  margin-top: auto;
 `;
 
 
@@ -1161,19 +1137,19 @@ const InfoRow = styled.div`
 
 
 const InfoLabel = styled.span`
-
   font-weight: 600;
-
-  min-width: 80px;
-
+  min-width: 92px;
+  flex-shrink: 0;
 `;
 
 
 
 const InfoValue = styled.span`
-
   color: #0a3655;
-
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 `;
 
 
@@ -3633,9 +3609,9 @@ export default function BusinessManagementPage() {
 
                       <InfoRow style={{ marginBottom: '0.5rem' }}>
 
-                        <span style={{ color: '#5c6b7a', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <span style={{ color: '#5c6b7a', fontSize: '0.875rem', display: 'flex', alignItems: 'flex-start', gap: '0.375rem', lineHeight: 1.45 }}>
 
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, marginTop: '0.15rem' }}>
 
                             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
 

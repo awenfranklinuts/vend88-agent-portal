@@ -279,6 +279,16 @@ const Divider = styled.hr`
   margin: 1rem 0 1.25rem;
 `;
 
+// "Unit 10/191 Parramatta Rd, Auburn, NSW 2000" - the suburb is its own part,
+// state and postcode read as one, and the country is left off: every address
+// here is Australian, so printing it adds nothing.
+const registeredAddressLine = (r: any) =>
+  [
+    r?.registeredAddress,
+    r?.registeredSuburb,
+    [r?.registeredState, r?.registeredPostcode].filter(Boolean).join(' '),
+  ].filter((part) => part && String(part).trim()).join(', ');
+
 const SectionTitle = styled.h2`
   margin: 0 0 0.75rem;
   color: #0a3655;
@@ -939,14 +949,11 @@ export default function RegistrationDetailsPage() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [showApprovalModal, setShowApprovalModal] = useState(false);
-  const [accountEmail, setAccountEmail] = useState("");
-  const [accountPassword, setAccountPassword] = useState("");
-  const [showAccountPassword, setShowAccountPassword] = useState(false);
   const [approvalResult, setApprovalResult] = useState<{
     customerId?: string;
-    customerEmail?: string;
     businessId?: string;
     businessName?: string;
+    businessAddress?: string;
   } | null>(null);
   const [customerBusinesses, setCustomerBusinesses] = useState<any[]>([]);
   const [approvalMode, setApprovalMode] = useState<'new_customer' | 'existing_customer'>('new_customer');
@@ -1110,11 +1117,6 @@ export default function RegistrationDetailsPage() {
       setCustomerBusinesses([]);
     }
     setCustomerSearchQuery("");
-    // Default the login to businessname@vend88.com; still editable, and the
-    // backend normalizes the domain regardless of what's typed.
-    setAccountEmail(registration ? businessEmailFromName(getBusinessName(registration)) : "");
-    setAccountPassword("");
-    setShowAccountPassword(false);
     setShowApprovalModal(true);
   };
 
@@ -1141,19 +1143,6 @@ export default function RegistrationDetailsPage() {
 
   // The login is derived from the business name, not the contact email:
   // "Pospal Australia Pty Ltd" -> pospalaustraliaptyltd@vend88.com
-  const businessEmailFromName = (name: string) => {
-    const localPart = String(name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-    return localPart ? `${localPart}@vend88.com` : "";
-  };
-
-  const generatePassword = () => {
-    setAccountPassword(`Vend${Math.floor(1000 + Math.random() * 9000)}`);
-    setShowAccountPassword(true);
-  };
-
-  const newCustomerCredentialsValid =
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail.trim()) && accountPassword.length >= 6;
-
   const actuallyApprove = async () => {
     if (!registration || !token) return;
 
@@ -1175,8 +1164,6 @@ export default function RegistrationDetailsPage() {
           approval_notes: "",
           approval_action: approvalMode === 'existing_customer' ? 'add_store' : 'new_customer_and_store',
           customer_id: approvalMode === 'existing_customer' ? selectedCustomerId : undefined,
-          account_email: approvalMode === 'new_customer' ? accountEmail.trim() : undefined,
-          account_password: approvalMode === 'new_customer' ? accountPassword : undefined,
         }),
       });
 
@@ -1189,11 +1176,12 @@ export default function RegistrationDetailsPage() {
       setShowApprovalModal(false);
       setApprovalResult({
         customerId: responseData?.customer_id,
-        customerEmail: responseData?.customer_email,
         businessId: responseData?.business?._id,
         businessName: responseData?.business?.name,
+        // The address as the registration gave it - the store is created from
+        // exactly these fields.
+        businessAddress: registeredAddressLine(registration),
       });
-      setAccountPassword("");
       await fetchDetails();
     } catch (err: any) {
       console.error("[Approve] Failed:", err);
@@ -1623,55 +1611,34 @@ export default function RegistrationDetailsPage() {
 
                 <Divider />
 
-                <SectionTitle>{lang === "zh" ? "联系信息" : "Contact Information"}</SectionTitle>
+                <SectionTitle>{lang === "zh" ? "客户信息" : "Customer Information"}</SectionTitle>
                 <Grid>
                   {renderField(
-                    lang === "zh" ? "联系邮箱" : "Contact Email",
+                    lang === "zh" ? "邮箱地址" : "Email Address",
                     "contactEmail",
                     getContactEmail(registration),
                     true
                   )}
                   {renderField(
-                    lang === "zh" ? "全名" : "Full Name",
+                    lang === "zh" ? "联系人姓名" : "Contact Name",
                     "ownerName",
                     getContactName(registration),
                     true
                   )}
                   {renderField(
-                    lang === "zh" ? "联系电话" : "Contact Phone",
+                    lang === "zh" ? "电话号码" : "Phone Number",
                     "contactPhone",
                     getContactPhone(registration),
                     true
-                  )}
-                  {!isEditMode ? (
-                    <Field>
-                      <Label>{lang === "zh" ? "即时通讯" : "Messaging App"}</Label>
-                      <Value>{registration.messagingAppType ? `${registration.messagingAppType}: ${registration.messagingAppId || "-"}` : "-"}</Value>
-                    </Field>
-                  ) : (
-                    <Field>
-                      <Label>{lang === "zh" ? "即时通讯" : "Messaging App"}</Label>
-                      <EditFieldInput
-                        type="text"
-                        value={getFieldValue("messagingAppType", registration.messagingAppType || "")}
-                        onChange={(e) => updateEditedField("messagingAppType", e.target.value)}
-                      />
-                    </Field>
                   )}
                 </Grid>
 
                 <Divider />
 
-                <SectionTitle>{lang === "zh" ? "商业信息" : "Business Information"}</SectionTitle>
+                <SectionTitle>{lang === "zh" ? "店铺信息" : "Store Information"}</SectionTitle>
                 <Grid>
                   {renderField(
-                    lang === "zh" ? "报价单/发票号码" : "Quote/Invoice Number",
-                    "quoteNumber",
-                    registration.quoteNumber,
-                    true
-                  )}
-                  {renderField(
-                    lang === "zh" ? "公司交易名称" : "Business Trading Name",
+                    lang === "zh" ? "店铺名称" : "Store Name",
                     "businessName",
                     getBusinessName(registration),
                     true
@@ -1682,41 +1649,46 @@ export default function RegistrationDetailsPage() {
                     registration.abn,
                     true
                   )}
-                </Grid>
-
-                <Divider />
-
-                <SectionTitle>{lang === "zh" ? "注册地址" : "Registered Address"}</SectionTitle>
-                <Grid>
-                  {renderField(
-                    lang === "zh" ? "街道地址" : "Street Address",
-                    "registeredAddress",
-                    registration.registeredAddress,
-                    true
-                  )}
-                  {renderField(
-                    lang === "zh" ? "城市/郊区" : "City/Suburb",
-                    "registeredSuburb",
-                    registration.registeredSuburb,
-                    true
-                  )}
-                  {renderField(
-                    lang === "zh" ? "邮政编码" : "Postcode",
-                    "registeredPostcode",
-                    registration.registeredPostcode,
-                    true
-                  )}
-                  {renderField(
-                    lang === "zh" ? "州/领地" : "State/Territory",
-                    "registeredState",
-                    registration.registeredState,
-                    true
-                  )}
-                  {renderField(
-                    lang === "zh" ? "国家" : "Country",
-                    "registeredCountry",
-                    registration.registeredCountry,
-                    true
+                  {/* One line to read, five fields to edit - the parts are
+                      stored separately and each still has to be correctable. */}
+                  {!isEditMode ? (
+                    <Field style={{ gridColumn: '1 / -1' }}>
+                      <Label>{lang === "zh" ? "地址" : "Address"}</Label>
+                      <Value>{registeredAddressLine(registration) || "-"}</Value>
+                    </Field>
+                  ) : (
+                    <>
+                      {renderField(
+                        lang === "zh" ? "街道地址" : "Street Address",
+                        "registeredAddress",
+                        registration.registeredAddress,
+                        true
+                      )}
+                      {renderField(
+                        lang === "zh" ? "城市/郊区" : "City/Suburb",
+                        "registeredSuburb",
+                        registration.registeredSuburb,
+                        true
+                      )}
+                      {renderField(
+                        lang === "zh" ? "邮政编码" : "Postcode",
+                        "registeredPostcode",
+                        registration.registeredPostcode,
+                        true
+                      )}
+                      {renderField(
+                        lang === "zh" ? "州/领地" : "State/Territory",
+                        "registeredState",
+                        registration.registeredState,
+                        true
+                      )}
+                      {renderField(
+                        lang === "zh" ? "国家" : "Country",
+                        "registeredCountry",
+                        registration.registeredCountry,
+                        true
+                      )}
+                    </>
                   )}
                 </Grid>
 
@@ -1783,8 +1755,33 @@ export default function RegistrationDetailsPage() {
                 )}
 
                 <Divider />
-                <SectionTitle>{lang === "zh" ? "时间线" : "Timeline"}</SectionTitle>
+                <SectionTitle>{lang === "zh" ? "其他信息" : "Other Details"}</SectionTitle>
                 <Grid>
+                  {/* Only shown when the registration actually carries them - an
+                      empty row of dashes says nothing. Still rendered in edit
+                      mode, which is the only way to fill one in. */}
+                  {(registration.quoteNumber || isEditMode) && renderField(
+                    lang === "zh" ? "报价单/发票号码" : "Quote/Invoice Number",
+                    "quoteNumber",
+                    registration.quoteNumber,
+                    true
+                  )}
+                  {registration.messagingAppType && !isEditMode && (
+                    <Field>
+                      <Label>{lang === "zh" ? "即时通讯" : "Messaging App"}</Label>
+                      <Value>{`${registration.messagingAppType}: ${registration.messagingAppId || "-"}`}</Value>
+                    </Field>
+                  )}
+                  {isEditMode && (
+                    <Field>
+                      <Label>{lang === "zh" ? "即时通讯" : "Messaging App"}</Label>
+                      <EditFieldInput
+                        type="text"
+                        value={getFieldValue("messagingAppType", registration.messagingAppType || "")}
+                        onChange={(e) => updateEditedField("messagingAppType", e.target.value)}
+                      />
+                    </Field>
+                  )}
                   {registration.menuSendLater && renderField(
                     lang === "zh" ? "菜单稍后发送" : "Send Menu Later",
                     "menuSendLater",
@@ -2119,16 +2116,14 @@ export default function RegistrationDetailsPage() {
                     {lang === 'zh' ? '店铺' : 'Store'}
                   </div>
                   <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#0a3655' }}>{approvalResult.businessName}</div>
+                  {approvalResult.businessAddress && (
+                    <div style={{ fontSize: '0.85rem', color: '#5c6b7a', marginTop: '0.35rem', lineHeight: 1.5 }}>
+                      {approvalResult.businessAddress}
+                    </div>
+                  )}
                 </div>
               )}
-              {approvalResult.customerEmail && (
-                <div style={{ padding: '0.85rem 1rem', background: '#f7faff', border: '1px solid #e0e7ef', borderRadius: '10px' }}>
-                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#5c6b7a', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.25rem' }}>
-                    {lang === 'zh' ? '客户登录邮箱' : 'Customer Login Email'}
-                  </div>
-                  <div style={{ fontSize: '0.95rem', fontFamily: 'monospace', color: '#0a3655' }}>{approvalResult.customerEmail}</div>
-                </div>
-              )}
+
             </div>
 
             <ModalActions>
@@ -2444,91 +2439,8 @@ export default function RegistrationDetailsPage() {
               </div>
             </div>
 
-            {/* ─── Login credentials (new customer only) ─── */}
-            {approvalMode === 'new_customer' && (
-              <div style={{ marginBottom: '2rem' }}>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0a3655', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  {lang === 'zh' ? '登录信息' : 'Login Credentials'}
-                </div>
-                <div style={{ fontSize: '0.85rem', color: '#5c6b7a', marginBottom: '1rem' }}>
-                  {lang === 'zh'
-                    ? '设置该客户用于登录 POS 的邮箱和密码。'
-                    : "Set the email and password this customer will use to sign in to the POS."}
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#5c6b7a', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>
-                      {lang === 'zh' ? '登录邮箱' : 'Login Email'} *
-                    </label>
-                    <input
-                      type="email"
-                      value={accountEmail}
-                      autoComplete="off"
-                      onChange={e => setAccountEmail(e.target.value)}
-                      placeholder="name@example.com"
-                      style={{ width: '100%', padding: '0.6rem 0.75rem', border: '2px solid #e0e7ef', borderRadius: '8px', fontSize: '0.9rem', color: '#0a3655', boxSizing: 'border-box' }}
-                    />
-                    {accountEmail.trim() && (
-                      <div style={{ fontSize: '0.75rem', color: '#92400e', marginTop: '0.35rem' }}>
-                        {lang === 'zh' ? '实际登录邮箱：' : 'Will sign in as: '}
-                        <strong style={{ fontFamily: 'monospace' }}>
-                          {accountEmail.trim().toLowerCase().replace(/@.*$/, '')}@vend88.com
-                        </strong>
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#5c6b7a', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>
-                      {lang === 'zh' ? '密码' : 'Password'} *
-                    </label>
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: '0.35rem',
-                      border: '2px solid #e0e7ef', borderRadius: '8px',
-                      padding: '0 0.35rem 0 0', background: 'white',
-                    }}>
-                      <input
-                        type={showAccountPassword ? 'text' : 'password'}
-                        value={accountPassword}
-                        autoComplete="new-password"
-                        onChange={e => setAccountPassword(e.target.value)}
-                        placeholder={lang === 'zh' ? '至少 6 个字符' : 'At least 6 characters'}
-                        style={{ flex: 1, minWidth: 0, padding: '0.6rem 0.75rem', border: 'none', outline: 'none', background: 'transparent', fontSize: '0.9rem', fontFamily: 'monospace', color: '#0a3655' }}
-                      />
-                      <button
-                        type="button"
-                        onClick={generatePassword}
-                        style={{ flexShrink: 0, padding: '0.3rem 0.6rem', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', color: '#1d4ed8', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
-                      >
-                        <RefreshIcon />
-                        {lang === 'zh' ? '生成' : 'Generate'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowAccountPassword(!showAccountPassword)}
-                        aria-label={showAccountPassword ? (lang === 'zh' ? '隐藏密码' : 'Hide password') : (lang === 'zh' ? '显示密码' : 'Show password')}
-                        style={{ flexShrink: 0, padding: '0.35rem 0.4rem', background: 'transparent', border: 'none', color: '#5c6b7a', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
-                      >
-                        {showAccountPassword ? <EyeOffIcon /> : <EyeIcon />}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* ─── Validation Warning ─── */}
-            {approvalMode === 'new_customer' && !newCustomerCredentialsValid && (
-              <div style={{
-                padding: '1rem 1.25rem', background: '#fef3c7', border: '1px solid #fde68a',
-                borderRadius: '8px', marginBottom: '1.5rem', fontSize: '0.85rem', color: '#92400e',
-                display: 'flex', alignItems: 'center', gap: '0.5rem',
-              }}>
-                <span style={{ fontSize: '1.1rem' }}>⚠</span>
-                {lang === 'zh'
-                  ? '请填写有效的登录邮箱和至少 6 位的密码'
-                  : 'Enter a valid login email and a password of at least 6 characters'}
-              </div>
-            )}
             {approvalMode === 'existing_customer' && !selectedCustomerId && (
               <div style={{
                 padding: '1rem 1.25rem',
@@ -2559,8 +2471,7 @@ export default function RegistrationDetailsPage() {
                 onClick={actuallyApprove} 
                 disabled={
                   isActing ||
-                  (approvalMode === 'existing_customer' && !selectedCustomerId) ||
-                  (approvalMode === 'new_customer' && !newCustomerCredentialsValid)
+                  (approvalMode === 'existing_customer' && !selectedCustomerId)
                 }
               >
                 {isActing

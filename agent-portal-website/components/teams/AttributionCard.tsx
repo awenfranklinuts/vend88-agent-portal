@@ -49,6 +49,21 @@ const Value = styled.div`
   word-break: break-word;
 `;
 
+const SourceLink = styled.button`
+  padding: 0;
+  border: none;
+  background: none;
+  color: #1273eb;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    text-decoration: underline;
+  }
+`;
+
 const Muted = styled.span`
   color: #9ca3af;
   font-weight: 400;
@@ -80,6 +95,9 @@ interface AttributionCardProps {
   onChanged?: () => void;
   /** Anchor, so a host page's section nav can scroll to this card. */
   id?: string;
+  /** Where the record came from - the registration that created it, if any. */
+  sourceLabel?: string | null;
+  onSourceClick?: () => void;
 }
 
 /**
@@ -88,7 +106,7 @@ interface AttributionCardProps {
  * backend decides how far they can move it).
  */
 export default function AttributionCard({
-  entityType, entityId, entityLabel, teamName, attributedToName, attributedToEmail, ownerUserId, onChanged, id,
+  entityType, entityId, entityLabel, teamName, attributedToName, attributedToEmail, ownerUserId, onChanged, id, sourceLabel, onSourceClick,
 }: AttributionCardProps) {
   const { adminProfile } = useAuth();
   const { lang } = useLanguage();
@@ -121,6 +139,14 @@ export default function AttributionCard({
         <div>
           <Label>{zh ? "团队" : "Team"}</Label>
           <Value>{teamName || <Muted>{zh ? "Vend88（内部）" : "Vend88 (internal)"}</Muted>}</Value>
+        </div>
+        <div>
+          <Label>{zh ? "来源表单" : "Source Form"}</Label>
+          <Value>
+            {sourceLabel
+              ? <SourceLink type="button" onClick={onSourceClick}>{sourceLabel}</SourceLink>
+              : <Muted>{zh ? "手动创建" : "Created manually"}</Muted>}
+          </Value>
         </div>
       </Grid>
 

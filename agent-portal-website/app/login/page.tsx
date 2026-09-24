@@ -136,26 +136,6 @@ const Title = styled.h1`
   }
 `;
 
-const LoginModeIndicator = styled.div`
-  text-align: center;
-  margin-bottom: 1.5rem;
-  padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, rgba(26, 35, 126, 0.05) 0%, rgba(0, 234, 255, 0.05) 100%);
-  border-radius: 10px;
-  border: 1px solid rgba(26, 35, 126, 0.1);
-  
-  span {
-    font-size: 0.875rem;
-    color: #5c6b7a;
-    font-weight: 500;
-    
-    strong {
-      color: #1a237e;
-      font-weight: 700;
-    }
-  }
-`;
-
 const Subtitle = styled.p`
   font-size: 1rem;
   color: #4a5568;
@@ -355,22 +335,6 @@ const InfoMessage = styled.div`
   border-radius: 8px;
   font-size: 0.875rem;
   text-align: center;
-`;
-
-const SwitchRole = styled.a`
-  display: inline-block;
-  margin-top: 1rem;
-  font-size: 0.875rem;
-  color: #1a237e;
-  text-decoration: underline;
-  font-weight: 600;
-  transition: color 0.2s;
-  cursor: pointer;
-  text-align: right;
-  
-  &:hover {
-    color: #00eaff;
-  }
 `;
 
 const RememberForgotRow = styled.div`
@@ -715,7 +679,6 @@ export default function LoginPage() {
   const { lang, setLang } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRoleState] = useState<"agent" | "admin">("agent");
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorKey, setErrorKey] = useState<keyof typeof dict | "">("")
@@ -760,15 +723,10 @@ export default function LoginPage() {
     }
   }, [router]);
 
-  // Initialize role from sessionStorage after mount
+  // Restore the remembered email after mount
   useEffect(() => {
     setMounted(true);
     if (typeof window !== 'undefined') {
-      const savedRole = sessionStorage.getItem('loginRole');
-      if (savedRole === 'admin') {
-        setRoleState('admin');
-      }
-      
       // Load saved email if remember me was checked
       const savedEmail = localStorage.getItem('rememberedEmail');
       const wasRemembered = localStorage.getItem('rememberMe') === 'true';
@@ -861,8 +819,9 @@ export default function LoginPage() {
       const response = await axios.post(apiUrl, {
         email: sanitizedEmail,
         password: sanitizedPassword,
-        // The team tab admits any team role; the admin tab needs admin or above
-        role: role === "agent" ? "team" : role,
+        // No role is requested: the backend looks the account up by email and
+        // returns whatever role it actually holds. Sending one would only add a
+        // minimum-level gate, which is what the old admin/team tabs were.
       }, {
         timeout: 15000, // 15 second timeout
         // Request metadata only. Authentication is the credentials in the body
@@ -877,8 +836,9 @@ export default function LoginPage() {
       if (response.data.status_code === 200 && response.data.token) {
         // Set authentication data
         const userToken = response.data.token;
-        // Use role from server response if available, otherwise fall back to selected role
-        const serverRole = response.data.user?.role || role;
+        // The account's own role, as stored against its email. Falling back to
+        // 'team' keeps a malformed response from granting more than it should.
+        const serverRole = response.data.user?.role || 'team';
         setToken(userToken);
         setUserEmail(response.data.user?.email || sanitizedEmail);
         setRole(serverRole);
@@ -896,9 +856,6 @@ export default function LoginPage() {
           localStorage.removeItem('rememberedEmail');
           localStorage.removeItem('rememberMe');
         }
-        
-        // Clear the saved role from sessionStorage on successful login
-        sessionStorage.removeItem('loginRole');
         
         // Security: Set session timeout from server or default 30 minutes
         const timeoutSeconds = response.data.session_timeout || 1800;
@@ -956,7 +913,7 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [email, password, role, rememberMe, honeypot, requestId, deviceFingerprint]);
+  }, [email, password, rememberMe, honeypot, requestId, deviceFingerprint]);
 
   return (
     <>
@@ -1030,10 +987,6 @@ export default function LoginPage() {
             />
             <Title>Agent Portal</Title>
           </BrandLogo>
-          
-          <LoginModeIndicator>
-            <span>{t("loggingInAs")} <strong>{role === "agent" ? t("team") : t("admin")}</strong></span>
-          </LoginModeIndicator>
           
           <FormContainer>
             <Form onSubmit={handleSubmit} role="form" aria-label={t("login")} style={{ position: 'relative' }}>
@@ -1113,13 +1066,6 @@ export default function LoginPage() {
               </LoadingOverlay>
             </Form>
             
-            <SwitchRole onClick={() => {
-              const newRole = role === "agent" ? "admin" : "agent";
-              sessionStorage.setItem('loginRole', newRole);
-              window.location.reload();
-            }}>
-              {role === "agent" ? t("switchToAdminLogin") : t("switchToTeamLogin")}
-            </SwitchRole>
           </FormContainer>
         </LoginFormSection>
       </LoginBox>
