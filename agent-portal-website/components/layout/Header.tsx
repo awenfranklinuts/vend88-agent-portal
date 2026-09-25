@@ -8,6 +8,7 @@ import { useAuth, isAdminRole, isPortalUser } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { dict } from "@/i18n/translations";
 import { formatRole } from "@/lib/roleFormatter";
+import NotificationBell from "./NotificationBell";
 
 const HeaderContainer = styled.header<{ $scrolled: boolean }>`
   background: ${p => p.$scrolled 
@@ -183,42 +184,6 @@ const UserRole = styled.span`
   text-transform: capitalize;
 `;
 
-const IconButton = styled.button`
-  position: relative;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: none;
-  background: transparent;
-  color: #5c6b7a;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  
-  &:hover {
-    background: rgba(26, 35, 126, 0.05);
-    color: #1a237e;
-  }
-  
-  @media (max-width: 968px) {
-    width: 36px;
-    height: 36px;
-  }
-`;
-
-const NotificationBadge = styled.span`
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #ff6b35;
-  border: 2px solid white;
-`;
-
 const Button = styled.button`
   padding: 0.5rem 1rem;
   border: none;
@@ -351,13 +316,6 @@ const ChevronIcon = ({ open }: { open: boolean }) => (
   </svg>
 );
 
-const BellIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-  </svg>
-);
-
 const LogoutIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -377,7 +335,6 @@ export default function Header({ currentPage = "Home", onMenuToggle }: HeaderPro
   const { lang, setLang } = useLanguage();
   const [showLangMenu, setShowLangMenu] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
-  const [hasNotifications] = React.useState(true); // Mock notification state
   
   const t = (key: keyof typeof dict) => dict[key][lang];
   
@@ -475,10 +432,7 @@ export default function Header({ currentPage = "Home", onMenuToggle }: HeaderPro
         <Nav>
           {token ? (
             <>
-              <IconButton onClick={() => alert('Notifications')}>
-                <BellIcon />
-                {hasNotifications && <NotificationBadge />}
-              </IconButton>
+              <NotificationBell />
               
               <UserSection>
                 <UserAvatar title={getDisplayName()}>

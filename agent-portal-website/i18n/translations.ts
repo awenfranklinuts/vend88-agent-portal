@@ -223,4 +223,11 @@ export const dict = {
   menuSendLater: { zh: "稍后发送菜单", en: "Send Menu Later" },
   menuSendLaterDesc: { zh: "以后发送菜单文件的选项", en: "Option to send menu files at a later date" },
   fieldNameAlreadyExists: { zh: "此字段名称已存在", en: "This field name already exists" },
+
+  // Notifications
+  notifications: { zh: "通知", en: "Notifications" },
+  newInquiry: { zh: "新咨询", en: "New inquiry" },
+  newRegistration: { zh: "新注册", en: "New registration" },
+  markAllRead: { zh: "全部标为已读", en: "Mark all read" },
+  allCaughtUp: { zh: "暂无待处理事项", en: "You're all caught up" },
 };

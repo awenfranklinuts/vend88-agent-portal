@@ -5,6 +5,7 @@ import StyledComponentsRegistry from "@/lib/registry";
 import { AuthProvider } from "@/context/AuthContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { ToastProvider } from "@/context/ToastContext";
+import { NotificationsProvider } from "@/context/NotificationsContext";
 import NavigationProgress from "@/components/layout/NavigationProgress";
 import SWRProvider from "@/components/layout/SWRProvider";
 import PrefetchLinks from "@/components/layout/PrefetchLinks";
@@ -33,7 +34,9 @@ export default function RootLayout({
               <LanguageProvider>
                 <AuthProvider>
                   <ToastProvider>
-                    {children}
+                    <NotificationsProvider>
+                      {children}
+                    </NotificationsProvider>
                   </ToastProvider>
                 </AuthProvider>
               </LanguageProvider>

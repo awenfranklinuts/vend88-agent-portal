@@ -9,6 +9,7 @@ import { ADMIN_MODULES, canAccessModule } from "@/config/adminModules";
 import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../components/layout/AdminSidebar";
 import DashboardStatsRow from "@/components/ui/DashboardStatsRow";
+import NotificationsCard from "@/components/ui/NotificationsCard";
 
 const Container = styled.div`
   min-height: 100vh;
@@ -337,6 +338,10 @@ export default function AdminDashboard() {
           {/* Both summary endpoints require view_reports, so admins without it
               never mount the row rather than collecting 403s. */}
           {hasPermission(adminProfile, 'view_reports') && <DashboardStatsRow />}
+
+          {/* Renders itself away for anyone with neither inquiries nor
+              registrations in scope. */}
+          <NotificationsCard />
 
           <Grid>
             {ADMIN_MODULES.filter(module => canAccessModule(adminProfile, module)).map(module => {
