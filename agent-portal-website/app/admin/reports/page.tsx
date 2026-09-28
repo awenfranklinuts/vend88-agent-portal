@@ -9,6 +9,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "../../../components/layout/AdminSidebar";
 import RevenueSummaryCard, { type ReportFilter } from "@/components/ui/RevenueSummaryCard";
 import TransactionsSummaryCard from "@/components/ui/TransactionsSummaryCard";
+import StorePerformanceCard from "@/components/ui/StorePerformanceCard";
 import DashboardStatsRow from "@/components/ui/DashboardStatsRow";
 import ReportFilterBar from "@/components/ui/ReportFilterBar";
 
@@ -137,6 +138,7 @@ export default function ReportsPage() {
             <RevenueSummaryCard filter={filter} />
             <TransactionsSummaryCard filter={filter} />
           </TwoUp>
+          <StorePerformanceCard filter={filter} />
         </MainContent>
       </Container>
     </MainLayout>

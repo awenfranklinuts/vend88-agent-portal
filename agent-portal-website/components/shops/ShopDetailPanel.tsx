@@ -7,10 +7,7 @@ import { useAuth, isPortalUser, canSeeAllTeams } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import axios from "axios";
-import {
-  getBusinessDevices,
-  getBusinessNotes
-} from "@/lib/mockBusinessData";
+import { getBusinessNotes } from "@/lib/mockBusinessData";
 
 const ShopName = styled.h1`
   font-size: 2rem;
@@ -506,6 +503,125 @@ const Input = styled.input`
   }
 `;
 
+const ComboWrap = styled.div`
+  position: relative;
+`;
+
+const ComboList = styled.ul`
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  background: white;
+  border: 1px solid #e0e7ef;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(10, 54, 85, 0.12);
+  max-height: 240px;
+  overflow-y: auto;
+`;
+
+const ComboOption = styled.li<{ $active: boolean; $new?: boolean }>`
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  color: ${p => (p.$new ? '#1d4ed8' : '#0a3655')};
+  font-weight: ${p => (p.$new ? 600 : 400)};
+  background: ${p => (p.$active ? '#eff6ff' : 'transparent')};
+`;
+
+const ComboHint = styled.div`
+  margin-top: 0.375rem;
+  font-size: 0.8125rem;
+  color: #5c6b7a;
+`;
+
+// Device name picker. Names already registered anywhere are offered as you
+// type; a name that matches none of them has to be taken on purpose through
+// "+ Add new device", so a typo does not quietly become a new model.
+// `confirmed` is true once the value is a known name or an accepted new one.
+function DeviceNameField({ value, confirmed, names, lang, onChange }: {
+  value: string;
+  confirmed: boolean;
+  names: string[];
+  lang: string;
+  onChange: (name: string, confirmed: boolean) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+
+  const query = value.trim().toLowerCase();
+  const exact = names.find((n) => n.toLowerCase() === query);
+  const matches = names.filter((n) => n.toLowerCase().includes(query)).slice(0, 8);
+  const items: { name: string; isNew: boolean }[] = [
+    ...matches.map((name) => ({ name, isNew: false })),
+    ...(query && !exact ? [{ name: value.trim(), isNew: true }] : []),
+  ];
+  const isNewName = confirmed && !!query && !exact;
+
+  const choose = (item: { name: string; isNew: boolean }) => {
+    onChange(item.name, true);
+    setOpen(false);
+  };
+
+  return (
+    <ComboWrap>
+      <Input
+        value={value}
+        autoComplete="off"
+        role="combobox"
+        aria-expanded={open && items.length > 0}
+        placeholder={lang === "zh" ? "搜索或输入设备名称" : "Search or enter a device name"}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        onChange={(e) => {
+          const next = e.target.value;
+          const match = names.find((n) => n.toLowerCase() === next.trim().toLowerCase());
+          onChange(next, !!match);
+          setActive(0);
+          setOpen(true);
+        }}
+        onKeyDown={(e) => {
+          if (!items.length) return;
+          if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActive((i) => (i + 1) % items.length); }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => (i - 1 + items.length) % items.length); }
+          else if (e.key === 'Enter' && open) { e.preventDefault(); choose(items[Math.min(active, items.length - 1)]); }
+          else if (e.key === 'Escape') setOpen(false);
+        }}
+      />
+      {open && items.length > 0 && (
+        <ComboList role="listbox">
+          {items.map((item, i) => (
+            <ComboOption
+              key={item.isNew ? '__new' : item.name}
+              role="option"
+              aria-selected={i === active}
+              $active={i === active}
+              $new={item.isNew}
+              // mousedown, not click: it lands before the input's blur closes the list
+              onMouseDown={(e) => { e.preventDefault(); choose(item); }}
+              onMouseEnter={() => setActive(i)}
+            >
+              {item.isNew
+                ? (lang === "zh" ? `+ 添加新设备 "${item.name}"` : `+ Add new device "${item.name}"`)
+                : item.name}
+            </ComboOption>
+          ))}
+        </ComboList>
+      )}
+      {isNewName && (
+        <ComboHint>
+          {lang === "zh" ? "新设备 - 保存后将出现在建议列表中" : "New device - it will be suggested next time"}
+        </ComboHint>
+      )}
+    </ComboWrap>
+  );
+}
+
 const Select = styled.select`
   width: 100%;
   padding: 0.75rem;
@@ -552,6 +668,13 @@ const ModalButton = styled.button<{ $primary?: boolean }>`
     color: #374151;
     &:hover { background: #d1d5db; }
   `}
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
 `;
 
 const NotesSection = styled.div`
@@ -724,6 +847,13 @@ const AddLoginButton = styled.button`
     background: #2563eb;
     border-color: #2563eb;
   }
+
+  &:disabled {
+    background: #e5e7eb;
+    border-color: #e5e7eb;
+    color: #9ca3af;
+    cursor: not-allowed;
+  }
 `;
 
 // Store logins read as a list of the same three fields, so a table compares
@@ -833,6 +963,20 @@ interface ShopCredential {
   created_at: string | null;
 }
 
+interface ShopDevice {
+  _id: string;
+  device_name: string;
+  serial_number: string | null;
+  remark: string | null;
+  created_at: string | null;
+}
+
+// A backend with no device endpoint at all, as opposed to one that exists and
+// failed. Its own errors are JSON with a status_code; an unknown route is
+// Express's bare HTML 404, so a JSON "Shop not found" 404 is not mistaken for it.
+const isDeviceApiMissing = (err: any) =>
+  [404, 405, 501].includes(err?.response?.status) && typeof err?.response?.data?.status_code !== 'number';
+
 const SHOP_STATUSES = ['active', 'inactive', 'test', 'suspended'] as const;
 
 const SHOP_STATUS_LABELS: Record<string, { en: string; zh: string }> = {
@@ -881,7 +1025,12 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
   const { showToast } = useToast();
   const [shop, setShop] = useState<Shop | null>(null);
   const [permissions, setPermissions] = useState<string[]>([]);
-  const [devices, setDevices] = useState<any[]>([]);
+  const [devices, setDevices] = useState<ShopDevice[]>([]);
+  // 'unavailable' is a backend without the device endpoints yet: the tab says
+  // so and keeps Add disabled, rather than pretending a save went through.
+  const [devicesStatus, setDevicesStatus] = useState<'loading' | 'ready' | 'unavailable' | 'error'>('loading');
+  const [devicesLoadError, setDevicesLoadError] = useState('');
+  const [isSavingDevice, setIsSavingDevice] = useState(false);
   const [notes, setNotes] = useState<any[]>([]);
   const [activityLog, setActivityLog] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -911,24 +1060,12 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
   const [showEditDeviceModal, setShowEditDeviceModal] = useState(false);
   const [showDeleteDeviceModal, setShowDeleteDeviceModal] = useState(false);
   const [selectedPermission, setSelectedPermission] = useState<string | null>(null);
-  const [selectedDevice, setSelectedDevice] = useState<any>(null);
+  const [selectedDevice, setSelectedDevice] = useState<ShopDevice | null>(null);
 
-  const [addDeviceForm, setAddDeviceForm] = useState({
-    serialNumber: '',
-    deviceType: '',
-    deviceName: '',
-    deviceBrand: '',
-    status: 'active',
-    otherDeviceType: ''
-  });
-  const [editDeviceForm, setEditDeviceForm] = useState({
-    serialNumber: '',
-    deviceType: '',
-    deviceName: '',
-    deviceBrand: '',
-    status: 'active',
-    otherDeviceType: ''
-  });
+  const [addDeviceForm, setAddDeviceForm] = useState({ deviceName: '', nameConfirmed: false, serialNumber: '', remark: '' });
+  const [editDeviceForm, setEditDeviceForm] = useState({ deviceName: '', nameConfirmed: false, serialNumber: '', remark: '' });
+  // Suggestions for the device name picker, refreshed each time a device modal opens
+  const [deviceNames, setDeviceNames] = useState<string[]>([]);
   const [newNote, setNewNote] = useState('');
 
   useEffect(() => {
@@ -1002,8 +1139,8 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
         console.error('Failed to fetch activity log:', err);
       }
 
-      // TODO: Fetch real devices/notes when an API is available
-      setDevices(getBusinessDevices(shopId));
+      fetchDevices();
+      // TODO: Fetch real notes when an API is available
       setNotes(getBusinessNotes(shopId));
     } catch (err) {
       console.error("Failed to fetch shop details:", err);
@@ -1243,60 +1380,150 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
     setShowAddModal(true);
   };
 
+  const fetchDevices = async () => {
+    setDevicesLoadError('');
+    try {
+      const response = await axios.post(
+        `/api/shops/${shopId}/devices`,
+        { token },
+        { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
+      );
+      if (response.data.status_code === 200) {
+        setDevices(response.data.data || []);
+        setDevicesStatus('ready');
+      } else {
+        setDevicesLoadError(response.data.message || (lang === "zh" ? "加载失败" : "Failed to load devices"));
+        setDevicesStatus('error');
+      }
+    } catch (err: any) {
+      if (isDeviceApiMissing(err)) {
+        setDevicesStatus('unavailable');
+        return;
+      }
+      console.error('Failed to fetch devices:', err);
+      setDevicesLoadError(err?.response?.data?.message || (lang === "zh" ? "加载失败" : "Failed to load devices"));
+      setDevicesStatus('error');
+    }
+  };
+
+  // One request path for add, edit and delete: the list is reloaded from the
+  // backend afterwards, so what the tab shows is always what was saved.
+  const saveDevice = async (
+    method: 'put' | 'patch' | 'delete',
+    payload: Record<string, unknown>,
+    successMsg: string,
+    failMsg: string
+  ): Promise<boolean> => {
+    setIsSavingDevice(true);
+    try {
+      const response = await axios.request({
+        method,
+        url: `/api/shops/${shopId}/devices`,
+        data: { token, ...payload },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+      if (response.data.status_code === 200) {
+        showToast(successMsg, 'success');
+        await fetchDevices();
+        return true;
+      }
+      showToast(response.data.message || failMsg, 'error');
+    } catch (err: any) {
+      console.error('Failed to save device:', err);
+      const message = isDeviceApiMissing(err)
+        ? (lang === "zh" ? "设备管理功能尚未开放" : "Device management isn't available yet")
+        : err?.response?.data?.message || failMsg;
+      showToast(message, 'error');
+    } finally {
+      setIsSavingDevice(false);
+    }
+    return false;
+  };
+
+  // Suggestions are a convenience: if they fail to load the picker still works,
+  // every name just goes through "+ Add new device".
+  const fetchDeviceNames = async () => {
+    try {
+      const response = await axios.post(
+        `/api/devices/names`,
+        { token },
+        { headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } }
+      );
+      if (response.data.status_code === 200) setDeviceNames(response.data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch device names:', err);
+    }
+  };
+
   const handleAddDeviceClick = () => {
-    setAddDeviceForm({
-      serialNumber: '',
-      deviceType: '',
-      deviceName: '',
-      deviceBrand: '',
-      status: 'active',
-      otherDeviceType: ''
-    });
+    setAddDeviceForm({ deviceName: '', nameConfirmed: false, serialNumber: '', remark: '' });
+    fetchDeviceNames();
     setShowAddDeviceModal(true);
   };
 
-  const handleEditDeviceClick = (device: any) => {
+  const handleEditDeviceClick = (device: ShopDevice) => {
     setSelectedDevice(device);
-    setEditDeviceForm({
-      serialNumber: device.serialNumber,
-      deviceType: device.deviceType,
-      deviceName: device.deviceName,
-      deviceBrand: device.deviceBrand,
-      status: device.status,
-      otherDeviceType: device.deviceType === 'Other' ? device.deviceType : ''
-    });
+    setEditDeviceForm({ deviceName: device.device_name || '', nameConfirmed: true, serialNumber: device.serial_number || '', remark: device.remark || '' });
+    fetchDeviceNames();
     setShowEditDeviceModal(true);
   };
 
-  const handleDeleteDeviceClick = (device: any) => {
+  const unconfirmedNameMessage = () =>
+    lang === "zh" ? "请从列表中选择设备，或选择“添加新设备”" : 'Pick a device from the list, or choose "+ Add new device"';
+
+  const handleDeleteDeviceClick = (device: ShopDevice) => {
     setSelectedDevice(device);
     setShowDeleteDeviceModal(true);
   };
 
   const handleAddDeviceSubmit = async () => {
-    if (!addDeviceForm.deviceName) {
+    const deviceName = addDeviceForm.deviceName.trim();
+    if (!deviceName) {
       showToast(lang === "zh" ? "请输入设备名称" : "Please enter a device name", 'error');
       return;
     }
-    // TODO: Replace with actual API endpoint when available
-    showToast(lang === "zh" ? "设备已添加" : "Device added successfully", 'success');
-    setShowAddDeviceModal(false);
+    if (!addDeviceForm.nameConfirmed) {
+      showToast(unconfirmedNameMessage(), 'error');
+      return;
+    }
+    const saved = await saveDevice(
+      'put',
+      { device_name: deviceName, serial_number: addDeviceForm.serialNumber.trim() || null, remark: addDeviceForm.remark.trim() || null },
+      lang === "zh" ? "设备已添加" : "Device added successfully",
+      lang === "zh" ? "添加失败" : "Failed to add device"
+    );
+    if (saved) setShowAddDeviceModal(false);
   };
 
   const handleEditDeviceSubmit = async () => {
-    if (!editDeviceForm.deviceName) {
+    if (!selectedDevice) return;
+    const deviceName = editDeviceForm.deviceName.trim();
+    if (!deviceName) {
       showToast(lang === "zh" ? "请输入设备名称" : "Please enter a device name", 'error');
       return;
     }
-    // TODO: Replace with actual API endpoint when available
-    showToast(lang === "zh" ? "设备已更新" : "Device updated successfully", 'success');
-    setShowEditDeviceModal(false);
+    if (!editDeviceForm.nameConfirmed) {
+      showToast(unconfirmedNameMessage(), 'error');
+      return;
+    }
+    const saved = await saveDevice(
+      'patch',
+      { device_id: selectedDevice._id, device_name: deviceName, serial_number: editDeviceForm.serialNumber.trim() || null, remark: editDeviceForm.remark.trim() || null },
+      lang === "zh" ? "设备已更新" : "Device updated successfully",
+      lang === "zh" ? "更新失败" : "Failed to update device"
+    );
+    if (saved) setShowEditDeviceModal(false);
   };
 
   const handleDeleteDeviceSubmit = async () => {
-    // TODO: Replace with actual API endpoint when available
-    showToast(lang === "zh" ? "设备已删除" : "Device deleted successfully", 'success');
-    setShowDeleteDeviceModal(false);
+    if (!selectedDevice) return;
+    const saved = await saveDevice(
+      'delete',
+      { device_id: selectedDevice._id },
+      lang === "zh" ? "设备已删除" : "Device deleted successfully",
+      lang === "zh" ? "删除失败" : "Failed to delete device"
+    );
+    if (saved) setShowDeleteDeviceModal(false);
   };
 
   const handleEditSubmit = async () => {
@@ -1621,36 +1848,60 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
                     <>
                       <CardTitleRow>
                         <CardTitle>{lang === "zh" ? "注册设备" : "Registered Devices"}</CardTitle>
-                        <AddLoginButton onClick={handleAddDeviceClick}>
+                        <AddLoginButton
+                          onClick={handleAddDeviceClick}
+                          disabled={devicesStatus !== 'ready'}
+                          title={devicesStatus === 'unavailable' ? (lang === "zh" ? "设备管理功能即将推出" : "Device management is coming soon") : undefined}
+                        >
                           + {lang === "zh" ? "添加设备" : "Add Device"}
                         </AddLoginButton>
                       </CardTitleRow>
-                      {devices.length > 0 ? (
-                        <PermissionList>
-                          {devices.map((device) => (
-                            <PermissionCard key={device.id}>
-                              <PermissionName>{device.deviceName || 'N/A'}</PermissionName>
-                              <PermissionDetails>
-                                <PermissionDetailItem>
-                                  <PermissionLabel>{lang === "zh" ? "序列号" : "Serial Number"}</PermissionLabel>
-                                  <PermissionValue>{device.serialNumber || 'N/A'}</PermissionValue>
-                                </PermissionDetailItem>
-                                <PermissionDetailItem>
-                                  <PermissionLabel>{lang === "zh" ? "注册日期" : "Registered"}</PermissionLabel>
-                                  <PermissionValue>{device.registeredAt || 'N/A'}</PermissionValue>
-                                </PermissionDetailItem>
-                              </PermissionDetails>
-                              <PermissionActions>
-                                <ActionButton $variant="edit" onClick={() => handleEditDeviceClick(device)}>
-                                  {lang === "zh" ? "编辑" : "Edit"}
-                                </ActionButton>
-                                <ActionButton $variant="delete" onClick={() => handleDeleteDeviceClick(device)}>
-                                  {lang === "zh" ? "删除" : "Delete"}
-                                </ActionButton>
-                              </PermissionActions>
-                            </PermissionCard>
-                          ))}
-                        </PermissionList>
+                      {devicesStatus === 'loading' ? (
+                        <InfoValue style={{ textAlign: 'center', padding: '2rem' }}>
+                          {lang === "zh" ? "加载中..." : "Loading..."}
+                        </InfoValue>
+                      ) : devicesStatus === 'unavailable' ? (
+                        <InfoValue style={{ textAlign: 'center', padding: '2rem', color: '#5c6b7a' }}>
+                          {lang === "zh"
+                            ? "设备管理功能即将推出。目前无法在门户中添加或编辑设备。"
+                            : "Device management is coming soon. Devices can't be added or edited from the portal yet."}
+                        </InfoValue>
+                      ) : devicesStatus === 'error' ? (
+                        <InfoValue style={{ textAlign: 'center', padding: '2rem', color: '#991b1b' }}>
+                          {devicesLoadError}
+                        </InfoValue>
+                      ) : devices.length > 0 ? (
+                        <LoginTable>
+                          <thead>
+                            <tr>
+                              <LoginTh>{lang === "zh" ? "设备名称" : "Device Name"}</LoginTh>
+                              <LoginTh>{lang === "zh" ? "序列号" : "Serial Number"}</LoginTh>
+                              <LoginTh>{lang === "zh" ? "备注" : "Remark"}</LoginTh>
+                              <LoginTh>{lang === "zh" ? "注册日期" : "Registered"}</LoginTh>
+                              <LoginTh />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {devices.map((device) => (
+                              <tr key={device._id}>
+                                <LoginTd style={{ fontWeight: 600 }}>{device.device_name || 'N/A'}</LoginTd>
+                                <LoginTd>{device.serial_number || 'N/A'}</LoginTd>
+                                <LoginTd style={{ color: device.remark ? undefined : '#9ca3af', whiteSpace: 'pre-line' }}>
+                                  {device.remark || '—'}
+                                </LoginTd>
+                                <LoginTd style={{ whiteSpace: 'nowrap' }}>{formatCredentialDate(device.created_at)}</LoginTd>
+                                <LoginTd style={{ whiteSpace: 'nowrap' }}>
+                                  <ActionButton $variant="edit" onClick={() => handleEditDeviceClick(device)}>
+                                    {lang === "zh" ? "编辑" : "Edit"}
+                                  </ActionButton>
+                                  <ActionButton $variant="delete" onClick={() => handleDeleteDeviceClick(device)} style={{ marginLeft: '0.5rem' }}>
+                                    {lang === "zh" ? "删除" : "Delete"}
+                                  </ActionButton>
+                                </LoginTd>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </LoginTable>
                       ) : (
                         <InfoValue style={{ textAlign: 'center', padding: '2rem' }}>
                           {lang === "zh" ? "暂无设备" : "No devices found"}
@@ -1827,10 +2078,12 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
           <ModalTitle>{lang === "zh" ? "编辑设备" : "Edit Device"}</ModalTitle>
           <FormGroup>
             <Label>{lang === "zh" ? "设备名称" : "Device Name"}</Label>
-            <Input
+            <DeviceNameField
               value={editDeviceForm.deviceName}
-              onChange={(e) => setEditDeviceForm({ ...editDeviceForm, deviceName: e.target.value })}
-              placeholder={lang === "zh" ? "输入设备名称" : "Enter device name"}
+              confirmed={editDeviceForm.nameConfirmed}
+              names={deviceNames}
+              lang={lang}
+              onChange={(deviceName, nameConfirmed) => setEditDeviceForm({ ...editDeviceForm, deviceName, nameConfirmed })}
             />
           </FormGroup>
           <FormGroup>
@@ -1841,12 +2094,21 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
               placeholder={lang === "zh" ? "输入序列号" : "Enter serial number"}
             />
           </FormGroup>
+          <FormGroup>
+            <Label>{lang === "zh" ? "备注 (可选)" : "Remark (Optional)"}</Label>
+            <Textarea
+              value={editDeviceForm.remark}
+              maxLength={500}
+              onChange={(e) => setEditDeviceForm({ ...editDeviceForm, remark: e.target.value })}
+              placeholder={lang === "zh" ? "例如：前台收银机、借用设备、保修至 2027 年" : "e.g. Front counter till, on loan, warranty until 2027"}
+            />
+          </FormGroup>
           <ModalActions>
             <ModalButton onClick={() => setShowEditDeviceModal(false)}>
               {lang === "zh" ? "取消" : "Cancel"}
             </ModalButton>
-            <ModalButton $primary onClick={handleEditDeviceSubmit}>
-              {lang === "zh" ? "保存" : "Save"}
+            <ModalButton $primary onClick={handleEditDeviceSubmit} disabled={isSavingDevice}>
+              {isSavingDevice ? (lang === "zh" ? "保存中..." : "Saving...") : (lang === "zh" ? "保存" : "Save")}
             </ModalButton>
           </ModalActions>
         </ModalContent>
@@ -1858,15 +2120,15 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
           <ModalTitle>{lang === "zh" ? "删除设备" : "Delete Device"}</ModalTitle>
           <p style={{ marginBottom: '1.5rem', color: '#5c6b7a' }}>
             {lang === "zh"
-              ? `确定要删除设备 "${selectedDevice?.deviceName}" 吗？此操作无法撤销。`
-              : `Are you sure you want to delete device "${selectedDevice?.deviceName}"? This action cannot be undone.`}
+              ? `确定要删除设备 "${selectedDevice?.device_name}" 吗？此操作无法撤销。`
+              : `Are you sure you want to delete device "${selectedDevice?.device_name}"? This action cannot be undone.`}
           </p>
           <ModalActions>
             <ModalButton onClick={() => setShowDeleteDeviceModal(false)}>
               {lang === "zh" ? "取消" : "Cancel"}
             </ModalButton>
-            <ModalButton $primary onClick={handleDeleteDeviceSubmit}>
-              {lang === "zh" ? "删除" : "Delete"}
+            <ModalButton $primary onClick={handleDeleteDeviceSubmit} disabled={isSavingDevice}>
+              {isSavingDevice ? (lang === "zh" ? "删除中..." : "Deleting...") : (lang === "zh" ? "删除" : "Delete")}
             </ModalButton>
           </ModalActions>
         </ModalContent>
@@ -1941,10 +2203,12 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
           <ModalTitle>{lang === "zh" ? "添加设备" : "Add Device"}</ModalTitle>
           <FormGroup>
             <Label>{lang === "zh" ? "设备名称" : "Device Name"}</Label>
-            <Input
+            <DeviceNameField
               value={addDeviceForm.deviceName}
-              onChange={(e) => setAddDeviceForm({ ...addDeviceForm, deviceName: e.target.value })}
-              placeholder={lang === "zh" ? "输入设备名称" : "Enter device name"}
+              confirmed={addDeviceForm.nameConfirmed}
+              names={deviceNames}
+              lang={lang}
+              onChange={(deviceName, nameConfirmed) => setAddDeviceForm({ ...addDeviceForm, deviceName, nameConfirmed })}
             />
           </FormGroup>
           <FormGroup>
@@ -1955,12 +2219,21 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
               placeholder={lang === "zh" ? "输入序列号" : "Enter serial number"}
             />
           </FormGroup>
+          <FormGroup>
+            <Label>{lang === "zh" ? "备注 (可选)" : "Remark (Optional)"}</Label>
+            <Textarea
+              value={addDeviceForm.remark}
+              maxLength={500}
+              onChange={(e) => setAddDeviceForm({ ...addDeviceForm, remark: e.target.value })}
+              placeholder={lang === "zh" ? "例如：前台收银机、借用设备、保修至 2027 年" : "e.g. Front counter till, on loan, warranty until 2027"}
+            />
+          </FormGroup>
           <ModalActions>
             <ModalButton onClick={() => setShowAddDeviceModal(false)}>
               {lang === "zh" ? "取消" : "Cancel"}
             </ModalButton>
-            <ModalButton $primary onClick={handleAddDeviceSubmit}>
-              {lang === "zh" ? "添加" : "Add"}
+            <ModalButton $primary onClick={handleAddDeviceSubmit} disabled={isSavingDevice}>
+              {isSavingDevice ? (lang === "zh" ? "添加中..." : "Adding...") : (lang === "zh" ? "添加" : "Add")}
             </ModalButton>
           </ModalActions>
         </ModalContent>

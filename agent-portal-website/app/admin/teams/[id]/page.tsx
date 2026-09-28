@@ -13,6 +13,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import AdminSidebar from "@/components/layout/AdminSidebar";
 import ReassignModal, { type ReassignableEntity } from "@/components/teams/ReassignModal";
 import DashboardStatsRow from "@/components/ui/DashboardStatsRow";
+import { SectionLayout, SectionNav, SectionNavItem, useSectionNav } from "@/components/ui/SectionNav";
 import {
   ActionButton,
   Container,
@@ -78,6 +79,8 @@ interface Member {
   email_verified?: boolean;
   invite_expires_at?: string | null;
   invite_expired?: boolean;
+  /** Effective permissions, implied ones included */
+  permissions?: string[];
 }
 
 interface Can {
@@ -118,12 +121,88 @@ interface MemberForm {
   inviteMode: boolean;
   first_name: string;
   last_name: string;
-  role: TeamRole;
+  // The checklist. The role is not edited directly: the backend derives it,
+  // team_owner exactly when manage_team_members is ticked.
+  permissions: string[];
   visibility: Visibility;
   status: "active" | "suspended";
 }
 
-const emptyMember: MemberForm = { email: "", password: "", inviteMode: true, first_name: "", last_name: "", role: "team_member", visibility: "self", status: "active" };
+/* ─── Member permissions ─── */
+
+interface PermissionItem {
+  id: string;
+  label: { en: string; zh: string };
+  hint: { en: string; zh: string };
+  /** Ticked and locked alongside this one - mirrors the backend's IMPLIED_PERMISSIONS */
+  includes?: string[];
+}
+
+// The member checklist. Ids match TEAM_GRANTABLE_PERMISSIONS on the backend,
+// which refuses anything else.
+const PERMISSION_GROUPS: { title: { en: string; zh: string }; items: PermissionItem[] }[] = [
+  {
+    title: { en: "Sales", zh: "销售" },
+    items: [
+      { id: "manage_quotations", label: { en: "Create and manage quotations", zh: "创建和管理报价" }, hint: { en: "Draft, send and track quotes for their clients", zh: "为客户起草、发送和跟踪报价" } },
+    ],
+  },
+  {
+    title: { en: "Registrations", zh: "注册" },
+    items: [
+      { id: "view_registrations", label: { en: "View registrations", zh: "查看注册" }, hint: { en: "See sign-ups and their progress", zh: "查看注册及其进度" } },
+      { id: "manage_registration_forms", label: { en: "Send registration links", zh: "发送注册链接" }, hint: { en: "Generate sign-up links for new stores", zh: "为新店铺生成注册链接" }, includes: ["view_registrations", "view_form_templates"] },
+      { id: "view_form_templates", label: { en: "View form templates", zh: "查看表单模板" }, hint: { en: "Browse the templates links are built from", zh: "浏览生成链接所用的模板" } },
+    ],
+  },
+  {
+    title: { en: "Accounts", zh: "账户" },
+    items: [
+      { id: "view_businesses", label: { en: "View stores", zh: "查看店铺" }, hint: { en: "Store details, devices and activity", zh: "店铺详情、设备和活动" } },
+      { id: "view_customers", label: { en: "View customers", zh: "查看客户" }, hint: { en: "Customer contacts and their stores", zh: "客户联系人及其店铺" } },
+    ],
+  },
+  {
+    title: { en: "Insights", zh: "数据洞察" },
+    items: [
+      { id: "view_reports", label: { en: "View reports & analytics", zh: "查看报告与分析" }, hint: { en: "Revenue, growth and pipeline dashboards", zh: "收入、增长和销售管道看板" } },
+    ],
+  },
+  {
+    title: { en: "Team", zh: "团队" },
+    items: [
+      { id: "manage_team_members", label: { en: "Manage team members", zh: "管理团队成员" }, hint: { en: "Add, edit and remove this team's logins - makes them a Team Owner", zh: "添加、编辑和删除本团队的登录账户 - 即成为团队负责人" } },
+    ],
+  },
+];
+
+const PERMISSION_ITEMS = PERMISSION_GROUPS.flatMap(g => g.items);
+const PERMISSION_IDS = PERMISSION_ITEMS.map(i => i.id);
+
+// Starting points for the checklist; any other combination reads as "Custom".
+const PERMISSION_PRESETS: { id: string; label: { en: string; zh: string }; permissions: string[] }[] = [
+  { id: "owner", label: { en: "Team Owner", zh: "团队负责人" }, permissions: PERMISSION_IDS },
+  { id: "member", label: { en: "Sales Member", zh: "销售成员" }, permissions: PERMISSION_IDS.filter(id => id !== "manage_team_members") },
+  { id: "viewer", label: { en: "View Only", zh: "只读" }, permissions: ["view_registrations", "view_form_templates", "view_businesses", "view_customers", "view_reports"] },
+];
+
+const withIncluded = (ids: string[]) => {
+  const next = new Set(ids);
+  for (const item of PERMISSION_ITEMS) if (next.has(item.id)) item.includes?.forEach(i => next.add(i));
+  return PERMISSION_IDS.filter(id => next.has(id));
+};
+
+const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every(x => b.includes(x));
+
+const presetFor = (ids: string[]) => PERMISSION_PRESETS.find(p => sameSet(p.permissions, ids)) || null;
+
+// The checklist's view of a member: their effective permissions, limited to what it shows
+const memberChecklist = (m: Member) => PERMISSION_IDS.filter(id => (m.permissions || []).includes(id));
+
+const emptyMember: MemberForm = {
+  email: "", password: "", inviteMode: true, first_name: "", last_name: "",
+  permissions: PERMISSION_PRESETS[1].permissions, visibility: "self", status: "active",
+};
 
 const KIND_LABELS: Record<TeamKind, { en: string; zh: string }> = {
   internal: { en: "Internal", zh: "内部" },
@@ -138,8 +217,8 @@ const ROLE_LABELS: Record<string, { en: string; zh: string }> = {
 };
 
 const VISIBILITY_LABELS: Record<string, { en: string; zh: string; hint_en: string; hint_zh: string }> = {
-  self: { en: "Own clients only", zh: "仅自己的客户", hint_en: "Sees only the customers and deals they brought in", hint_zh: "只能看到自己带来的客户和交易" },
-  team: { en: "Whole team", zh: "整个团队", hint_en: "Sees everything attributed to this team", hint_zh: "可以看到归属于本团队的所有内容" },
+  self: { en: "Own clients only", zh: "仅自己的客户", hint_en: "Only the customers, stores and deals they brought in", hint_zh: "只能看到自己带来的客户、店铺和交易" },
+  team: { en: "Whole team", zh: "整个团队", hint_en: "Everything attributed to anyone in this team", hint_zh: "归属于本团队任何成员的所有内容" },
   all: { en: "Everything", zh: "全部", hint_en: "", hint_zh: "" },
 };
 
@@ -166,8 +245,19 @@ const Card = styled.div`
   box-shadow: 0 4px 16px rgba(30, 64, 175, 0.08);
   padding: 2rem;
   margin-bottom: 1.5rem;
+  /* Lands a section-nav jump below the fixed header */
+  scroll-margin-top: 85px;
   @media (max-width: 968px) { padding: 1.25rem; }
 `;
+
+// Side-nav sections, top to bottom; each id is set on its card below
+const TEAM_SECTIONS: { id: string; label: { en: string; zh: string } }[] = [
+  { id: "team-details", label: { en: "Team Details", zh: "团队信息" } },
+  { id: "team-overview", label: { en: "Overview", zh: "概览" } },
+  { id: "team-members", label: { en: "Members", zh: "成员" } },
+  { id: "team-attributed", label: { en: "Attributed Records", zh: "归属记录" } },
+  { id: "team-activity", label: { en: "Activity History", zh: "活动历史" } },
+];
 
 const CardHeader = styled.div`
   display: flex;
@@ -516,6 +606,116 @@ const ChoiceTitle = styled.div`
   margin-bottom: 0.2rem;
 `;
 
+const SectionLabel = styled.div`
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #5c6b7a;
+  margin: 1.25rem 0 0.625rem;
+`;
+
+const PresetRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.875rem;
+`;
+
+const PresetChip = styled.button<{ $active: boolean }>`
+  padding: 0.4rem 0.875rem;
+  border-radius: 999px;
+  border: 1.5px solid ${p => (p.$active ? "#1a237e" : "#e0e7ef")};
+  background: ${p => (p.$active ? "#1a237e" : "white")};
+  color: ${p => (p.$active ? "white" : "#0a3655")};
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  &:hover:not(:disabled) { border-color: #1a237e; }
+  &:disabled { opacity: 0.45; cursor: not-allowed; }
+`;
+
+const CustomTag = styled.span`
+  align-self: center;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #92400e;
+  background: #fef3c7;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+`;
+
+// Groups flow into two columns; the 1px gap over a tinted background draws the
+// dividers, and an odd last group spans the full row so no empty cell shows.
+const PermissionPanel = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: #eef2f7;
+  border: 1px solid #e0e7ef;
+  border-radius: 10px;
+  overflow: hidden;
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const PermissionGroup = styled.div`
+  padding: 0.75rem 1rem;
+  background: white;
+  &:last-child:nth-child(odd) { grid-column: 1 / -1; }
+`;
+
+const ChoiceGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  & > ${ChoiceCard} + ${ChoiceCard} { margin-top: 0; }
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const PermissionGroupTitle = styled.div`
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #1a237e;
+  margin-bottom: 0.375rem;
+`;
+
+const PermissionRow = styled.label<{ $disabled: boolean }>`
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.375rem 0;
+  cursor: ${p => (p.$disabled ? "not-allowed" : "pointer")};
+  opacity: ${p => (p.$disabled ? 0.55 : 1)};
+  input { margin-top: 0.2rem; accent-color: #1a237e; width: 16px; height: 16px; flex-shrink: 0; cursor: inherit; }
+`;
+
+const PermissionName = styled.div`
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #0a3655;
+`;
+
+const PermissionHint = styled.div`
+  font-size: 0.8125rem;
+  color: #6b7280;
+`;
+
+const AccessCell = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+`;
+
 /* ─── Page ─── */
 
 export default function TeamDetailPage() {
@@ -539,6 +739,7 @@ export default function TeamDetailPage() {
   const [can, setCan] = useState<Can | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const sectionNav = useSectionNav(TEAM_SECTIONS.map(x => x.id), !loading && !!team, [team?.id]);
 
   const [attributed, setAttributed] = useState<Attributed | null>(null);
   const [attributedTab, setAttributedTab] = useState<ReassignableEntity>("business");
@@ -695,10 +896,25 @@ export default function TeamDetailPage() {
   const openEditMember = (m: Member) => {
     setMemberForm({
       email: m.email, password: "", inviteMode: false, first_name: m.first_name, last_name: m.last_name,
-      role: m.role === "agent" ? "team_member" : m.role, visibility: m.visibility === "all" ? "team" : m.visibility, status: m.status,
+      permissions: memberChecklist(m), visibility: m.visibility === "all" ? "team" : m.visibility, status: m.status,
     });
     setMemberErrors({});
     setMemberModal({ mode: "edit", member: m });
+  };
+
+  // Ticking an item also ticks what it includes; an included item stays locked
+  // on until whatever includes it is unticked.
+  const togglePermission = (id: string, checked: boolean) => {
+    setMemberForm(prev => ({
+      ...prev,
+      permissions: checked ? withIncluded([...prev.permissions, id]) : withIncluded(prev.permissions.filter(p => p !== id)),
+    }));
+    if (memberErrors.permissions) setMemberErrors(prev => ({ ...prev, permissions: undefined }));
+  };
+
+  const applyPermissionPreset = (permissions: string[]) => {
+    setMemberForm(prev => ({ ...prev, permissions }));
+    if (memberErrors.permissions) setMemberErrors(prev => ({ ...prev, permissions: undefined }));
   };
 
   const setMemberField = (field: keyof MemberForm, value: string) => {
@@ -721,6 +937,7 @@ export default function TeamDetailPage() {
     } else if (memberForm.password && memberForm.password.length < 8) {
       next.password = zh ? "密码至少8个字符" : "Password must be at least 8 characters";
     }
+    if (!memberForm.permissions.length) next.permissions = zh ? "请至少选择一项权限" : "Select at least one permission";
     setMemberErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -734,7 +951,7 @@ export default function TeamDetailPage() {
           token, team_id: team.id,
           email: memberForm.email.trim(),
           first_name: memberForm.first_name.trim(), last_name: memberForm.last_name.trim(),
-          role: memberForm.role, visibility: memberForm.visibility,
+          permissions: memberForm.permissions, visibility: memberForm.visibility,
         };
         // Omitted, not empty: the backend reads "no password" as "send an invite".
         if (!memberForm.inviteMode) payload.password = memberForm.password;
@@ -750,8 +967,10 @@ export default function TeamDetailPage() {
         const payload: Record<string, unknown> = {
           token, user_id: memberModal.member.user_id,
           first_name: memberForm.first_name.trim(), last_name: memberForm.last_name.trim(),
-          role: memberForm.role, visibility: memberForm.visibility, status: memberForm.status,
+          visibility: memberForm.visibility, status: memberForm.status,
         };
+        // The backend refuses edits to your own permissions (it could lock you out)
+        if (memberModal.member.user_id !== adminProfile?.user_id) payload.permissions = memberForm.permissions;
         if (memberForm.password) payload.password = memberForm.password;
         await axios.post("/api/teams/members/update", payload);
         showToast(zh ? "成员已更新" : "Member updated", "success");
@@ -941,8 +1160,18 @@ export default function TeamDetailPage() {
         <Warning>{zh ? "此团队已暂停。其所有成员目前无法登录。" : "This team is suspended. None of its members can sign in."}</Warning>
       )}
 
+      <SectionLayout>
+        <SectionNav aria-label={zh ? "页面分区" : "Page sections"}>
+          {TEAM_SECTIONS.map(section => (
+            <SectionNavItem key={section.id} $active={sectionNav.active === section.id} onClick={() => sectionNav.goTo(section.id)}>
+              {section.label[lang]}
+            </SectionNavItem>
+          ))}
+        </SectionNav>
+        <div>
+
       {/* ── Team card ── */}
-      <Card>
+      <Card id="team-details">
         <CardHeader>
           <div>
             <TeamName>
@@ -1033,15 +1262,17 @@ export default function TeamDetailPage() {
       {/* ── Performance: revenue, transactions and pipeline for this team only.
            An owner's backend scope already limits this to their team; the
            team_id is what lets an administrator see the same view. ── */}
-      <DashboardStatsRow filter={{ team_id: team.id }} />
+      <div id="team-overview" style={{ scrollMarginTop: 85 }}>
+        <DashboardStatsRow filter={{ team_id: team.id }} />
+      </div>
 
       {/* ── Members ── */}
-      <Card>
+      <Card id="team-members">
         <CardHeader>
           <div>
             <CardTitle>{zh ? "成员" : "Members"}</CardTitle>
             <Muted style={{ fontSize: "0.875rem" }}>
-              {zh ? "负责人可管理成员并看到整个团队；成员默认只看到自己的客户。" : "Owners manage members and see the whole team; members see only their own clients by default."}
+              {zh ? "“权限”决定成员能做什么，“可见记录”决定他们能看到谁的客户。" : "Access sets what each member can do; Records sets whose clients they can see."}
             </Muted>
           </div>
           {can?.manage_members && <ActionButton onClick={openCreateMember}>+ {zh ? "添加成员" : "Add Member"}</ActionButton>}
@@ -1055,8 +1286,8 @@ export default function TeamDetailPage() {
                 <Tr>
                   <Th>{zh ? "姓名" : "Name"}</Th>
                   <Th>{zh ? "邮箱" : "Email"}</Th>
-                  <Th>{zh ? "角色" : "Role"}</Th>
-                  <Th>{zh ? "可见范围" : "Visibility"}</Th>
+                  <Th>{zh ? "权限" : "Access"}</Th>
+                  <Th>{zh ? "可见记录" : "Records"}</Th>
                   <Th>{zh ? "状态" : "Status"}</Th>
                   <Th>{zh ? "最后登录" : "Last login"}</Th>
                   {can?.manage_members && <Th>{zh ? "操作" : "Actions"}</Th>}
@@ -1067,7 +1298,20 @@ export default function TeamDetailPage() {
                   <Tr key={m.user_id}>
                     <Td style={{ fontWeight: 600 }}>{m.name}{isSelf(m) && <Muted> ({zh ? "我" : "you"})</Muted>}</Td>
                     <Td>{m.email}</Td>
-                    <Td>{ROLE_LABELS[m.role]?.[lang] || m.role}</Td>
+                    <Td>
+                      {(() => {
+                        const list = memberChecklist(m);
+                        const preset = presetFor(list);
+                        return (
+                          <AccessCell>
+                            <span>{preset ? preset.label[lang] : (zh ? "自定义" : "Custom")}</span>
+                            <Muted style={{ fontSize: "0.75rem" }}>
+                              {ROLE_LABELS[m.role]?.[lang] || m.role} · {zh ? `${list.length} 项权限` : `${list.length} of ${PERMISSION_IDS.length} permissions`}
+                            </Muted>
+                          </AccessCell>
+                        );
+                      })()}
+                    </Td>
                     <Td>{VISIBILITY_LABELS[m.visibility]?.[lang] || m.visibility}</Td>
                     <Td>
                       {m.invite_pending ? (
@@ -1114,7 +1358,7 @@ export default function TeamDetailPage() {
       </Card>
 
       {/* ── Attributed records ── */}
-      <Card>
+      <Card id="team-attributed">
         <CardHeader>
           <div>
             <CardTitle>{zh ? "归属记录" : "Attributed to this team"}</CardTitle>
@@ -1175,7 +1419,7 @@ export default function TeamDetailPage() {
       </Card>
 
       {/* ── Activity history ── */}
-      <Card>
+      <Card id="team-activity">
         <CardTitle style={{ marginBottom: "1rem" }}>{zh ? "活动历史" : "Activity History"}</CardTitle>
         {!auditHasAny && !auditLoading && !auditDateStart && !auditDateEnd ? (
           <EmptyState><EmptyText>{zh ? "暂无活动" : "No activity yet"}</EmptyText></EmptyState>
@@ -1283,16 +1527,18 @@ export default function TeamDetailPage() {
           </>
         )}
       </Card>
+        </div>
+      </SectionLayout>
 
       {/* ── Member modal ── */}
       <Modal $show={!!memberModal} onClick={() => !savingMember && setMemberModal(null)}>
-        <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
+        <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: 960 }}>
           <ModalTitle>{memberModal?.mode === "edit" ? (zh ? "编辑成员" : "Edit Member") : (zh ? "添加成员" : "Add Member")}</ModalTitle>
           {!admin && (
             <Note>
               {zh
-                ? "您只能授予不高于自己的角色和可见范围。"
-                : "You can grant up to your own role and visibility, never beyond."}
+                ? "您只能授予自己拥有的权限和可见范围。"
+                : "You can only grant permissions and record access that you have yourself."}
             </Note>
           )}
           <FormRow>
@@ -1355,27 +1601,94 @@ export default function TeamDetailPage() {
               </Hint>
             </FormGroup>
           )}
-          <FormRow>
-            <FormGroup>
-              <FormLabel>{zh ? "角色" : "Role"}</FormLabel>
-              <FormSelect
-                value={memberForm.role}
-                onChange={e => setMemberField("role", e.target.value)}
-                disabled={memberModal?.mode === "edit" && memberModal.member.user_id === adminProfile.user_id}
-              >
-                <option value="team_member">{ROLE_LABELS.team_member[lang]}</option>
-                {(admin || adminProfile.role === "team_owner") && <option value="team_owner">{ROLE_LABELS.team_owner[lang]}</option>}
-              </FormSelect>
-            </FormGroup>
-            <FormGroup>
-              <FormLabel>{zh ? "可见范围" : "Visibility"}</FormLabel>
-              <FormSelect value={memberForm.visibility} onChange={e => setMemberField("visibility", e.target.value)}>
-                <option value="self">{VISIBILITY_LABELS.self[lang]}</option>
-                {(admin || adminProfile.visibility === "team") && <option value="team">{VISIBILITY_LABELS.team[lang]}</option>}
-              </FormSelect>
-            </FormGroup>
-          </FormRow>
-          <Hint>{zh ? VISIBILITY_LABELS[memberForm.visibility].hint_zh : VISIBILITY_LABELS[memberForm.visibility].hint_en}</Hint>
+          {(() => {
+            const editingSelf = memberModal?.mode === "edit" && memberModal.member.user_id === adminProfile.user_id;
+            // An owner can only hand out what they hold; administrators hold everything
+            const canGrant = (id: string) => admin || hasPermission(adminProfile, id);
+            const canGrantTeamRecords = admin || adminProfile.visibility === "team";
+            const locked = new Set(
+              PERMISSION_ITEMS.filter(i => memberForm.permissions.includes(i.id)).flatMap(i => i.includes || [])
+            );
+            const preset = presetFor(memberForm.permissions);
+            return (
+              <>
+                <SectionLabel>{zh ? "可见记录" : "Records they can see"}</SectionLabel>
+                <ChoiceGrid>
+                  {(["self", "team"] as Visibility[]).map(v => {
+                    const disabled = v === "team" && !canGrantTeamRecords;
+                    return (
+                      <ChoiceCard
+                        key={v}
+                        $selected={memberForm.visibility === v}
+                        onClick={() => !disabled && setMemberField("visibility", v)}
+                        style={disabled ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                      >
+                        <ChoiceRadio type="radio" checked={memberForm.visibility === v} disabled={disabled} onChange={() => setMemberField("visibility", v)} />
+                        <div>
+                          <ChoiceTitle>{VISIBILITY_LABELS[v][lang]}</ChoiceTitle>
+                          <Hint style={{ margin: 0 }}>{zh ? VISIBILITY_LABELS[v].hint_zh : VISIBILITY_LABELS[v].hint_en}</Hint>
+                        </div>
+                      </ChoiceCard>
+                    );
+                  })}
+                </ChoiceGrid>
+
+                <SectionLabel>{zh ? "权限" : "What they can do"}</SectionLabel>
+                {editingSelf ? (
+                  <Note>{zh ? "您不能修改自己的权限，请让其他负责人或管理员修改。" : "You can't change your own permissions - ask another owner or an administrator."}</Note>
+                ) : (
+                  <PresetRow>
+                    {PERMISSION_PRESETS.map(p => (
+                      <PresetChip
+                        key={p.id}
+                        type="button"
+                        $active={preset?.id === p.id}
+                        disabled={!p.permissions.every(canGrant)}
+                        onClick={() => applyPermissionPreset(p.permissions)}
+                      >
+                        {p.label[lang]}
+                      </PresetChip>
+                    ))}
+                    {!preset && <CustomTag>{zh ? "自定义" : "Custom"}</CustomTag>}
+                  </PresetRow>
+                )}
+                <PermissionPanel>
+                  {PERMISSION_GROUPS.map(group => (
+                    <PermissionGroup key={group.title.en}>
+                      <PermissionGroupTitle>{group.title[lang]}</PermissionGroupTitle>
+                      {group.items.map(item => {
+                        const checked = memberForm.permissions.includes(item.id);
+                        const isLocked = checked && locked.has(item.id);
+                        const disabled = editingSelf || isLocked || !canGrant(item.id);
+                        return (
+                          <PermissionRow key={item.id} $disabled={disabled}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={disabled}
+                              onChange={e => togglePermission(item.id, e.target.checked)}
+                            />
+                            <div>
+                              <PermissionName>{item.label[lang]}</PermissionName>
+                              <PermissionHint>
+                                {isLocked
+                                  ? (zh ? "已包含在“发送注册链接”中" : "Included with “Send registration links”")
+                                  : !canGrant(item.id) && !editingSelf
+                                    ? (zh ? "您没有此权限，无法授予" : "You don't have this permission, so you can't grant it")
+                                    : item.hint[lang]}
+                              </PermissionHint>
+                            </div>
+                          </PermissionRow>
+                        );
+                      })}
+                    </PermissionGroup>
+                  ))}
+                </PermissionPanel>
+                {memberErrors.permissions && <ErrorText>{memberErrors.permissions}</ErrorText>}
+                <div style={{ height: "1.25rem" }} />
+              </>
+            );
+          })()}
           {memberModal?.mode === "edit" && memberModal.member.user_id !== adminProfile.user_id && (
             <FormGroup>
               <FormLabel>{zh ? "状态" : "Status"}</FormLabel>

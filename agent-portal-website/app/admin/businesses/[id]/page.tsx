@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import styled from "styled-components";
+import { SectionLayout, SectionNav, SectionNavItem } from "@/components/ui/SectionNav";
 import { useAuth, isPortalUser, canSeeAllTeams } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
@@ -486,50 +487,6 @@ const ModalButton = styled.button<{ $primary?: boolean }>`
 // A sub-section heading with an action beside it, for sections inside a card.
 // Real records, but only wanted now and then - folded away so they don't
 // compete with the things this page is usually opened for.
-const SectionLayout = styled.div`
-  display: grid;
-  grid-template-columns: 190px minmax(0, 1fr);
-  gap: 2rem;
-  align-items: start;
-
-  @media (max-width: 1100px) {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-  }
-`;
-
-// Sticky so it stays with you down a long page; hidden on narrow screens,
-// where the sections are already one on top of the other.
-const SectionNav = styled.nav`
-  position: sticky;
-  top: 85px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-
-  @media (max-width: 1100px) {
-    display: none;
-  }
-`;
-
-const SectionNavItem = styled.button<{ $active: boolean }>`
-  padding: 0.5rem 0.75rem;
-  border: none;
-  border-left: 2px solid ${p => p.$active ? '#1273eb' : 'transparent'};
-  background: ${p => p.$active ? 'rgba(18, 115, 235, 0.06)' : 'transparent'};
-  color: ${p => p.$active ? '#1273eb' : '#5c6b7a'};
-  font-size: 0.875rem;
-  font-weight: ${p => p.$active ? '600' : '500'};
-  text-align: left;
-  cursor: pointer;
-  border-radius: 0 4px 4px 0;
-
-  &:hover {
-    color: #1273eb;
-    background: rgba(18, 115, 235, 0.06);
-  }
-`;
-
 const SHOP_STATUSES = ['active', 'inactive', 'test', 'suspended'];
 
 const BUSINESS_STATUS_OPTIONS = [
