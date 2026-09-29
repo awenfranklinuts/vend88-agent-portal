@@ -18,8 +18,10 @@ interface StoreRow {
   shop_id: string;
   business_id: string | null;
   name: string;
-  business_name: string;
-  status: string;
+  /** Street address; empty when the store has none on file */
+  address: string;
+  /** The store's status, else its business's (as Store Management shows it); null when neither is set */
+  status: string | null;
   revenue: number;
   orders: number;
   avg_order: number;
@@ -37,6 +39,7 @@ interface PerformanceResponse {
   period: Period;
   thresholds: { quiet_days: number; inactive_days: number; drop_pct: number };
   health: Record<Health, number>;
+  hidden_no_status: number;
   total_revenue: number;
   stores: StoreRow[];
 }
@@ -56,6 +59,15 @@ const HEALTH: Record<Health, { color: string; en: string; zh: string; hint_en: s
 const HEALTH_ORDER: Health[] = ["active", "quiet", "inactive", "never"];
 
 const PAGE_SIZE = 10;
+
+// Same labels and badge colours as Store Management's status column
+const STATUS_BADGE: Record<string, { en: string; zh: string; bg: string; fg: string }> = {
+  active: { en: "Active", zh: "活跃", bg: "#d1fae5", fg: "#065f46" },
+  setup: { en: "In Setup", zh: "设置中", bg: "#dbeafe", fg: "#1e40af" },
+  test: { en: "Test", zh: "测试", bg: "#fef3c7", fg: "#92400e" },
+  inactive: { en: "Inactive", zh: "非活跃", bg: "#fee2e2", fg: "#991b1b" },
+  suspended: { en: "Suspended", zh: "已暂停", bg: "#fecaca", fg: "#7f1d1d" },
+};
 
 const money = (n: number) =>
   n.toLocaleString("en-AU", { style: "currency", currency: "AUD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -204,7 +216,7 @@ const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
   font-size: 0.875rem;
-  min-width: 820px;
+  min-width: 940px;
 `;
 
 const Th = styled.th<{ $align?: "right"; $sortable?: boolean; $sorted?: boolean }>`
@@ -240,9 +252,10 @@ const StoreName = styled.div`
   white-space: normal;
 `;
 
-const BusinessName = styled.div`
+const StoreAddress = styled.div<{ $missing: boolean }>`
   font-size: 0.75rem;
-  color: #6b7280;
+  color: ${p => (p.$missing ? "#b0b7c3" : "#6b7280")};
+  font-style: ${p => (p.$missing ? "italic" : "normal")};
   white-space: normal;
 `;
 
@@ -301,6 +314,28 @@ const LinkButton = styled.button`
   &:hover { text-decoration: underline; }
 `;
 
+const StatusBadge = styled.span<{ $bg: string; $fg: string }>`
+  display: inline-block;
+  padding: 0.25rem 0.625rem;
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: ${p => p.$bg};
+  color: ${p => p.$fg};
+`;
+
+const CheckboxLabel = styled.label`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  font-size: 0.8125rem;
+  color: #5c6b7a;
+  cursor: pointer;
+  input { accent-color: #1a237e; cursor: pointer; }
+`;
+
 const Empty = styled.div`
   text-align: center;
   padding: 2rem;
@@ -309,8 +344,8 @@ const Empty = styled.div`
 
 /* ─── Component ─── */
 
-const filterKey = (period: string, filter?: ReportFilter) =>
-  `${period}|${filter?.team_id ?? ""}|${filter?.owner_user_id ?? ""}`;
+const filterKey = (period: string, filter: ReportFilter | undefined, includeNoStatus: boolean) =>
+  `${period}|${filter?.team_id ?? ""}|${filter?.owner_user_id ?? ""}|${includeNoStatus ? 1 : 0}`;
 
 export default function StorePerformanceCard({ filter }: { filter?: ReportFilter } = {}) {
   const router = useRouter();
@@ -325,8 +360,10 @@ export default function StorePerformanceCard({ filter }: { filter?: ReportFilter
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "revenue", desc: true });
   const [showAll, setShowAll] = useState(false);
   const [hovered, setHovered] = useState<Health | null>(null);
+  // Off by default, like Store Management's "Include accounts with no status"
+  const [includeNoStatus, setIncludeNoStatus] = useState(false);
   const cacheRef = useRef<Record<string, PerformanceResponse>>({});
-  const key = filterKey(period, filter);
+  const key = filterKey(period, filter, includeNoStatus);
 
   useEffect(() => {
     if (!token) return;
@@ -340,7 +377,7 @@ export default function StorePerformanceCard({ filter }: { filter?: ReportFilter
     setLoading(true);
     setError(false);
     axios
-      .post("/api/reports/store-performance", { token, period, ...filter })
+      .post("/api/reports/store-performance", { token, period, include_no_status: includeNoStatus, ...filter })
       .then((res) => {
         if (cancelled) return;
         if (res.data?.status_code === 200) {
@@ -412,6 +449,9 @@ export default function StorePerformanceCard({ filter }: { filter?: ReportFilter
             {zh
               ? `${total} 家店铺 · 收入合计 ${money(data?.total_revenue ?? 0)}`
               : `${total} stores · ${money(data?.total_revenue ?? 0)} total revenue`}
+            {!!data?.hidden_no_status && (
+              <> · {zh ? `已隐藏 ${data.hidden_no_status} 家无状态账户` : `${data.hidden_no_status} without a status hidden`}</>
+            )}
           </Sub>
         </div>
         <PeriodToggle
@@ -466,6 +506,10 @@ export default function StorePerformanceCard({ filter }: { filter?: ReportFilter
                 {HEALTH[h][lang]} ({data.health[h]})
               </Chip>
             ))}
+            <CheckboxLabel>
+              <input type="checkbox" checked={includeNoStatus} onChange={e => setIncludeNoStatus(e.target.checked)} />
+              {zh ? "包含无状态账户" : "Include accounts with no status"}
+            </CheckboxLabel>
           </Chips>
 
           {atRisk.length > 0 && view !== "at_risk" && (
@@ -505,7 +549,8 @@ export default function StorePerformanceCard({ filter }: { filter?: ReportFilter
                   <Th $align="right" $sortable $sorted={sort.key === "avg_order"} onClick={() => toggleSort("avg_order")}>{zh ? "客单价" : "Avg order"}{sortArrow("avg_order")}</Th>
                   <Th $align="right" $sortable $sorted={sort.key === "change_pct"} onClick={() => toggleSort("change_pct")}>{zh ? "较上期" : "vs previous"}{sortArrow("change_pct")}</Th>
                   <Th $sortable $sorted={sort.key === "days_since_last_order"} onClick={() => toggleSort("days_since_last_order")}>{zh ? "最后订单" : "Last order"}{sortArrow("days_since_last_order")}</Th>
-                  <Th>{zh ? "状态" : "Health"}</Th>
+                  <Th>{zh ? "账户状态" : "Status"}</Th>
+                  <Th>{zh ? "交易健康度" : "Health"}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -516,7 +561,7 @@ export default function StorePerformanceCard({ filter }: { filter?: ReportFilter
                       <Td $muted>{i + 1}</Td>
                       <Td>
                         <StoreName>{s.name}</StoreName>
-                        {s.business_name && s.business_name !== s.name && <BusinessName>{s.business_name}</BusinessName>}
+                        <StoreAddress $missing={!s.address}>{s.address || (zh ? "未设置地址" : "No address set")}</StoreAddress>
                       </Td>
                       <Td $align="right" $muted={s.revenue === 0}>{money(s.revenue)}</Td>
                       <Td $align="right" $muted={s.orders === 0}>{s.orders.toLocaleString()}</Td>
@@ -533,6 +578,15 @@ export default function StorePerformanceCard({ filter }: { filter?: ReportFilter
                         )}
                       </Td>
                       <Td $muted={s.days_since_last_order === null}>{lastOrderText(s)}</Td>
+                      <Td>
+                        {s.status ? (
+                          <StatusBadge $bg={(STATUS_BADGE[s.status] || { bg: "#e5e7eb" }).bg} $fg={(STATUS_BADGE[s.status] || { fg: "#374151" }).fg}>
+                            {STATUS_BADGE[s.status]?.[lang] || s.status}
+                          </StatusBadge>
+                        ) : (
+                          <span style={{ color: "#b0b7c3" }}>—</span>
+                        )}
+                      </Td>
                       <Td>
                         <HealthBadge $color={HEALTH[s.health].color}>{HEALTH[s.health][lang]}</HealthBadge>
                         {s.at_risk && <RiskTag title={riskText(s)}>{zh ? "有风险" : "At risk"}</RiskTag>}
