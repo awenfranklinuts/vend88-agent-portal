@@ -2217,37 +2217,28 @@ export default function BusinessManagementPage() {
 
     try {
 
-      // Fetch businesses from real API
-      const businessResponse = await axios.post(
-
-        '/api/businesses/list',
-
-        { token },
-
-        {
-
-          headers: {
-
-            "Content-Type": "application/json",
-
-            Authorization: `Bearer ${token}`,
-
-          },
-
-        }
-
-      );
-
-      
-
+      // The three lists don't depend on each other, so request them together
+      // rather than one after another - the page waits for the slowest one
+      // instead of the sum of all three.
+      //
       // Customers and shops only enrich the business rows - they aren't needed to
       // render the list. An admin granted businesses but not customers still sees
-      // their businesses, so neither call is allowed to abort the fetch.
-      const customerResponse = await optionalPost('/api/customer/list');
-
-      const shopResponse = await optionalPost('/api/shops/list');
-
-
+      // their businesses, so neither call is allowed to abort the fetch
+      // (optionalPost never rejects).
+      const [businessResponse, customerResponse, shopResponse] = await Promise.all([
+        axios.post(
+          '/api/businesses/list',
+          { token },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        ),
+        optionalPost('/api/customer/list'),
+        optionalPost('/api/shops/list'),
+      ]);
 
       if (businessResponse.data.status_code === 200) {
 

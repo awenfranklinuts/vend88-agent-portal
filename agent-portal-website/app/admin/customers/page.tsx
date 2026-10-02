@@ -1091,43 +1091,27 @@ export default function CustomerManagementPage() {
   const fetchCustomers = async () => {
     setIsLoadingData(true);
     try {
-      // Fetch customers through local API proxy to avoid direct external path mismatches
-      const customersResponse = await fetch(
-        '/api/customer/list',
-        {
-          method: 'POST',
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            token: token,
-            page: 1,
-            limit: 1000 // Get a large number to fetch all
-          })
-        }
-      );
-
-      const customersData = await customersResponse.json();
-
-      // Fetch businesses from real API
-      const businessesResponse = await axios.post(
-        '/api/businesses/list',
-        { token },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      // The store's own name is what the rest of the portal shows; the business
-      // record's name is often a slug-like internal one.
-      let shopsList: any[] = [];
-      try {
-        const shopsResponse = await axios.post(
-          '/api/shops/list',
+      // Customers, businesses and shops don't depend on each other, so request
+      // them together rather than one after another.
+      const [customersData, businessesResponse, shopsList] = await Promise.all([
+        // Through the local API proxy to avoid direct external path mismatches
+        fetch(
+          '/api/customer/list',
+          {
+            method: 'POST',
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              token: token,
+              page: 1,
+              limit: 1000 // Get a large number to fetch all
+            })
+          }
+        ).then((r) => r.json()),
+        axios.post(
+          '/api/businesses/list',
           { token },
           {
             headers: {
@@ -1135,13 +1119,29 @@ export default function CustomerManagementPage() {
               Authorization: `Bearer ${token}`,
             },
           }
-        );
-        if (shopsResponse.data.status_code === 200) {
-          shopsList = shopsResponse.data.data || [];
-        }
-      } catch (err) {
-        console.error('Failed to fetch shops:', err);
-      }
+        ),
+        // The store's own name is what the rest of the portal shows; the business
+        // record's name is often a slug-like internal one.
+        // A failed shop fetch is not fatal - the business name is the fallback.
+        (async (): Promise<any[]> => {
+          try {
+            const shopsResponse = await axios.post(
+              '/api/shops/list',
+              { token },
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+            if (shopsResponse.data.status_code === 200) return shopsResponse.data.data || [];
+          } catch (err) {
+            console.error('Failed to fetch shops:', err);
+          }
+          return [];
+        })(),
+      ]);
 
       if (customersData.status_code === 200 && businessesResponse.data.status_code === 200) {
         const customersList = customersData.customers || customersData.data || [];

@@ -971,80 +971,90 @@ export default function BusinessDetailPage() {
           // The customer (human contact) is a separate record from the VendPOS
           // login; a business created without contact details has none.
           const customerId = foundBusiness.customer_id || null;
-          if (customerId) {
-            try {
-              const customerResponse = await axios.post(
-                '/api/customer/list',
-                { token },
-                {
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
+
+          // The contact, the login credentials and the shops don't depend on each
+          // other - only on the business just loaded - so fetch them together. Each
+          // handles its own failure, as before, so one failing never stops the rest.
+          await Promise.all([
+            (async () => {
+              if (customerId) {
+                try {
+                  const customerResponse = await axios.post(
+                    '/api/customer/list',
+                    { token },
+                    {
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                      },
+                    }
+                  );
+
+                  if (customerResponse.data.status_code === 200) {
+                    const customersList = customerResponse.data.customers || customerResponse.data.data || [];
+                    const ownerData = customersList.find(
+                      (c: any) => c._id === customerId
+                    );
+                    setOwner(ownerData || null);
+                  }
+                } catch (err) {
+                  console.error('Failed to fetch owner:', err);
                 }
-              );
-
-              if (customerResponse.data.status_code === 200) {
-                const customersList = customerResponse.data.customers || customerResponse.data.data || [];
-                const ownerData = customersList.find(
-                  (c: any) => c._id === customerId
+              }
+            })(),
+            (async () => {
+              // Fetch the owner's login credentials for display (separate endpoint -
+              // every other business/customer response strips password on purpose).
+              // A business created without an owner has nothing to fetch, and must
+              // not be reported as a missing account.
+              if (foundBusiness.owner_id) try {
+                const credentialsResponse = await axios.post(
+                  `/api/businesses/${foundBusiness._id}/owner-credentials`,
+                  { token },
+                  {
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                  }
                 );
-                setOwner(ownerData || null);
+
+                if (credentialsResponse.data.status_code === 200) {
+                  setOwnerCredentials(credentialsResponse.data.data);
+                }
+              } catch (err: any) {
+                // 404 = the business's owner_id has no matching admin account. That's
+                // a data problem shown on the page, not an error worth logging.
+                if (err?.response?.status === 404) {
+                  setOwnerAccountMissing(true);
+                } else {
+                  console.error('Failed to fetch owner credentials:', err);
+                }
               }
-            } catch (err) {
-              console.error('Failed to fetch owner:', err);
-            }
-          }
+            })(),
+            (async () => {
+              // Fetch shops linked to this business
+              try {
+                const shopResponse = await axios.post(
+                  '/api/shops/list',
+                  { token },
+                  {
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                  }
+                );
 
-          // Fetch the owner's login credentials for display (separate endpoint -
-          // every other business/customer response strips password on purpose).
-          // A business created without an owner has nothing to fetch, and must
-          // not be reported as a missing account.
-          if (foundBusiness.owner_id) try {
-            const credentialsResponse = await axios.post(
-              `/api/businesses/${foundBusiness._id}/owner-credentials`,
-              { token },
-              {
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
+                if (shopResponse.data.status_code === 200) {
+                  const shopsList = shopResponse.data.data || [];
+                  setShops(shopsList.filter((s: any) => s.business_id === foundBusiness._id));
+                }
+              } catch (err) {
+                console.error('Failed to fetch shops:', err);
               }
-            );
-
-            if (credentialsResponse.data.status_code === 200) {
-              setOwnerCredentials(credentialsResponse.data.data);
-            }
-          } catch (err: any) {
-            // 404 = the business's owner_id has no matching admin account. That's
-            // a data problem shown on the page, not an error worth logging.
-            if (err?.response?.status === 404) {
-              setOwnerAccountMissing(true);
-            } else {
-              console.error('Failed to fetch owner credentials:', err);
-            }
-          }
-
-          // Fetch shops linked to this business
-          try {
-            const shopResponse = await axios.post(
-              '/api/shops/list',
-              { token },
-              {
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-              }
-            );
-
-            if (shopResponse.data.status_code === 200) {
-              const shopsList = shopResponse.data.data || [];
-              setShops(shopsList.filter((s: any) => s.business_id === foundBusiness._id));
-            }
-          } catch (err) {
-            console.error('Failed to fetch shops:', err);
-          }
+            })(),
+          ]);
         } else {
           setError(lang === "zh" ? "未找到店铺" : "Store not found");
         }
