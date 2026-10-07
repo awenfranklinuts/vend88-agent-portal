@@ -27,12 +27,17 @@ interface Inquiry {
 
 const STATUSES = ["new", "contacted", "closed"] as const;
 
+type SortField = "created_at" | "full_name" | "company_name" | "state" | "business_type" | "source" | "status";
+type SortDir = "asc" | "desc";
+
 function formatSource(source?: string): string {
   if (!source) return "Pospal Website";
   const s = source.toLowerCase();
   if (s.includes("pospal")) return "Pospal Website";
   if (s.includes("vendpos")) return "Vendpos Website";
-  if (s.includes("vend88")) return "Vend88 Website";
+  if (s.includes("vend88")) {
+    return s.includes("payments") ? "Vend88 Website (Payment Interest)" : "Vend88 Website";
+  }
   return source;
 }
 
@@ -119,6 +124,36 @@ const StatusSelect = styled.select`
   }
 `;
 
+const RefreshButton = styled.button<{ $spinning: boolean }>`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #d7dfe9;
+  border-radius: 10px;
+  background: white;
+  color: #1e40af;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  &:hover:not(:disabled) {
+    background: #eff6ff;
+    border-color: #1e40af;
+  }
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  svg {
+    animation: ${({ $spinning }) => ($spinning ? "inquiry-refresh-spin 0.8s linear infinite" : "none")};
+  }
+  @keyframes inquiry-refresh-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+`;
+
 const TableWrap = styled.div`
   background: white;
   border-radius: 16px;
@@ -141,6 +176,28 @@ const Th = styled.th`
   color: #5c6b7a;
   border-bottom: 1px solid #eef1f5;
   white-space: nowrap;
+`;
+
+const SortHeader = styled.button<{ $active: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  color: ${({ $active }) => ($active ? "#1e40af" : "inherit")};
+  cursor: pointer;
+  &:hover {
+    color: #1e40af;
+  }
+`;
+
+const SortArrow = styled.span<{ $active: boolean }>`
+  font-size: 0.7rem;
+  opacity: ${({ $active }) => ($active ? 1 : 0.35)};
 `;
 
 const Td = styled.td`
@@ -317,6 +374,8 @@ export default function InquiriesPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [sortBy, setSortBy] = useState<SortField>("created_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [loadingList, setLoadingList] = useState(false);
   const [selected, setSelected] = useState<Inquiry | null>(null);
 
@@ -342,6 +401,8 @@ export default function InquiriesPage() {
         limit: LIMIT,
         status: statusFilter || undefined,
         search: search || undefined,
+        sort_by: sortBy,
+        sort_dir: sortDir,
       });
       if (response.data.status_code === 200) {
         setInquiries(response.data.inquiries || []);
@@ -353,12 +414,36 @@ export default function InquiriesPage() {
     } finally {
       setLoadingList(false);
     }
-  }, [token, page, statusFilter, search, lang, showToast]);
+  }, [token, page, statusFilter, search, sortBy, sortDir, lang, showToast]);
+
+  // Clicking the active column flips direction; a new column starts with the
+  // most useful order (newest first for dates, A-Z / workflow order otherwise).
+  const handleSort = (field: SortField) => {
+    if (field === sortBy) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(field);
+      setSortDir(field === "created_at" ? "desc" : "asc");
+    }
+    setPage(1);
+  };
+
+  const sortableTh = (field: SortField, label: string) => {
+    const active = sortBy === field;
+    return (
+      <Th aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : "none"}>
+        <SortHeader type="button" $active={active} onClick={() => handleSort(field)}>
+          {label}
+          <SortArrow $active={active}>{active ? (sortDir === "asc" ? "▲" : "▼") : "↕"}</SortArrow>
+        </SortHeader>
+      </Th>
+    );
+  };
 
   useEffect(() => {
     if (canManageInquiries) fetchInquiries();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManageInquiries, page, statusFilter]);
+  }, [canManageInquiries, page, statusFilter, sortBy, sortDir]);
 
   // Debounce free-text search
   useEffect(() => {
@@ -454,6 +539,18 @@ export default function InquiriesPage() {
                 </option>
               ))}
             </StatusSelect>
+            <RefreshButton
+              type="button"
+              onClick={() => fetchInquiries()}
+              disabled={loadingList}
+              $spinning={loadingList}
+              title={lang === "zh" ? "刷新" : "Refresh"}
+              aria-label={lang === "zh" ? "刷新" : "Refresh"}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 10C21 10 18.995 7.26822 17.3662 5.63824C15.7373 4.00827 13.4864 3 11 3C6.02944 3 2 7.02944 2 12C2 16.9706 6.02944 21 11 21C15.1031 21 18.5649 18.2543 19.6482 14.5M21 10V4M21 10H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </RefreshButton>
           </Toolbar>
 
           <TableWrap>
@@ -465,14 +562,14 @@ export default function InquiriesPage() {
               <Table>
                 <thead>
                   <tr>
-                    <Th>{lang === "zh" ? "姓名" : "Name"}</Th>
-                    <Th>{lang === "zh" ? "公司" : "Company"}</Th>
+                    {sortableTh("full_name", lang === "zh" ? "姓名" : "Name")}
+                    {sortableTh("company_name", lang === "zh" ? "公司" : "Company")}
                     <Th>{lang === "zh" ? "联系方式" : "Contact"}</Th>
-                    <Th>{lang === "zh" ? "州" : "State"}</Th>
-                    <Th>{lang === "zh" ? "业务类型" : "Business Type"}</Th>
-                    <Th>{lang === "zh" ? "来源" : "Source"}</Th>
-                    <Th>{lang === "zh" ? "提交时间" : "Submitted"}</Th>
-                    <Th>{lang === "zh" ? "状态" : "Status"}</Th>
+                    {sortableTh("state", lang === "zh" ? "州" : "State")}
+                    {sortableTh("business_type", lang === "zh" ? "业务类型" : "Business Type")}
+                    {sortableTh("source", lang === "zh" ? "来源" : "Source")}
+                    {sortableTh("created_at", lang === "zh" ? "提交时间" : "Submitted")}
+                    {sortableTh("status", lang === "zh" ? "状态" : "Status")}
                     <Th>{lang === "zh" ? "操作" : "Actions"}</Th>
                   </tr>
                 </thead>
