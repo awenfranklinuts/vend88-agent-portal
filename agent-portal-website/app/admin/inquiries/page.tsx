@@ -32,6 +32,7 @@ function formatSource(source?: string): string {
   const s = source.toLowerCase();
   if (s.includes("pospal")) return "Pospal Website";
   if (s.includes("vendpos")) return "Vendpos Website";
+  if (s.includes("vend88")) return "Vend88 Website";
   return source;
 }
 
@@ -428,8 +429,8 @@ export default function InquiriesPage() {
             <PageTitle>{lang === "zh" ? "咨询管理" : "Inquiry Management"}</PageTitle>
             <PageDescription>
               {lang === "zh"
-                ? "查看和管理来自 pospal.com.au 和 vendpos.com.au 的客户与潜在客户咨询。"
-                : "View and manage customer and lead inquiries submitted from pospal.com.au and vendpos.com.au."}
+                ? "查看和管理来自 pospal.com.au、vendpos.com.au 和 vend88.com 的客户与潜在客户咨询。"
+                : "View and manage customer and lead inquiries submitted from pospal.com.au, vendpos.com.au and vend88.com."}
             </PageDescription>
           </ContentHeader>
 
