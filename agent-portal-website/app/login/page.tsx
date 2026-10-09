@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import styled from "styled-components";
 import axios from "axios";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, readSessionTimeout, writeSessionTimeout, clearStoredSession } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { dict } from "@/i18n/translations";
 import { getApiUrl, API_CONFIG } from "@/config/api";
@@ -700,25 +700,17 @@ export default function LoginPage() {
       const token = localStorage.getItem('token');
       const userEmail = localStorage.getItem('userEmail');
       const userRole = localStorage.getItem('role');
-      const sessionTimeout = sessionStorage.getItem('sessionTimeout');
       
       // If we have a valid token and session hasn't expired
       if (token && userEmail && userRole) {
-        const now = Date.now();
-        const timeout = sessionTimeout ? parseInt(sessionTimeout) : 0;
-        
-        // Check if session is still valid
-        if (!sessionTimeout || now < timeout) {
+        // Same check as AuthContext: a missing expiry counts as expired
+        if (Date.now() < readSessionTimeout()) {
           // Session is valid, redirect to appropriate dashboard
           router.push("/admin");
           return;
-        } else {
-          // Session expired, clear auth data
-          localStorage.removeItem('token');
-          localStorage.removeItem('userEmail');
-          localStorage.removeItem('role');
-          sessionStorage.removeItem('sessionTimeout');
         }
+        // Session expired, clear auth data
+        clearStoredSession();
       }
     }
   }, [router]);
@@ -859,8 +851,7 @@ export default function LoginPage() {
         
         // Security: Set session timeout from server or default 30 minutes
         const timeoutSeconds = response.data.session_timeout || 1800;
-        const sessionTimeout = Date.now() + (timeoutSeconds * 1000);
-        sessionStorage.setItem('sessionTimeout', sessionTimeout.toString());
+        writeSessionTimeout(Date.now() + (timeoutSeconds * 1000));
         
         // One portal for everyone: team users land on the same dashboard with
         // their own permissions and scope applied

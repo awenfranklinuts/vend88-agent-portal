@@ -18,6 +18,33 @@ const IDLE_TIMEOUT_MS = 30 * 60 * 1000;   // 30 minutes of inactivity → logout
 const IDLE_WARNING_MS = 25 * 60 * 1000;   // show warning at 25 minutes
 const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'] as const;
 
+// The token lives in localStorage, so its expiry has to live there too. When
+// the expiry sat in sessionStorage, a new tab (or a visit on a later day)
+// found a token with no expiry and reported "session expired" for a session
+// that was never open. sessionStorage is still read as a fallback so tabs
+// that were open before this change keep their current expiry.
+const SESSION_TIMEOUT_KEY = 'sessionTimeout';
+
+export const readSessionTimeout = (): number => {
+  if (typeof window === 'undefined') return 0;
+  const raw = localStorage.getItem(SESSION_TIMEOUT_KEY) ?? sessionStorage.getItem(SESSION_TIMEOUT_KEY);
+  const parsed = raw ? parseInt(raw, 10) : NaN;
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+export const writeSessionTimeout = (expiresAt: number) => {
+  localStorage.setItem(SESSION_TIMEOUT_KEY, expiresAt.toString());
+  sessionStorage.removeItem(SESSION_TIMEOUT_KEY);
+};
+
+export const clearStoredSession = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('userEmail');
+  localStorage.removeItem('role');
+  localStorage.removeItem(SESSION_TIMEOUT_KEY);
+  sessionStorage.removeItem(SESSION_TIMEOUT_KEY);
+};
+
 export interface Customer {
   _id: string;
   name: string;
@@ -134,33 +161,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Idle-timeout helpers ────────────────────────────────────
-  const resetIdleTimers = useCallback(() => {
-    // Update the stored session timeout so the mount-check stays in sync
-    if (token) {
-      const newTimeout = Date.now() + IDLE_TIMEOUT_MS;
-      sessionStorage.setItem('sessionTimeout', newTimeout.toString());
-    }
-
-    // Clear existing timers
+  const clearIdleTimers = () => {
     if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    setIdleWarning(false);
+    warningTimerRef.current = null;
+    idleTimerRef.current = null;
+  };
 
-    if (!token) return; // only run when logged in
+  // Arm the warning and hard-logout timers for a given expiry. The expiry is
+  // shared across tabs through localStorage, so when the logout timer fires
+  // we re-read it: activity in another tab may have pushed it forward.
+  const scheduleRef = useRef<(expiresAt: number) => void>(() => {});
+  const scheduleIdleTimers = useCallback((expiresAt: number) => {
+    clearIdleTimers();
+    const remaining = Math.max(0, expiresAt - Date.now());
+    const untilWarning = Math.max(0, remaining - (IDLE_TIMEOUT_MS - IDLE_WARNING_MS));
 
-    // Warning timer
     warningTimerRef.current = setTimeout(() => {
       setIdleWarning(true);
-      setIdleCountdown(Math.ceil((IDLE_TIMEOUT_MS - IDLE_WARNING_MS) / 1000));
-    }, IDLE_WARNING_MS);
+      setIdleCountdown(Math.ceil(Math.max(0, readSessionTimeout() - Date.now()) / 1000));
+    }, untilWarning);
 
-    // Hard logout timer
     idleTimerRef.current = setTimeout(() => {
+      const stored = readSessionTimeout();
+      if (stored > Date.now()) {
+        setIdleWarning(false);
+        scheduleRef.current(stored);
+        return;
+      }
       setIdleWarning(false);
       setSessionExpired(true);
       logout();
-    }, IDLE_TIMEOUT_MS);
-  }, [token]);
+    }, remaining);
+  }, []);
+  scheduleRef.current = scheduleIdleTimers;
+
+  const resetIdleTimers = useCallback(() => {
+    setIdleWarning(false);
+    if (!token) {
+      clearIdleTimers();
+      return; // only run when logged in
+    }
+    const expiresAt = Date.now() + IDLE_TIMEOUT_MS;
+    writeSessionTimeout(expiresAt);
+    scheduleIdleTimers(expiresAt);
+  }, [token, scheduleIdleTimers]);
 
   // Attach / detach activity listeners
   useEffect(() => {
@@ -171,15 +216,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetIdleTimers();
     };
 
+    // Keep tabs in step: a logout elsewhere logs this tab out too, and
+    // activity elsewhere extends this tab's timers.
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'token' && e.newValue === null) {
+        setIdleWarning(false);
+        logout();
+      } else if (e.key === SESSION_TIMEOUT_KEY && e.newValue) {
+        const expiresAt = parseInt(e.newValue, 10);
+        if (Number.isFinite(expiresAt)) {
+          setIdleWarning(false);
+          scheduleIdleTimers(expiresAt);
+        }
+      }
+    };
+
     ACTIVITY_EVENTS.forEach((evt) => window.addEventListener(evt, onActivity, { passive: true }));
+    window.addEventListener('storage', onStorage);
     resetIdleTimers(); // start the first cycle
 
     return () => {
       ACTIVITY_EVENTS.forEach((evt) => window.removeEventListener(evt, onActivity));
-      if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      window.removeEventListener('storage', onStorage);
+      clearIdleTimers();
     };
-  }, [token, resetIdleTimers]);
+  }, [token, resetIdleTimers, scheduleIdleTimers]);
 
   // Countdown ticker while the warning is visible
   useEffect(() => {
@@ -201,54 +262,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const storedToken = localStorage.getItem("token");
     const storedEmail = localStorage.getItem("userEmail");
     const storedRole = localStorage.getItem("role") as UserRole | null;
-    const sessionTimeout = sessionStorage.getItem('sessionTimeout');
 
-    const now = Date.now();
-    const timeout = sessionTimeout ? parseInt(sessionTimeout) : 0;
-
-    // If session timeout missing or expired, clear any stored credentials
-    if (!sessionTimeout || now >= timeout) {
-      // If there was a stored token/email/role, mark session expired so UI can show message
-      if (storedToken || storedEmail || storedRole) {
-        // Only show expired modal if not currently suppressed
-        if (!suppressSessionExpiredUntil || Date.now() >= suppressSessionExpiredUntil) {
-          setSessionExpired(true);
-        }
-      }
-      // ensure cleanup
-      localStorage.removeItem('token');
-      localStorage.removeItem('userEmail');
-      localStorage.removeItem('role');
-      sessionStorage.removeItem('sessionTimeout');
+    // A missing or stale login on a fresh page load is not a live session
+    // ending, so it is cleared quietly: the page's auth gate sends the user
+    // to login. The "Session Expired" modal is reserved for a session that
+    // times out while the user is on the page.
+    if (!storedToken || Date.now() >= readSessionTimeout()) {
+      clearStoredSession();
       setIsLoading(false);
       return;
     }
 
-    if (storedToken) setTokenState(storedToken);
+    setTokenState(storedToken);
     if (storedEmail) setUserEmailState(storedEmail);
     if (storedRole) setRoleState(storedRole);
 
-    // Validate token by fetching admin profile; if invalid, logout
+    // Validate token by fetching admin profile; if invalid, clear the session
     (async () => {
-      if (storedToken) {
-        try {
-          const ok = await fetchAdminProfile(storedToken || undefined);
-          if (!ok) {
-            // token invalid, mark expired and clear session
-            if (!suppressSessionExpiredUntil || Date.now() >= suppressSessionExpiredUntil) {
-              setSessionExpired(true);
-            }
-            setTokenState(null);
-            setUserEmailState(null);
-            setRoleState(null);
-            sessionStorage.removeItem('sessionTimeout');
-            localStorage.removeItem('token');
-            localStorage.removeItem('userEmail');
-            localStorage.removeItem('role');
-          }
-        } catch (e) {
-          console.warn('Token validation failed during init', e);
+      try {
+        const ok = await fetchAdminProfile(storedToken);
+        if (!ok) {
+          setTokenState(null);
+          setUserEmailState(null);
+          setRoleState(null);
+          clearStoredSession();
         }
+      } catch (e) {
+        console.warn('Token validation failed during init', e);
       }
       setIsLoading(false);
     })();
@@ -378,7 +418,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCustomers([]);
     setBusinesses([]);
     // Clear session timeout as well
-    sessionStorage.removeItem('sessionTimeout');
+    localStorage.removeItem(SESSION_TIMEOUT_KEY);
+    sessionStorage.removeItem(SESSION_TIMEOUT_KEY);
   };
 
   const clearSessionExpired = () => {
