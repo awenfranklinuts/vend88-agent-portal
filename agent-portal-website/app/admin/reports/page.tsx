@@ -129,6 +129,7 @@ export default function ReportsPage() {
           </ContentHeader>
 
           <ReportFilterBar value={filter} onChange={setFilter} />
+          <StorePerformanceCard filter={filter} />
           <DashboardStatsRow
             filter={filter}
             showHeadline={false}
@@ -138,7 +139,6 @@ export default function ReportsPage() {
             <RevenueSummaryCard filter={filter} />
             <TransactionsSummaryCard filter={filter} />
           </TwoUp>
-          <StorePerformanceCard filter={filter} />
         </MainContent>
       </Container>
     </MainLayout>
