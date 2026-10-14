@@ -12,6 +12,7 @@ import AdminSidebar from "../../../components/layout/AdminSidebar";
 import axios from "axios";
 import { API_CONFIG, getApiUrl } from "@/config/api";
 import { downloadCsv } from "@/lib/csv";
+import { CustomerHqCompact, hqsForCustomer, type CustomerHq } from "@/components/hq/CustomerHqSummary";
 
 const Container = styled.div`
   min-height: 100vh;
@@ -444,6 +445,19 @@ const BusinessItem = styled.div`
 
 const BusinessName = styled.span`
   font-weight: 500;
+`;
+
+// Marks a store that belongs to an HQ account
+const HqTag = styled.span`
+  display: inline-block;
+  margin-left: 0.375rem;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 4px;
+  background: rgba(26, 35, 126, 0.1);
+  color: #1a237e;
+  font-size: 0.625rem;
+  font-weight: 700;
+  vertical-align: middle;
 `;
 
 const BusinessStatus = styled.span<{ $status: string }>`
@@ -960,6 +974,8 @@ interface Customer {
 interface Business {
   // Resolved on load: the store's own name, falling back to the business row's.
   display_name?: string;
+  /** Set when the store belongs to an HQ account */
+  hq_id?: string | null;
   _id: string;
   name: string;
   owner_id: string;
@@ -975,6 +991,8 @@ export default function CustomerManagementPage() {
   const { showToast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  // HQ accounts, grouped onto each customer's card; empty if none or unavailable
+  const [hqs, setHqs] = useState<CustomerHq[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -1090,6 +1108,10 @@ export default function CustomerManagementPage() {
 
   const fetchCustomers = async () => {
     setIsLoadingData(true);
+    // Not needed for the page to work, so a failure just leaves HQs out
+    axios.post('/api/hq/list', { token })
+      .then((r) => setHqs(r.data?.hqs || []))
+      .catch(() => setHqs([]));
     try {
       // Customers, businesses and shops don't depend on each other, so request
       // them together rather than one after another.
@@ -1558,6 +1580,8 @@ export default function CustomerManagementPage() {
                     </CustomerDetail>
                   )}
                   
+                  <CustomerHqCompact hqs={hqsForCustomer(hqs, customer._id)} />
+
                   <BusinessSection>
                     <BusinessTitle>
                       {lang === "zh" ? "店铺" : "Stores"} ({customer.businesses.length})
@@ -1566,7 +1590,10 @@ export default function CustomerManagementPage() {
                       <BusinessList>
                         {customer.businesses.slice(0, 3).map((business) => (
                           <BusinessItem key={business._id}>
-                            <BusinessName>{business.display_name || business.name}</BusinessName>
+                            <BusinessName>
+                              {business.display_name || business.name}
+                              {business.hq_id && <HqTag title={hqs.find(h => h.hq_id === String(business.hq_id))?.name || "HQ"}>HQ</HqTag>}
+                            </BusinessName>
                             <BusinessStatus $status={business.status || 'N/A'}>
                               {formatStatus(business.status || 'N/A')}
                             </BusinessStatus>

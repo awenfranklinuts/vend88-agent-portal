@@ -8,6 +8,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import { dict } from "@/i18n/translations";
 import MainLayout from "@/components/layout/MainLayout";
+import { CustomerHqDetail, hqsForCustomer, type CustomerHq } from "@/components/hq/CustomerHqSummary";
 import AdminSidebar from "../../../../components/layout/AdminSidebar";
 import axios from "axios";
 import { API_CONFIG, getApiUrl } from "@/config/api";
@@ -453,6 +454,8 @@ interface Business {
   display_name?: string;
   display_address?: string;
   display_location?: string;
+  /** Set when the store belongs to an HQ account */
+  hq_id?: string | null;
 }
 
 export default function CustomerDetailPage() {
@@ -466,6 +469,8 @@ export default function CustomerDetailPage() {
   
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [customer, setCustomer] = useState<Customer | null>(null);
+  // This customer's HQ accounts; empty if none or unavailable
+  const [hqs, setHqs] = useState<CustomerHq[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedCustomer, setEditedCustomer] = useState<Customer | null>(null);
@@ -488,6 +493,10 @@ export default function CustomerDetailPage() {
 
   const fetchCustomerDetail = async () => {
     setIsLoadingData(true);
+    // Not needed for the page to work, so a failure just leaves HQs out
+    axios.post('/api/hq/list', { token })
+      .then((r) => setHqs(hqsForCustomer(r.data?.hqs || [], String(customerId))))
+      .catch(() => setHqs([]));
     try {
       // Customers, businesses and shops don't depend on each other, so request
       // them together rather than one after another.
@@ -849,6 +858,13 @@ export default function CustomerDetailPage() {
             </ModalContent>
           </Modal>
 
+          {hqs.length > 0 && (
+            <DetailSection>
+              <SectionTitle>{lang === "zh" ? "总部账户" : "HQ account"}</SectionTitle>
+              <CustomerHqDetail hqs={hqs} />
+            </DetailSection>
+          )}
+
           <DetailSection>
               <SectionTitle>
                 {lang === "zh" ? "店铺" : "Stores"} ({customer.businesses.length})
@@ -863,6 +879,12 @@ export default function CustomerDetailPage() {
                     </BusinessStatus>
                   </BusinessHeader>
                   <BusinessInfo>
+                    {business.hq_id && (
+                      <BusinessInfoItem>
+                        <InfoLabel>{lang === "zh" ? "总部" : "HQ"}</InfoLabel>
+                        <InfoValue>{hqs.find(h => h.hq_id === String(business.hq_id))?.name || (lang === "zh" ? "已加入" : "Attached")}</InfoValue>
+                      </BusinessInfoItem>
+                    )}
                     <BusinessInfoItem>
                       <InfoLabel>ABN</InfoLabel>
                       <InfoValue>{business.abn || 'N/A'}</InfoValue>
