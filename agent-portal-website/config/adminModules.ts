@@ -5,6 +5,7 @@ import {
   AgentIcon,
   BusinessIcon,
   CustomersIcon,
+  HqIcon,
   InquiryIcon,
   QuotationIcon,
   RegistrationIcon,
@@ -115,6 +116,23 @@ export const ADMIN_MODULES: AdminModule[] = [
     icon: BusinessIcon,
     permission: "manage_businesses",
     viewPermission: "view_businesses",
+  },
+  {
+    id: "hq",
+    section: "accounts",
+    label: { en: "HQ Management", zh: "总部管理" },
+    description: {
+      en: "Group a customer's stores under one head office so they can request and transfer stock between each other.",
+      zh: "将同一客户的多家店铺归入一个总部，使其可以相互申请和调拨库存。",
+    },
+    href: "/admin/hq",
+    icon: HqIcon,
+    // Changing membership is administrators only (the API enforces it); team
+    // users can open the page read-only to see the groups their stores are in.
+    permission: "manage_businesses",
+    viewPermission: "view_businesses",
+    // Rides on the Store Management permission rather than adding its own toggle
+    editorHidden: true,
   },
   {
     id: "customers",
@@ -236,7 +254,8 @@ export const getModulePermissions = (module: AdminModule): { id: string; label: 
 /** Modules the admin permission editor offers toggles for. */
 export const EDITOR_MODULES: AdminModule[] = ADMIN_MODULES.filter(m => !m.superAdminOnly && !m.editorHidden);
 
-export const ALL_PERMISSION_IDS: string[] = ADMIN_MODULES.flatMap(m => getModulePermissions(m).map(p => p.id));
+// Deduplicated: a module can share another module's permission (HQ rides on Store Management's)
+export const ALL_PERMISSION_IDS: string[] = [...new Set(ADMIN_MODULES.flatMap(m => getModulePermissions(m).map(p => p.id)))];
 
 export const canAccessModule = (profile: ProfileLike, module: AdminModule): boolean => {
   if (module.teamOnly && canSeeAllTeams(profile)) return false;

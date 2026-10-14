@@ -2120,6 +2120,10 @@ export default function BusinessManagementPage() {
   const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
   // Empty means a new contact is being typed; set means link that customer.
   const [newCustomerId, setNewCustomerId] = useState('');
+  // Optional HQ for the new store. Only HQs of the linked customer are offered:
+  // every store in an HQ belongs to its customer (the API enforces it too).
+  const [hqAccounts, setHqAccounts] = useState<{ hq_id: string; name: string; customer_id: string | null }[]>([]);
+  const [newHqId, setNewHqId] = useState('');
 
 
   const PHONE_REGEX = /^\+[1-9]\d{7,14}$/;
@@ -2609,8 +2613,28 @@ export default function BusinessManagementPage() {
   const resetCreateAccountForm = () => {
     setNewBusinessAccount(EMPTY_BUSINESS_ACCOUNT);
     setNewCustomerId('');
+    setNewHqId('');
     setCreateAccountError('');
   };
+
+  const openCreateAccountModal = async () => {
+    resetCreateAccountForm();
+    setShowCreateAccountModal(true);
+    try {
+      const res = await axios.post('/api/hq/list', { token });
+      setHqAccounts(res.data?.hqs || []);
+    } catch {
+      // The HQ field is optional; without the list it is simply not offered
+      setHqAccounts([]);
+    }
+  };
+
+  const chooseNewCustomer = (customerId: string) => {
+    setNewCustomerId(customerId);
+    setNewHqId('');
+  };
+
+  const customerHqs = hqAccounts.filter((h) => newCustomerId && h.customer_id === newCustomerId);
 
   const handleCreateBusinessAccount = async () => {
     const trimmed = Object.fromEntries(
@@ -2660,6 +2684,7 @@ export default function BusinessManagementPage() {
           business_name: trimmed.business_name,
           // Either an existing contact is linked, or the details below create one.
           customer_id: newCustomerId || undefined,
+          hq_id: newHqId || undefined,
           contact_name: newCustomerId ? '' : trimmed.contact_name,
           contact_email: newCustomerId ? '' : trimmed.contact_email,
           abn: trimmed.abn,
@@ -3116,7 +3141,7 @@ export default function BusinessManagementPage() {
             </HeaderLeft>
 
             {canManageBusinesses && (
-            <CreateBusinessButton onClick={() => { resetCreateAccountForm(); setShowCreateAccountModal(true); }}>
+            <CreateBusinessButton onClick={openCreateAccountModal}>
 
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
 
@@ -4036,13 +4061,13 @@ export default function BusinessManagementPage() {
             <FormSectionTitle>{lang === 'zh' ? '店主联系方式' : 'Store Owner Contact'}</FormSectionTitle>
 
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-              <ToggleButton type="button" $active={!newCustomerId} onClick={() => setNewCustomerId('')}>
+              <ToggleButton type="button" $active={!newCustomerId} onClick={() => chooseNewCustomer('')}>
                 {lang === 'zh' ? '新建客户' : 'New contact'}
               </ToggleButton>
               <ToggleButton
                 type="button"
                 $active={Boolean(newCustomerId)}
-                onClick={() => setNewCustomerId(customers[0]?._id || '')}
+                onClick={() => chooseNewCustomer(customers[0]?._id || '')}
                 disabled={!customers.length}
                 title={!customers.length ? (lang === 'zh' ? '暂无客户' : 'No customers yet') : undefined}
               >
@@ -4051,11 +4076,12 @@ export default function BusinessManagementPage() {
             </div>
 
             {newCustomerId ? (
+              <>
               <Section>
                 <DetailLabel>{lang === 'zh' ? '客户' : 'Customer'}</DetailLabel>
                 <FilterSelect
                   value={newCustomerId}
-                  onChange={(e) => setNewCustomerId(e.target.value)}
+                  onChange={(e) => chooseNewCustomer(e.target.value)}
                   style={{ width: '100%' }}
                 >
                   {customers.map((c: any) => (
@@ -4065,6 +4091,23 @@ export default function BusinessManagementPage() {
                   ))}
                 </FilterSelect>
               </Section>
+              {customerHqs.length > 0 && (
+                <Section>
+                  <DetailLabel>{lang === 'zh' ? '总部（可选）' : 'HQ (Optional)'}</DetailLabel>
+                  <FilterSelect value={newHqId} onChange={(e) => setNewHqId(e.target.value)} style={{ width: '100%' }}>
+                    <option value="">{lang === 'zh' ? '不加入总部' : 'No HQ'}</option>
+                    {customerHqs.map((h) => (
+                      <option key={h.hq_id} value={h.hq_id}>{h.name}</option>
+                    ))}
+                  </FilterSelect>
+                  <FieldHint>
+                    {lang === 'zh'
+                      ? '新店铺创建后即加入该总部，可与组内其他店铺相互申请和调拨库存。'
+                      : 'The new store joins this HQ as soon as it is created, so it can request and transfer stock with the other stores in the group.'}
+                  </FieldHint>
+                </Section>
+              )}
+              </>
             ) : (
             <>
 

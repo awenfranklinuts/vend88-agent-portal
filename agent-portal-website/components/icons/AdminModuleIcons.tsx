@@ -23,6 +23,15 @@ export const BusinessIcon = () => (
   </svg>
 );
 
+export const HqIcon = () => (
+  <svg {...iconProps}>
+    <path d="M3 21h18"/>
+    <path d="M5 21V7l7-4 7 4v14"/>
+    <path d="M9 9h1M14 9h1M9 13h1M14 13h1"/>
+    <path d="M10 21v-4h4v4"/>
+  </svg>
+);
+
 export const CustomersIcon = () => (
   <svg {...iconProps}>
     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
