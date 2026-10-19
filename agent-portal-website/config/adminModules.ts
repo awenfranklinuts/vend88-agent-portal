@@ -7,6 +7,7 @@ import {
   CustomersIcon,
   HqIcon,
   InquiryIcon,
+  ListsIcon,
   QuotationIcon,
   RegistrationIcon,
   ReportsIcon,
@@ -211,6 +212,23 @@ export const ADMIN_MODULES: AdminModule[] = [
     href: "/admin/reports",
     icon: ReportsIcon,
     permission: "view_reports",
+  },
+  {
+    id: "lists",
+    section: "insights",
+    label: { en: "Quick Lists", zh: "快速列表" },
+    description: {
+      en: "Flat tables for checking things at a glance across every account, such as each store and HQ with its logins.",
+      zh: "一目了然地查看所有账户的平铺表格，例如每家店铺和总部及其登录信息。",
+    },
+    href: "/admin/lists",
+    icon: ListsIcon,
+    // The logins view shows plain-text passwords, so it has the same bar as
+    // store logins: Store Management permission, administrators only (the API
+    // enforces both)
+    permission: "manage_businesses",
+    internalOnly: true,
+    editorHidden: true,
   },
 
   // System
