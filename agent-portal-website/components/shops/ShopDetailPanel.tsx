@@ -1791,55 +1791,6 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
 
               {trailingContent}
 
-              <Card>
-                <CardTitle>{lang === "zh" ? "时区" : "Timezone"}</CardTitle>
-                <TabIntro>
-                  {lang === "zh"
-                    ? "决定此店铺每天从几点开始计算销售数据（仪表板的“今天”、本周和本月）。夏令时会自动调整。"
-                    : "Sets when this store's day starts in the dashboard's sales reports (Today, Week and Month). Daylight saving is handled automatically."}
-                </TabIntro>
-                <InfoGrid>
-                  <InfoItem style={{ gridColumn: '1 / -1' }}>
-                    <InfoLabel>{lang === "zh" ? "店铺时区" : "Store timezone"}</InfoLabel>
-                    <AddressEditRow>
-                      <Select
-                        value={currentTimezoneDraft}
-                        disabled={isSavingTimezone}
-                        onChange={(e) => setTimezoneDraft(e.target.value)}
-                      >
-                        <option value="">
-                          {lang === "zh" ? "服务器默认" : "Server default"}
-                        </option>
-                        {/* A zone saved outside the list above is still shown, not silently dropped. */}
-                        {currentTimezoneDraft && !TIMEZONE_OPTIONS.some((o) => o.value === currentTimezoneDraft) && (
-                          <option value={currentTimezoneDraft}>{currentTimezoneDraft}</option>
-                        )}
-                        {TIMEZONE_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </Select>
-                      <AddressButton
-                        $primary
-                        onClick={handleSaveTimezone}
-                        disabled={isSavingTimezone || timezoneDraft === null || timezoneDraft === savedTimezone}
-                      >
-                        {isSavingTimezone ? (lang === "zh" ? "保存中..." : "Saving...") : (lang === "zh" ? "保存" : "Save")}
-                      </AddressButton>
-                      {timezoneDraft !== null && timezoneDraft !== savedTimezone && (
-                        <AddressButton onClick={() => setTimezoneDraft(null)} disabled={isSavingTimezone}>
-                          {lang === "zh" ? "取消" : "Cancel"}
-                        </AddressButton>
-                      )}
-                    </AddressEditRow>
-                    {currentTimezoneDraft && timeInZone(currentTimezoneDraft) && (
-                      <InfoValue style={{ marginTop: '0.5rem', color: '#5c6b7a', fontWeight: 400 }}>
-                        {lang === "zh" ? "当地时间：" : "Local time there now: "}{timeInZone(currentTimezoneDraft)}
-                      </InfoValue>
-                    )}
-                  </InfoItem>
-                </InfoGrid>
-              </Card>
-
               {isInternal && (
               <Card id={credentialsId}>
                 <CardTitleRow>
@@ -1943,6 +1894,55 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
 
               </Card>
               )}
+
+              <Card>
+                <CardTitle>{lang === "zh" ? "时区" : "Timezone"}</CardTitle>
+                <TabIntro>
+                  {lang === "zh"
+                    ? "决定此店铺每天从几点开始计算销售数据（仪表板的“今天”、本周和本月）。夏令时会自动调整。"
+                    : "Sets when this store's day starts in the dashboard's sales reports (Today, Week and Month). Daylight saving is handled automatically."}
+                </TabIntro>
+                <InfoGrid>
+                  <InfoItem style={{ gridColumn: '1 / -1' }}>
+                    <InfoLabel>{lang === "zh" ? "店铺时区" : "Store timezone"}</InfoLabel>
+                    <AddressEditRow>
+                      <Select
+                        value={currentTimezoneDraft}
+                        disabled={isSavingTimezone}
+                        onChange={(e) => setTimezoneDraft(e.target.value)}
+                      >
+                        <option value="">
+                          {lang === "zh" ? "服务器默认" : "Server default"}
+                        </option>
+                        {/* A zone saved outside the list above is still shown, not silently dropped. */}
+                        {currentTimezoneDraft && !TIMEZONE_OPTIONS.some((o) => o.value === currentTimezoneDraft) && (
+                          <option value={currentTimezoneDraft}>{currentTimezoneDraft}</option>
+                        )}
+                        {TIMEZONE_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </Select>
+                      <AddressButton
+                        $primary
+                        onClick={handleSaveTimezone}
+                        disabled={isSavingTimezone || timezoneDraft === null || timezoneDraft === savedTimezone}
+                      >
+                        {isSavingTimezone ? (lang === "zh" ? "保存中..." : "Saving...") : (lang === "zh" ? "保存" : "Save")}
+                      </AddressButton>
+                      {timezoneDraft !== null && timezoneDraft !== savedTimezone && (
+                        <AddressButton onClick={() => setTimezoneDraft(null)} disabled={isSavingTimezone}>
+                          {lang === "zh" ? "取消" : "Cancel"}
+                        </AddressButton>
+                      )}
+                    </AddressEditRow>
+                    {currentTimezoneDraft && timeInZone(currentTimezoneDraft) && (
+                      <InfoValue style={{ marginTop: '0.5rem', color: '#5c6b7a', fontWeight: 400 }}>
+                        {lang === "zh" ? "当地时间：" : "Local time there now: "}{timeInZone(currentTimezoneDraft)}
+                      </InfoValue>
+                    )}
+                  </InfoItem>
+                </InfoGrid>
+              </Card>
 
               {afterCredentials}
 
