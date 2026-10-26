@@ -1042,13 +1042,14 @@ interface ShopDetailPanelProps {
   cardId?: string;
   tabsId?: string;
   credentialsId?: string;
+  timezoneId?: string;
 }
 
 // The store's own detail view, lifted out of the shop page so it can also be
 // shown inline on the business page. A business and its store are one entity,
 // so the store is what the business's Details button opens onto - the separate
 // shop route stays for the older businesses that have more than one.
-export default function ShopDetailPanel({ businessId, shopId, embedded = false, onShopChanged, leadingFields, trailingContent, afterCredentials, cardId, tabsId, credentialsId }: ShopDetailPanelProps) {
+export default function ShopDetailPanel({ businessId, shopId, embedded = false, onShopChanged, leadingFields, trailingContent, afterCredentials, cardId, tabsId, credentialsId, timezoneId }: ShopDetailPanelProps) {
   const router = useRouter();
   const { token, role, isLoading: authLoading, adminProfile } = useAuth();
   // Shop ids, keys and store logins are Vend88 internals, hidden from team users
@@ -1895,7 +1896,7 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
               </Card>
               )}
 
-              <Card>
+              <Card id={timezoneId}>
                 <CardTitle>{lang === "zh" ? "时区" : "Timezone"}</CardTitle>
                 <TabIntro>
                   {lang === "zh"
@@ -1907,6 +1908,7 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
                     <InfoLabel>{lang === "zh" ? "店铺时区" : "Store timezone"}</InfoLabel>
                     <AddressEditRow>
                       <Select
+                        style={{ flex: 1, width: 'auto', minWidth: 220 }}
                         value={currentTimezoneDraft}
                         disabled={isSavingTimezone}
                         onChange={(e) => setTimezoneDraft(e.target.value)}

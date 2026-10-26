@@ -1223,7 +1223,7 @@ export default function BusinessDetailPage() {
 
   // In-page section nav. The ids are set on the cards below and on the store
   // panel's card and tab strip, which it takes as props.
-  const sectionIds = ['store', 'customer', 'store-logins', 'attribution', 'internal', 'store-records'];
+  const sectionIds = ['store', 'customer', 'store-logins', 'timezone', 'attribution', 'internal', 'store-records'];
   const [activeSection, setActiveSection] = useState('store');
 
   useEffect(() => {
@@ -1992,13 +1992,14 @@ export default function BusinessDetailPage() {
                       'store': { en: 'Store', zh: '店铺' },
                       'customer': { en: 'Store Owner', zh: '店主' },
                       'store-logins': { en: 'Store Logins', zh: '店铺登录' },
+                      'timezone': { en: 'Timezone', zh: '时区' },
                       'attribution': { en: 'Attribution', zh: '归属' },
                       'internal': { en: 'Internal', zh: '内部信息' },
                       'store-records': { en: 'Devices & Activity', zh: '设备与活动' },
                     };
                     if ((id === 'internal' || id === 'store-logins') && !isInternal) return null;
                     if (id === 'store-logins' && !primaryShop) return null;
-                    if ((id === 'store' || id === 'store-records') && !primaryShop) return null;
+                    if ((id === 'store' || id === 'timezone' || id === 'store-records') && !primaryShop) return null;
                     return (
                       <SectionNavItem
                         key={id}
@@ -2041,6 +2042,7 @@ export default function BusinessDetailPage() {
                       cardId="store"
                       tabsId="store-records"
                       credentialsId="store-logins"
+                      timezoneId="timezone"
                     />
                   </>
               ) : (
