@@ -808,6 +808,9 @@ interface Shop {
   phone?: string;
   shop_key?: string;
   status?: string;
+  // IANA zone (e.g. Australia/Sydney) that decides where the store's day starts
+  // in the dashboard's sales reports. Unset = the server default.
+  timezone?: string;
 }
 
 const CardTitleRow = styled.div`
@@ -984,6 +987,35 @@ const SHOP_STATUS_LABELS: Record<string, { en: string; zh: string }> = {
   inactive: { en: 'Inactive', zh: '非活跃' },
   test: { en: 'Test', zh: '测试' },
   suspended: { en: 'Suspended', zh: '已暂停' },
+};
+
+// Zones offered in the Timezone section. Names are IANA zones, which follow
+// daylight saving on their own - so a store never needs adjusting twice a year.
+const TIMEZONE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'Australia/Sydney', label: 'Sydney, Melbourne, Canberra, Hobart (AEST/AEDT)' },
+  { value: 'Australia/Brisbane', label: 'Brisbane (AEST, no daylight saving)' },
+  { value: 'Australia/Adelaide', label: 'Adelaide (ACST/ACDT)' },
+  { value: 'Australia/Darwin', label: 'Darwin (ACST, no daylight saving)' },
+  { value: 'Australia/Perth', label: 'Perth (AWST)' },
+  { value: 'Pacific/Auckland', label: 'Auckland (NZST/NZDT)' },
+  { value: 'Asia/Shanghai', label: 'China (CST)' },
+  { value: 'Asia/Hong_Kong', label: 'Hong Kong (HKT)' },
+  { value: 'Asia/Singapore', label: 'Singapore (SGT)' },
+  { value: 'Asia/Kuala_Lumpur', label: 'Kuala Lumpur (MYT)' },
+  { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
+  { value: 'UTC', label: 'UTC' },
+];
+
+// The wall-clock time in a zone right now, or '' for a name the browser rejects.
+const timeInZone = (zone: string) => {
+  try {
+    return new Date().toLocaleString('en-AU', {
+      timeZone: zone, weekday: 'short', day: 'numeric', month: 'short',
+      hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+    });
+  } catch {
+    return '';
+  }
 };
 
 interface ShopDetailPanelProps {
@@ -1323,6 +1355,44 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
   // Address lives in `location` on the shop. The collection also holds [lng, lat]
   // pairs the POS writes when no address was given, so an array counts as unset.
   const addressOf = (location: any) => (typeof location === 'string' ? location : '');
+
+  // Timezone: saved on the shop, and read by the dashboard to decide when the
+  // store's "today" starts. Blank = server default.
+  const [timezoneDraft, setTimezoneDraft] = useState<string | null>(null);
+  const [isSavingTimezone, setIsSavingTimezone] = useState(false);
+  const savedTimezone = shop?.timezone || '';
+  const currentTimezoneDraft = timezoneDraft ?? savedTimezone;
+
+  const handleSaveTimezone = async () => {
+    if (!shop || timezoneDraft === null || timezoneDraft === savedTimezone) return;
+    setIsSavingTimezone(true);
+    try {
+      const response = await axios.post(
+        `/api/shops/update`,
+        { token, id: shop._id, timezone: timezoneDraft },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.status_code === 200) {
+        setShop(response.data.data || { ...shop, timezone: timezoneDraft || undefined });
+        setTimezoneDraft(null);
+        onShopChanged?.();
+        showToast(lang === "zh" ? "时区已更新" : "Timezone updated", 'success');
+      } else {
+        showToast(response.data.message || (lang === "zh" ? "更新失败" : "Failed to update timezone"), 'error');
+      }
+    } catch (err: any) {
+      console.error('Failed to update shop timezone:', err);
+      showToast(err?.response?.data?.message || (lang === "zh" ? "更新失败" : "Failed to update timezone"), 'error');
+    } finally {
+      setIsSavingTimezone(false);
+    }
+  };
 
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [addressDraft, setAddressDraft] = useState('');
@@ -1720,6 +1790,55 @@ export default function ShopDetailPanel({ businessId, shopId, embedded = false, 
               </Card>
 
               {trailingContent}
+
+              <Card>
+                <CardTitle>{lang === "zh" ? "时区" : "Timezone"}</CardTitle>
+                <TabIntro>
+                  {lang === "zh"
+                    ? "决定此店铺每天从几点开始计算销售数据（仪表板的“今天”、本周和本月）。夏令时会自动调整。"
+                    : "Sets when this store's day starts in the dashboard's sales reports (Today, Week and Month). Daylight saving is handled automatically."}
+                </TabIntro>
+                <InfoGrid>
+                  <InfoItem style={{ gridColumn: '1 / -1' }}>
+                    <InfoLabel>{lang === "zh" ? "店铺时区" : "Store timezone"}</InfoLabel>
+                    <AddressEditRow>
+                      <Select
+                        value={currentTimezoneDraft}
+                        disabled={isSavingTimezone}
+                        onChange={(e) => setTimezoneDraft(e.target.value)}
+                      >
+                        <option value="">
+                          {lang === "zh" ? "服务器默认" : "Server default"}
+                        </option>
+                        {/* A zone saved outside the list above is still shown, not silently dropped. */}
+                        {currentTimezoneDraft && !TIMEZONE_OPTIONS.some((o) => o.value === currentTimezoneDraft) && (
+                          <option value={currentTimezoneDraft}>{currentTimezoneDraft}</option>
+                        )}
+                        {TIMEZONE_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </Select>
+                      <AddressButton
+                        $primary
+                        onClick={handleSaveTimezone}
+                        disabled={isSavingTimezone || timezoneDraft === null || timezoneDraft === savedTimezone}
+                      >
+                        {isSavingTimezone ? (lang === "zh" ? "保存中..." : "Saving...") : (lang === "zh" ? "保存" : "Save")}
+                      </AddressButton>
+                      {timezoneDraft !== null && timezoneDraft !== savedTimezone && (
+                        <AddressButton onClick={() => setTimezoneDraft(null)} disabled={isSavingTimezone}>
+                          {lang === "zh" ? "取消" : "Cancel"}
+                        </AddressButton>
+                      )}
+                    </AddressEditRow>
+                    {currentTimezoneDraft && timeInZone(currentTimezoneDraft) && (
+                      <InfoValue style={{ marginTop: '0.5rem', color: '#5c6b7a', fontWeight: 400 }}>
+                        {lang === "zh" ? "当地时间：" : "Local time there now: "}{timeInZone(currentTimezoneDraft)}
+                      </InfoValue>
+                    )}
+                  </InfoItem>
+                </InfoGrid>
+              </Card>
 
               {isInternal && (
               <Card id={credentialsId}>
